@@ -1,0 +1,18 @@
+# Node.js and Python standard ignores
+
+# Node.js
+node_modules/
+package-lock.json
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
