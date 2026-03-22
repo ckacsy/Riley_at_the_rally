@@ -33,6 +33,27 @@
         .button:hover {
             background-color: #0056b3;
         }
+        .status {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 14px;
+            color: #555;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 6px;
+            background-color: #ccc;
+            vertical-align: middle;
+        }
+        .status-indicator.connected {
+            background-color: #28a745;
+        }
+        .status-indicator.disconnected {
+            background-color: #dc3545;
+        }
     </style>
 </head>
 <body>
@@ -45,5 +66,45 @@
         <button class="button" id="left">Left</button>
         <button class="button" id="right">Right</button>
     </div>
+    <div class="status">
+        <span class="status-indicator disconnected" id="status-dot"></span>
+        <span id="status-text">Disconnected</span>
+    </div>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        const socket = io(window.location.origin);
+
+        const statusDot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+
+        socket.on('connect', function () {
+            statusDot.classList.remove('disconnected');
+            statusDot.classList.add('connected');
+            statusText.textContent = 'Connected';
+        });
+
+        socket.on('disconnect', function () {
+            statusDot.classList.remove('connected');
+            statusDot.classList.add('disconnected');
+            statusText.textContent = 'Disconnected';
+        });
+
+        document.getElementById('forward').addEventListener('click', function () {
+            socket.emit('control_command', { direction: 'forward', speed: 50 });
+        });
+
+        document.getElementById('backward').addEventListener('click', function () {
+            socket.emit('control_command', { direction: 'backward', speed: -50 });
+        });
+
+        document.getElementById('left').addEventListener('click', function () {
+            socket.emit('control_command', { steering_angle: -30 });
+        });
+
+        document.getElementById('right').addEventListener('click', function () {
+            socket.emit('control_command', { steering_angle: 30 });
+        });
+    </script>
 </body>
 </html>
