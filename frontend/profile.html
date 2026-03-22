@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Профиль — Riley at the Rally</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        .top-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 860px;
+            margin: 0 auto 24px;
+            font-size: 14px;
+        }
+        .top-nav a { color: #007BFF; text-decoration: none; }
+        .top-nav a:hover { text-decoration: underline; }
+        .logout-btn {
+            background: none;
+            border: 1px solid #dc3545;
+            color: #dc3545;
+            padding: 6px 14px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .logout-btn:hover { background-color: #dc3545; color: white; }
+        /* Profile header */
+        .profile-header {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.10);
+            padding: 32px;
+            max-width: 860px;
+            margin: 0 auto 24px;
+            display: flex;
+            align-items: center;
+            gap: 32px;
+            flex-wrap: wrap;
+        }
+        .avatar-wrap {
+            position: relative;
+            flex-shrink: 0;
+        }
+        .avatar-img {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #007BFF;
+            background-color: #e9ecef;
+            display: block;
+        }
+        .avatar-placeholder {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background-color: #e9ecef;
+            border: 3px solid #007BFF;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+        }
+        .avatar-upload-label {
+            display: block;
+            text-align: center;
+            margin-top: 8px;
+            font-size: 12px;
+            color: #007BFF;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+        #avatar-input { display: none; }
+        .profile-info { flex: 1; min-width: 200px; }
+        .profile-username {
+            font-size: 28px;
+            font-weight: bold;
+            color: #222;
+            margin: 0 0 6px;
+        }
+        .profile-email {
+            font-size: 14px;
+            color: #888;
+            margin: 0 0 8px;
+        }
+        .profile-joined {
+            font-size: 13px;
+            color: #aaa;
+        }
+        /* Stats grid */
+        .stats-section {
+            max-width: 860px;
+            margin: 0 auto 24px;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 14px;
+        }
+        .stats-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 20px 24px;
+            flex: 1;
+            min-width: 160px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #007BFF;
+            margin-bottom: 4px;
+        }
+        .stat-label {
+            font-size: 13px;
+            color: #888;
+        }
+        /* Best lap card */
+        .best-lap-card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 24px 32px;
+            max-width: 860px;
+            margin: 0 auto 24px;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+        .best-lap-icon { font-size: 48px; }
+        .best-lap-info { flex: 1; }
+        .best-lap-title {
+            font-size: 14px;
+            color: #888;
+            margin-bottom: 4px;
+        }
+        .best-lap-time {
+            font-size: 36px;
+            font-weight: bold;
+            color: #FFD700;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.15);
+        }
+        .best-lap-car {
+            font-size: 15px;
+            color: #555;
+            margin-top: 4px;
+        }
+        .best-lap-date {
+            font-size: 12px;
+            color: #aaa;
+            margin-top: 2px;
+        }
+        .no-data-card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 24px;
+            max-width: 860px;
+            margin: 0 auto 24px;
+            text-align: center;
+            color: #888;
+            font-size: 15px;
+        }
+        /* Recent laps table */
+        .recent-section {
+            max-width: 860px;
+            margin: 0 auto 40px;
+        }
+        .laps-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .laps-table th {
+            background-color: #007BFF;
+            color: white;
+            padding: 10px 14px;
+            text-align: left;
+            font-size: 14px;
+        }
+        .laps-table td {
+            padding: 10px 14px;
+            font-size: 14px;
+            color: #333;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .laps-table tr:last-child td { border-bottom: none; }
+        .laps-table tr:nth-child(odd) td { background-color: #f9f9f9; }
+        .best-badge {
+            background: #FFD700;
+            color: #333;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 2px 7px;
+            border-radius: 10px;
+            margin-left: 6px;
+        }
+        /* Loading / error states */
+        .loading-msg, .error-msg {
+            text-align: center;
+            padding: 60px 20px;
+            font-size: 16px;
+            color: #888;
+        }
+        .error-msg { color: #dc3545; }
+        .upload-status {
+            font-size: 12px;
+            text-align: center;
+            margin-top: 4px;
+            min-height: 16px;
+            color: #28a745;
+        }
+    </style>
+</head>
+<body>
+    <div class="top-nav">
+        <a href="/">← Главная</a>
+        <button class="logout-btn" id="logout-btn">Выйти</button>
+    </div>
+
+    <div id="loading" class="loading-msg">Загрузка профиля…</div>
+    <div id="error" class="error-msg" style="display:none"></div>
+    <div id="profile-content" style="display:none">
+
+        <!-- Profile header -->
+        <div class="profile-header">
+            <div class="avatar-wrap">
+                <div id="avatar-container">
+                    <div class="avatar-placeholder" id="avatar-placeholder">👤</div>
+                </div>
+                <label class="avatar-upload-label" for="avatar-input">Загрузить фото</label>
+                <input type="file" id="avatar-input" accept="image/jpeg,image/png,image/gif,image/webp">
+                <div class="upload-status" id="upload-status"></div>
+            </div>
+            <div class="profile-info">
+                <div class="profile-username" id="profile-username">—</div>
+                <div class="profile-email" id="profile-email">—</div>
+                <div class="profile-joined" id="profile-joined">—</div>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-section">
+            <div class="section-title">📊 Статистика</div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-sessions">—</div>
+                    <div class="stat-label">Сессий аренды</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-races">—</div>
+                    <div class="stat-label">Гонок участвовал</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-laps">—</div>
+                    <div class="stat-label">Кругов завершено</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-time">—</div>
+                    <div class="stat-label">Часов за рулём</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Best lap -->
+        <div id="best-lap-section"></div>
+
+        <!-- Recent laps -->
+        <div class="recent-section">
+            <div class="section-title">🕓 Последние круги</div>
+            <div id="recent-laps-container"></div>
+        </div>
+
+    </div>
+
+    <script>
+        function formatLapTime(ms) {
+            const mins = String(Math.floor(ms / 60000)).padStart(2, '0');
+            const secs = String(Math.floor((ms % 60000) / 1000)).padStart(2, '0');
+            const millis = String(ms % 1000).padStart(3, '0');
+            return mins + ':' + secs + '.' + millis;
+        }
+
+        function formatDuration(totalSec) {
+            const h = (totalSec / 3600).toFixed(1);
+            return h;
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '—';
+            return new Date(dateStr).toLocaleDateString('ru-RU', {
+                year: 'numeric', month: 'short', day: 'numeric',
+            });
+        }
+
+        function loadProfile() {
+            fetch('/api/profile')
+                .then(function (res) {
+                    if (res.status === 401) {
+                        window.location.href = '/login?redirect=/profile';
+                        return null;
+                    }
+                    return res.json();
+                })
+                .then(function (data) {
+                    if (!data) return;
+                    if (data.error) {
+                        document.getElementById('loading').style.display = 'none';
+                        const errEl = document.getElementById('error');
+                        errEl.textContent = data.error;
+                        errEl.style.display = 'block';
+                        return;
+                    }
+                    renderProfile(data);
+                })
+                .catch(function () {
+                    document.getElementById('loading').style.display = 'none';
+                    const errEl = document.getElementById('error');
+                    errEl.textContent = 'Не удалось загрузить профиль.';
+                    errEl.style.display = 'block';
+                });
+        }
+
+        function renderProfile(data) {
+            const { user, stats } = data;
+
+            // Avatar
+            if (user.avatar_path) {
+                const img = document.createElement('img');
+                img.className = 'avatar-img';
+                img.src = user.avatar_path;
+                img.alt = 'Аватар';
+                document.getElementById('avatar-container').replaceChild(img, document.getElementById('avatar-placeholder'));
+                document.getElementById('avatar-container').querySelector('img')
+                    || (document.getElementById('avatar-container').innerHTML = '<img class="avatar-img" src="' + user.avatar_path + '" alt="Аватар">');
+            }
+
+            // Profile info
+            document.getElementById('profile-username').textContent = user.username;
+            document.getElementById('profile-email').textContent = user.email;
+            document.getElementById('profile-joined').textContent = 'Участник с ' + formatDate(user.created_at);
+
+            // Stats
+            document.getElementById('stat-sessions').textContent = stats.totalSessions;
+            document.getElementById('stat-races').textContent = stats.totalRaces;
+            document.getElementById('stat-laps').textContent = stats.totalLaps;
+            document.getElementById('stat-time').textContent = formatDuration(stats.totalTimeSec);
+
+            // Best lap
+            const bestSection = document.getElementById('best-lap-section');
+            if (stats.bestLap) {
+                bestSection.innerHTML = '<div class="best-lap-card">' +
+                    '<div class="best-lap-icon">🏆</div>' +
+                    '<div class="best-lap-info">' +
+                    '<div class="best-lap-title">Лучший круг</div>' +
+                    '<div class="best-lap-time">' + formatLapTime(stats.bestLap.lap_time_ms) + '</div>' +
+                    '<div class="best-lap-car">🚗 ' + (stats.bestLap.car_name || '—') + '</div>' +
+                    '<div class="best-lap-date">' + formatDate(stats.bestLap.created_at) + '</div>' +
+                    '</div></div>';
+            } else {
+                bestSection.innerHTML = '<div class="no-data-card">🏁 Нет записанных кругов. Участвуйте в гонках, чтобы установить рекорд!</div>';
+            }
+
+            // Recent laps
+            const recentContainer = document.getElementById('recent-laps-container');
+            if (!stats.recentLaps || stats.recentLaps.length === 0) {
+                recentContainer.innerHTML = '<div style="text-align:center;color:#888;padding:20px;background:white;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.08)">Нет записанных кругов</div>';
+            } else {
+                const bestTime = stats.bestLap ? stats.bestLap.lap_time_ms : null;
+                const rows = stats.recentLaps.map(function (lap) {
+                    const isBest = bestTime && lap.lap_time_ms === bestTime;
+                    return '<tr>' +
+                        '<td>' + formatLapTime(lap.lap_time_ms) + (isBest ? '<span class="best-badge">Рекорд</span>' : '') + '</td>' +
+                        '<td>' + (lap.car_name || '—') + '</td>' +
+                        '<td>' + formatDate(lap.created_at) + '</td>' +
+                        '</tr>';
+                }).join('');
+                recentContainer.innerHTML = '<table class="laps-table">' +
+                    '<thead><tr><th>Время круга</th><th>Машина</th><th>Дата</th></tr></thead>' +
+                    '<tbody>' + rows + '</tbody></table>';
+            }
+
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('profile-content').style.display = 'block';
+        }
+
+        // Avatar upload
+        document.getElementById('avatar-input').addEventListener('change', function () {
+            const file = this.files[0];
+            if (!file) return;
+            const statusEl = document.getElementById('upload-status');
+            statusEl.textContent = 'Загрузка…';
+            statusEl.style.color = '#888';
+            const formData = new FormData();
+            formData.append('avatar', file);
+            fetch('/api/profile/avatar', { method: 'POST', body: formData })
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    if (data.success) {
+                        const container = document.getElementById('avatar-container');
+                        container.innerHTML = '<img class="avatar-img" src="' + data.avatarPath + '?t=' + Date.now() + '" alt="Аватар">';
+                        statusEl.textContent = 'Фото обновлено!';
+                        statusEl.style.color = '#28a745';
+                        setTimeout(function () { statusEl.textContent = ''; }, 3000);
+                    } else {
+                        statusEl.textContent = data.error || 'Ошибка загрузки';
+                        statusEl.style.color = '#dc3545';
+                    }
+                })
+                .catch(function () {
+                    statusEl.textContent = 'Ошибка загрузки';
+                    statusEl.style.color = '#dc3545';
+                });
+        });
+
+        // Logout
+        document.getElementById('logout-btn').addEventListener('click', function () {
+            fetch('/api/auth/logout', { method: 'POST' })
+                .then(function () { window.location.href = '/'; });
+        });
+
+        loadProfile();
+    </script>
+</body>
+</html>

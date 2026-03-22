@@ -230,6 +230,36 @@
             font-size: 14px;
             display: none;
         }
+        /* Auth nav bar */
+        .auth-nav {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 12px;
+            max-width: 960px;
+            margin: 0 auto 16px;
+            font-size: 14px;
+        }
+        .auth-nav a {
+            color: #007BFF;
+            text-decoration: none;
+        }
+        .auth-nav a:hover { text-decoration: underline; }
+        .auth-nav .user-greeting {
+            color: #555;
+            font-weight: bold;
+        }
+        .auth-nav .logout-btn {
+            background: none;
+            border: 1px solid #dc3545;
+            color: #dc3545;
+            padding: 5px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .auth-nav .logout-btn:hover { background-color: #dc3545; color: white; }
         /* Stale session summary modal */
         .stale-overlay {
             display: none;
@@ -285,6 +315,11 @@
     </style>
 </head>
 <body>
+    <!-- Auth navigation -->
+    <div class="auth-nav" id="auth-nav">
+        <span id="auth-loading" style="color:#aaa">…</span>
+    </div>
+
     <h1>🏎️ Выберите модель RC-машины</h1>
     <p class="subtitle">Выберите машину ниже и нажмите <strong>Активировать</strong>, чтобы начать аренду.</p>
 
@@ -325,6 +360,38 @@
     <script>
         let socket = io(window.location.origin);
         let ratePerMinute = 0.50; // default; overridden by API response
+        let currentUser = null; // logged-in user from /api/auth/me
+
+        // Load auth state and render nav
+        function loadAuthNav() {
+            fetch('/api/auth/me')
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    currentUser = data.user || null;
+                    const nav = document.getElementById('auth-nav');
+                    if (currentUser) {
+                        nav.innerHTML =
+                            '<span class="user-greeting">👤 ' + currentUser.username + '</span>' +
+                            '<a href="/profile">Профиль</a>' +
+                            '<button class="logout-btn" id="logout-btn">Выйти</button>';
+                        document.getElementById('logout-btn').addEventListener('click', function () {
+                            fetch('/api/auth/logout', { method: 'POST' })
+                                .then(function () { currentUser = null; loadAuthNav(); });
+                        });
+                    } else {
+                        nav.innerHTML =
+                            '<a href="/login">Войти</a>' +
+                            '<a href="/register" style="background:#28a745;color:white;padding:6px 14px;border-radius:5px">Регистрация</a>';
+                    }
+                })
+                .catch(function () {
+                    document.getElementById('auth-nav').innerHTML =
+                        '<a href="/login">Войти</a>' +
+                        '<a href="/register" style="background:#28a745;color:white;padding:6px 14px;border-radius:5px">Регистрация</a>';
+                });
+        }
+
+        loadAuthNav();
 
         // On load: if a stale activeSession exists, end it server-side and show summary
         function checkStaleSession() {
@@ -449,8 +516,11 @@
 
         function startSession(carId, carName) {
             const selectedRace = sessionStorage.getItem('selectedRaceId') || null;
-            const userId = 'user-' + Date.now() + '-' + Math.random().toString(36).slice(2);
-            socket.emit('start_session', { carId: carId, userId: userId });
+            const userId = currentUser
+                ? currentUser.username
+                : ('user-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+            const dbUserId = currentUser ? currentUser.id : null;
+            socket.emit('start_session', { carId: carId, userId: userId, dbUserId: dbUserId });
             socket.once('session_started', function (data) {
                 // Save session info so /control can read it
                 sessionStorage.setItem('activeSession', JSON.stringify({
@@ -459,6 +529,7 @@
                     startTime: new Date().toISOString(),
                     sessionId: data.sessionId,
                     userId: userId,
+                    dbUserId: dbUserId,
                     ratePerMinute: ratePerMinute,
                     selectedRaceId: selectedRace
                 }));
