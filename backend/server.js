@@ -32,6 +32,11 @@ app.get('/api/health', (req, res) => {
 const RATE_PER_MINUTE = 0.50;
 const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
+const CARS = [
+  { id: 1, name: 'MJX Hyper Go 14302', model: 'Drift Car' },
+  { id: 2, name: 'WLtoys 144001', model: 'Buggy' },
+];
+
 // Track active sessions and inactivity timers (keyed by socket.id)
 const activeSessions = new Map();
 const inactivityTimeouts = new Map();
@@ -110,9 +115,7 @@ app.get('/api/cars', (req, res) => {
   const activeCars = new Set([...activeSessions.values()].map((s) => s.carId));
   res.json({
     ratePerMinute: RATE_PER_MINUTE,
-    cars: [
-      { id: 1, name: 'MJX Hyper Go 14302', status: activeCars.has(1) ? 'unavailable' : 'available', model: 'Drift Car' },
-    ],
+    cars: CARS.map((c) => ({ ...c, status: activeCars.has(c.id) ? 'unavailable' : 'available' })),
   });
 });
 
