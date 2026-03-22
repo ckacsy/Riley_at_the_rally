@@ -101,6 +101,54 @@
         .camera-url-btn:hover {
             background-color: #0056b3;
         }
+        .speed-control {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 20px;
+            gap: 12px;
+            font-size: 16px;
+            color: #333;
+        }
+        .speed-control label {
+            font-weight: bold;
+        }
+        .speed-control input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 200px;
+            height: 8px;
+            border-radius: 5px;
+            background-color: #007BFF;
+            outline: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .speed-control input[type="range"]:hover {
+            background-color: #0056b3;
+        }
+        .speed-control input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: white;
+            border: 2px solid #007BFF;
+            cursor: pointer;
+        }
+        .speed-control input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: white;
+            border: 2px solid #007BFF;
+            cursor: pointer;
+        }
+        .speed-control span {
+            min-width: 32px;
+            text-align: left;
+        }
     </style>
 </head>
 <body>
@@ -128,6 +176,11 @@
         <button class="button" id="left">Left</button>
         <button class="button" id="right">Right</button>
     </div>
+    <div class="speed-control">
+        <label for="speed-slider">Speed:</label>
+        <input type="range" id="speed-slider" min="0" max="100" value="50" />
+        <span id="speed-value">50</span>
+    </div>
     <div class="status">
         <span class="status-indicator disconnected" id="status-dot"></span>
         <span id="status-text">Disconnected</span>
@@ -139,6 +192,12 @@
 
         const statusDot = document.getElementById('status-dot');
         const statusText = document.getElementById('status-text');
+        const speedSlider = document.getElementById('speed-slider');
+        const speedValue = document.getElementById('speed-value');
+
+        speedSlider.addEventListener('input', function () {
+            speedValue.textContent = speedSlider.value;
+        });
 
         socket.on('connect', function () {
             statusDot.classList.remove('disconnected');
@@ -153,11 +212,13 @@
         });
 
         document.getElementById('forward').addEventListener('click', function () {
-            socket.emit('control_command', { direction: 'forward', speed: 50 });
+            const speed = parseInt(speedSlider.value, 10);
+            socket.emit('control_command', { direction: 'forward', speed: speed });
         });
 
         document.getElementById('backward').addEventListener('click', function () {
-            socket.emit('control_command', { direction: 'backward', speed: -50 });
+            const speed = parseInt(speedSlider.value, 10);
+            socket.emit('control_command', { direction: 'backward', speed: -speed });
         });
 
         document.getElementById('left').addEventListener('click', function () {
