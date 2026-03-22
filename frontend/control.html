@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RC Car Control Interface</title>
+    <title>Интерфейс управления RC-машиной</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -229,54 +229,54 @@
     </style>
 </head>
 <body>
-    <h1>RC Car Control Interface</h1>
+    <h1>Интерфейс управления RC-машиной</h1>
 
     <div class="session-info">
-        Car: <span id="car-name">—</span> &nbsp;|&nbsp; Session time: <span id="session-timer">00:00</span>
+        Машина: <span id="car-name">—</span> &nbsp;|&nbsp; Время сессии: <span id="session-timer">00:00</span>
     </div>
 
     <div class="camera-section">
-        <h2>Live Camera Feed</h2>
-        <img id="camera-feed" class="camera-feed" src="" alt="Live camera feed — not connected" />
+        <h2>Прямая трансляция камеры (требуется Raspberry Pi)</h2>
+        <img id="camera-feed" class="camera-feed" src="" alt="Прямая трансляция — не подключено" />
         <div class="camera-url-row">
             <input
                 type="text"
                 id="camera-url-input"
                 class="camera-url-input"
-                placeholder="http://<pi-ip>:8000"
+                placeholder="http://<ip-адрес-Pi>:8000"
             />
-            <button class="camera-url-btn" id="camera-url-btn">Connect</button>
+            <button class="camera-url-btn" id="camera-url-btn">Подключить</button>
         </div>
     </div>
 
     <div class="control-panel">
-        <button class="button" id="forward">Forward</button>
-        <button class="button" id="backward">Backward</button>
+        <button class="button" id="forward">Вперёд</button>
+        <button class="button" id="backward">Назад</button>
     </div>
     <div class="control-panel">
-        <button class="button" id="left">Left</button>
-        <button class="button" id="right">Right</button>
+        <button class="button" id="left">Влево</button>
+        <button class="button" id="right">Вправо</button>
     </div>
     <div class="speed-control">
-        <label for="speed-slider">Speed:</label>
+        <label for="speed-slider">Скорость:</label>
         <input type="range" id="speed-slider" min="0" max="100" value="50" />
         <span id="speed-value">50</span>
     </div>
     <div class="status">
         <span class="status-indicator disconnected" id="status-dot"></span>
-        <span id="status-text">Disconnected</span>
+        <span id="status-text">Отключено</span>
     </div>
 
-    <button class="end-rental-btn" id="end-rental">End Rental</button>
+    <button class="end-rental-btn" id="end-rental">Завершить аренду</button>
 
     <!-- Rental summary overlay -->
     <div class="summary-overlay" id="summary-overlay">
         <div class="summary-card">
-            <h2>Rental Summary</h2>
-            <p id="summary-car">Car: —</p>
-            <p id="summary-duration">Duration: —</p>
+            <h2>Итоги аренды</h2>
+            <p id="summary-car">Машина: —</p>
+            <p id="summary-duration">Длительность: —</p>
             <p class="cost" id="summary-cost">$0.00</p>
-            <button class="back-btn" id="back-to-main">Back to Car Selection</button>
+            <button class="back-btn" id="back-to-main">К выбору машины</button>
         </div>
     </div>
 
@@ -327,13 +327,13 @@
         socket.on('connect', function () {
             statusDot.classList.remove('disconnected');
             statusDot.classList.add('connected');
-            statusText.textContent = 'Connected';
+            statusText.textContent = 'Подключено';
         });
 
         socket.on('disconnect', function () {
             statusDot.classList.remove('connected');
             statusDot.classList.add('disconnected');
-            statusText.textContent = 'Disconnected';
+            statusText.textContent = 'Отключено';
         });
 
         socket.on('session_ended', function (data) {
@@ -342,16 +342,16 @@
             const cost = data.cost || 0;
             const minutes = Math.floor(durationSec / 60);
             const seconds = durationSec % 60;
-            document.getElementById('summary-car').textContent = `Car: ${carName}`;
+            document.getElementById('summary-car').textContent = `Машина: ${carName}`;
             document.getElementById('summary-duration').textContent =
-                `Duration: ${minutes}m ${seconds}s`;
+                `Длительность: ${minutes} мин ${seconds} с`;
             document.getElementById('summary-cost').textContent =
                 `$${cost.toFixed(2)}`;
             document.getElementById('summary-overlay').classList.add('visible');
         });
 
         socket.on('session_error', function (data) {
-            alert(data.message || 'Session error. Redirecting to car selection.');
+            alert(data.message || 'Ошибка сессии. Перенаправление к выбору машины.');
             sessionStorage.removeItem('activeSession');
             window.location.href = '/';
         });
