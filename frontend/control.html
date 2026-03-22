@@ -233,6 +233,10 @@
         .button:disabled:hover {
             background-color: #007BFF;
         }
+        .button.active {
+            background-color: #0056b3;
+            transform: scale(0.96);
+        }
         .end-rental-btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
@@ -286,6 +290,9 @@
         <input type="range" id="speed-slider" min="0" max="100" value="50" />
         <span id="speed-value">50</span>
     </div>
+    <p style="text-align:center;color:#888;font-size:13px;margin-top:8px;">
+        ↑ ↓ ← → — управление с клавиатуры
+    </p>
     <div class="status">
         <span class="status-indicator disconnected" id="status-dot"></span>
         <span id="status-text">Отключено</span>
@@ -503,6 +510,61 @@
                 const feed = document.getElementById('camera-feed');
                 feed.src = url;
                 feed.alt = 'Прямая трансляция камеры';
+            }
+        });
+
+        // Keyboard controls
+        const keyButtonMap = {
+            ArrowUp: 'forward',
+            ArrowDown: 'backward',
+            ArrowLeft: 'left',
+            ArrowRight: 'right'
+        };
+        const pressedKeys = new Set();
+        let keyboardInterval = null;
+
+        function sendKeyboardCommand() {
+            const speed = parseInt(speedSlider.value, 10);
+            let direction = 'forward';
+            let motorSpeed = 0;
+            if (pressedKeys.has('ArrowUp')) {
+                direction = 'forward';
+                motorSpeed = speed;
+            } else if (pressedKeys.has('ArrowDown')) {
+                direction = 'backward';
+                motorSpeed = -speed;
+            }
+            let steeringAngle = 0;
+            if (pressedKeys.has('ArrowLeft')) {
+                steeringAngle = -30;
+            } else if (pressedKeys.has('ArrowRight')) {
+                steeringAngle = 30;
+            }
+            socket.emit('control_command', { direction: direction, speed: motorSpeed, steering_angle: steeringAngle });
+        }
+
+        document.addEventListener('keydown', function (event) {
+            if (!Object.prototype.hasOwnProperty.call(keyButtonMap, event.key)) return;
+            event.preventDefault();
+            if (pressedKeys.has(event.key)) return;
+            pressedKeys.add(event.key);
+            const btn = document.getElementById(keyButtonMap[event.key]);
+            if (btn) btn.classList.add('active');
+            if (!keyboardInterval) {
+                sendKeyboardCommand();
+                keyboardInterval = setInterval(sendKeyboardCommand, 100);
+            }
+        });
+
+        document.addEventListener('keyup', function (event) {
+            if (!Object.prototype.hasOwnProperty.call(keyButtonMap, event.key)) return;
+            pressedKeys.delete(event.key);
+            const btn = document.getElementById(keyButtonMap[event.key]);
+            if (btn) btn.classList.remove('active');
+            if (pressedKeys.size === 0) {
+                clearInterval(keyboardInterval);
+                keyboardInterval = null;
+                socket.emit('control_command', { direction: 'forward', speed: 0, steering_angle: 0 });
             }
         });
     </script>
