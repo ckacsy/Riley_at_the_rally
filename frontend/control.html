@@ -310,6 +310,7 @@
             transition: background-color 0.3s;
         }
         .race-join-go:hover { background-color: #0056b3; }
+        .race-join-go:disabled { opacity: 0.5; cursor: not-allowed; }
         .race-status-bar {
             text-align: center;
             font-size: 14px;
@@ -459,7 +460,7 @@
             <select class="race-join-select" id="race-select">
                 <option value="">— Присоединиться к гонке —</option>
             </select>
-            <button class="race-join-go" id="join-race-btn">Войти</button>
+            <button class="race-join-go" id="join-race-btn" disabled>Войти</button>
         </div>
         <div class="race-actions" id="race-in-session" style="display:none">
             <button class="race-btn leave" id="leave-race-btn">Покинуть гонку</button>
@@ -840,16 +841,20 @@
                 .catch(function () {});
         }
 
-        // Auto-join race if selected from index.html
+        // Enable Join button only when a race is selected in the dropdown
+        document.getElementById('race-select').addEventListener('change', function () {
+            document.getElementById('join-race-btn').disabled = !this.value;
+        });
+
+        // Auto-join race if selected from index.html, or auto-create if "create new race" was chosen
         socket.on('connect', function () {
             const sd = sessionData || {};
+            const playerInfo = { userId: getMyUserId(), carId: carId, carName: carName };
             if (sd.selectedRaceId && !currentRaceId) {
-                socket.emit('join_race', {
-                    raceId: sd.selectedRaceId,
-                    userId: getMyUserId(),
-                    carId: carId,
-                    carName: carName,
-                });
+                socket.emit('join_race', Object.assign({ raceId: sd.selectedRaceId }, playerInfo));
+            } else if (sessionStorage.getItem('createNewRace') === 'true' && !currentRaceId) {
+                sessionStorage.removeItem('createNewRace');
+                socket.emit('join_race', playerInfo);
             }
         });
 
@@ -926,6 +931,7 @@
 
         document.getElementById('join-race-btn').addEventListener('click', function () {
             const raceId = document.getElementById('race-select').value;
+            if (!raceId) return;
             socket.emit('join_race', {
                 raceId: raceId,
                 userId: getMyUserId(),
