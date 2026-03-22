@@ -256,6 +256,151 @@
             color: #888;
             margin-top: 8px;
         }
+        /* Race Panel */
+        .race-panel {
+            max-width: 680px;
+            margin: 28px auto 0;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.10);
+            padding: 20px 28px;
+        }
+        .race-panel h2 {
+            margin-top: 0;
+            font-size: 18px;
+            color: #333;
+            text-align: center;
+        }
+        .race-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+        .race-btn {
+            padding: 9px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+            color: white;
+        }
+        .race-btn.create { background-color: #28a745; }
+        .race-btn.create:hover { background-color: #1e7e34; }
+        .race-btn.leave { background-color: #dc3545; }
+        .race-btn.leave:hover { background-color: #a71d2a; }
+        .race-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .race-join-select {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 14px;
+            min-width: 180px;
+        }
+        .race-join-go {
+            padding: 9px 16px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        .race-join-go:hover { background-color: #0056b3; }
+        .race-status-bar {
+            text-align: center;
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 12px;
+        }
+        .race-status-bar strong { color: #007BFF; }
+        /* Lap timer */
+        .lap-timer-section {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .lap-time-display {
+            font-size: 28px;
+            font-weight: bold;
+            font-family: monospace;
+            color: #222;
+            min-width: 140px;
+            text-align: center;
+        }
+        .lap-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            color: white;
+            transition: background-color 0.3s;
+        }
+        .lap-btn.start { background-color: #28a745; }
+        .lap-btn.start:hover { background-color: #1e7e34; }
+        .lap-btn.stop { background-color: #fd7e14; }
+        .lap-btn.stop:hover { background-color: #c96a0e; }
+        .lap-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .lap-flash {
+            text-align: center;
+            font-size: 13px;
+            color: #28a745;
+            font-weight: bold;
+            min-height: 20px;
+            margin-bottom: 8px;
+        }
+        /* Positions table */
+        .positions-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            margin-bottom: 14px;
+        }
+        .positions-table th {
+            background-color: #007BFF;
+            color: white;
+            padding: 8px 10px;
+            text-align: left;
+        }
+        .positions-table td {
+            padding: 7px 10px;
+            border-bottom: 1px solid #f0f0f0;
+            color: #333;
+        }
+        .positions-table tr.me td {
+            background-color: #e8f4fd;
+            font-weight: bold;
+        }
+        /* In-race leaderboard */
+        .race-leaderboard-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #555;
+            margin: 12px 0 6px;
+        }
+        .lb-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .lb-table th {
+            background: #f0f0f0;
+            color: #555;
+            padding: 6px 10px;
+            text-align: left;
+        }
+        .lb-table td {
+            padding: 5px 10px;
+            border-bottom: 1px solid #f5f5f5;
+            color: #333;
+        }
     </style>
 </head>
 <body>
@@ -303,6 +448,55 @@
     </p>
 
     <button class="end-rental-btn" id="end-rental">Завершить аренду</button>
+
+    <!-- Race Panel -->
+    <div class="race-panel" id="race-panel">
+        <h2>🏁 Мультиплеер гонки</h2>
+
+        <!-- Join / Create / Leave actions -->
+        <div class="race-actions" id="race-no-session">
+            <button class="race-btn create" id="create-race-btn">➕ Создать гонку</button>
+            <select class="race-join-select" id="race-select">
+                <option value="">— Присоединиться к гонке —</option>
+            </select>
+            <button class="race-join-go" id="join-race-btn">Войти</button>
+        </div>
+        <div class="race-actions" id="race-in-session" style="display:none">
+            <button class="race-btn leave" id="leave-race-btn">Покинуть гонку</button>
+        </div>
+
+        <!-- Current race status -->
+        <div class="race-status-bar" id="race-status-bar" style="display:none"></div>
+
+        <!-- Lap Timer (visible when in race) -->
+        <div class="lap-timer-section" id="lap-timer-section" style="display:none">
+            <div class="lap-time-display" id="lap-time-display">00:00.000</div>
+            <button class="lap-btn start" id="start-lap-btn">▶ Старт круга</button>
+            <button class="lap-btn stop" id="stop-lap-btn" disabled>⏹ Финиш круга</button>
+        </div>
+        <div class="lap-flash" id="lap-flash"></div>
+
+        <!-- Live positions -->
+        <div id="positions-section" style="display:none">
+            <table class="positions-table" id="positions-table">
+                <thead>
+                    <tr><th>#</th><th>Машина</th><th>Кругов</th><th>Лучший круг</th></tr>
+                </thead>
+                <tbody id="positions-body"></tbody>
+            </table>
+        </div>
+
+        <!-- Top global leaderboard -->
+        <div id="lb-section" style="display:none">
+            <div class="race-leaderboard-title">🏆 Топ рекорды</div>
+            <table class="lb-table" id="lb-table">
+                <thead>
+                    <tr><th>#</th><th>Машина</th><th>Гонщик</th><th>Время</th></tr>
+                </thead>
+                <tbody id="lb-body"></tbody>
+            </table>
+        </div>
+    </div>
 
     <!-- Rental summary overlay -->
     <div class="summary-overlay" id="summary-overlay">
@@ -562,6 +756,202 @@
                 }
             }
         });
+
+        // --- Race / Multiplayer Logic ---
+        let currentRaceId = null;
+        let lapRunning = false;
+        let lapStartTime = null;
+        let lapDisplayInterval = null;
+
+        function getMyUserId() {
+            return sessionData.userId || ('user-' + socket.id);
+        }
+
+        function formatLapTime(ms) {
+            const mins = String(Math.floor(ms / 60000)).padStart(2, '0');
+            const secs = String(Math.floor((ms % 60000) / 1000)).padStart(2, '0');
+            const millis = String(ms % 1000).padStart(3, '0');
+            return `${mins}:${secs}.${millis}`;
+        }
+
+        function showRaceUI(inRace) {
+            document.getElementById('race-no-session').style.display = inRace ? 'none' : 'flex';
+            document.getElementById('race-in-session').style.display = inRace ? 'flex' : 'none';
+            document.getElementById('race-status-bar').style.display = inRace ? 'block' : 'none';
+            document.getElementById('lap-timer-section').style.display = inRace ? 'flex' : 'none';
+            document.getElementById('positions-section').style.display = inRace ? 'block' : 'none';
+            document.getElementById('lb-section').style.display = inRace ? 'block' : 'none';
+        }
+
+        function renderPositions(players) {
+            // Sort by lapCount desc, then bestLapTime asc
+            const sorted = players.slice().sort(function (a, b) {
+                if (b.lapCount !== a.lapCount) return b.lapCount - a.lapCount;
+                if (!a.bestLapTime) return 1;
+                if (!b.bestLapTime) return -1;
+                return a.bestLapTime - b.bestLapTime;
+            });
+            const tbody = document.getElementById('positions-body');
+            tbody.innerHTML = sorted.map(function (p, i) {
+                const isMe = p.socketId === socket.id;
+                const best = p.bestLapTime != null ? formatLapTime(p.bestLapTime) : '—';
+                return `<tr class="${isMe ? 'me' : ''}">
+                    <td>${i + 1}</td>
+                    <td>${p.carName}${isMe ? ' (вы)' : ''}</td>
+                    <td>${p.lapCount}</td>
+                    <td>${best}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        function renderLeaderboard(entries) {
+            const tbody = document.getElementById('lb-body');
+            if (!entries || entries.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888">Нет рекордов</td></tr>';
+                return;
+            }
+            tbody.innerHTML = entries.slice(0, 5).map(function (e, i) {
+                return `<tr>
+                    <td>${i + 1}</td>
+                    <td>${e.carName}</td>
+                    <td>${e.userId}</td>
+                    <td><strong>${formatLapTime(e.lapTimeMs)}</strong></td>
+                </tr>`;
+            }).join('');
+        }
+
+        function flashMessage(msg, isRecord) {
+            const el = document.getElementById('lap-flash');
+            el.textContent = msg;
+            el.style.color = isRecord ? '#FFD700' : '#28a745';
+            clearTimeout(el._timeout);
+            el._timeout = setTimeout(function () { el.textContent = ''; }, 4000);
+        }
+
+        function loadActiveRaces() {
+            fetch('/api/races')
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    const select = document.getElementById('race-select');
+                    const races = data.races || [];
+                    // Keep default option, rebuild the rest
+                    while (select.options.length > 1) select.remove(1);
+                    races.forEach(function (r) {
+                        const opt = document.createElement('option');
+                        opt.value = r.id;
+                        opt.textContent = r.name + ' (' + r.playerCount + ' уч.)';
+                        select.appendChild(opt);
+                    });
+                })
+                .catch(function () {});
+        }
+
+        // Auto-join race if selected from index.html
+        socket.on('connect', function () {
+            const sd = sessionData || {};
+            if (sd.selectedRaceId && !currentRaceId) {
+                socket.emit('join_race', {
+                    raceId: sd.selectedRaceId,
+                    userId: getMyUserId(),
+                    carId: carId,
+                    carName: carName,
+                });
+            }
+        });
+
+        socket.on('race_joined', function (data) {
+            currentRaceId = data.raceId;
+            // Clear the selectedRaceId so reconnections don't re-join automatically
+            const updated = Object.assign({}, sessionData);
+            delete updated.selectedRaceId;
+            sessionStorage.setItem('activeSession', JSON.stringify(updated));
+            document.getElementById('race-status-bar').textContent =
+                '🏎 ' + data.raceName + ' — вы в гонке!';
+            showRaceUI(true);
+            renderPositions(data.players);
+            renderLeaderboard(data.leaderboard);
+        });
+
+        socket.on('race_updated', function (data) {
+            if (data.raceId !== currentRaceId) return;
+            document.getElementById('race-status-bar').innerHTML =
+                '🏎 <strong>' + data.raceName + '</strong> — ' + data.players.length + ' участник(ов)';
+            renderPositions(data.players);
+        });
+
+        socket.on('race_left', function () {
+            currentRaceId = null;
+            lapRunning = false;
+            clearInterval(lapDisplayInterval);
+            lapDisplayInterval = null;
+            document.getElementById('lap-time-display').textContent = '00:00.000';
+            showRaceUI(false);
+            loadActiveRaces();
+        });
+
+        socket.on('lap_started', function (data) {
+            lapRunning = true;
+            lapStartTime = data.startTime;
+            document.getElementById('start-lap-btn').disabled = true;
+            document.getElementById('stop-lap-btn').disabled = false;
+            lapDisplayInterval = setInterval(function () {
+                const elapsed = Date.now() - lapStartTime;
+                document.getElementById('lap-time-display').textContent = formatLapTime(elapsed);
+            }, 50);
+        });
+
+        socket.on('lap_recorded', function (data) {
+            lapRunning = false;
+            clearInterval(lapDisplayInterval);
+            lapDisplayInterval = null;
+            document.getElementById('start-lap-btn').disabled = false;
+            document.getElementById('stop-lap-btn').disabled = true;
+            document.getElementById('lap-time-display').textContent = formatLapTime(data.lapTimeMs);
+            if (data.isGlobalRecord) {
+                flashMessage('🏆 Новый рекорд трассы: ' + formatLapTime(data.lapTimeMs) + '!', true);
+            } else if (data.isPersonalBest) {
+                flashMessage('🎉 Личный рекорд: ' + formatLapTime(data.lapTimeMs), false);
+            } else {
+                flashMessage('Круг: ' + formatLapTime(data.lapTimeMs), false);
+            }
+            if (data.leaderboard) renderLeaderboard(data.leaderboard);
+        });
+
+        document.getElementById('create-race-btn').addEventListener('click', function () {
+            socket.emit('join_race', {
+                userId: getMyUserId(),
+                carId: carId,
+                carName: carName,
+            });
+        });
+
+        document.getElementById('join-race-btn').addEventListener('click', function () {
+            const raceId = document.getElementById('race-select').value;
+            socket.emit('join_race', {
+                raceId: raceId,
+                userId: getMyUserId(),
+                carId: carId,
+                carName: carName,
+            });
+        });
+
+        document.getElementById('leave-race-btn').addEventListener('click', function () {
+            socket.emit('leave_race');
+        });
+
+        document.getElementById('start-lap-btn').addEventListener('click', function () {
+            socket.emit('start_lap');
+        });
+
+        document.getElementById('stop-lap-btn').addEventListener('click', function () {
+            socket.emit('end_lap');
+        });
+
+        // Load races for the join dropdown initially
+        loadActiveRaces();
+        setInterval(function () {
+            if (!currentRaceId) loadActiveRaces();
+        }, 10000);
     </script>
 </body>
 </html>
