@@ -54,10 +54,72 @@
         .status-indicator.disconnected {
             background-color: #dc3545;
         }
+        .camera-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 20px auto;
+            max-width: 680px;
+        }
+        .camera-section h2 {
+            margin-bottom: 10px;
+            font-size: 18px;
+            color: #333;
+        }
+        .camera-feed {
+            width: 640px;
+            height: 480px;
+            background-color: #000;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            object-fit: contain;
+        }
+        .camera-url-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            width: 100%;
+            justify-content: center;
+        }
+        .camera-url-input {
+            flex: 1;
+            max-width: 480px;
+            padding: 6px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .camera-url-btn {
+            padding: 6px 14px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .camera-url-btn:hover {
+            background-color: #0056b3;
+        }
     </style>
 </head>
 <body>
     <h1>RC Car Control Interface</h1>
+
+    <div class="camera-section">
+        <h2>Live Camera Feed</h2>
+        <img id="camera-feed" class="camera-feed" src="" alt="Live camera feed — not connected" />
+        <div class="camera-url-row">
+            <input
+                type="text"
+                id="camera-url-input"
+                class="camera-url-input"
+                placeholder="http://<pi-ip>:8000"
+            />
+            <button class="camera-url-btn" id="camera-url-btn">Connect</button>
+        </div>
+    </div>
+
     <div class="control-panel">
         <button class="button" id="forward">Forward</button>
         <button class="button" id="backward">Backward</button>
@@ -104,6 +166,15 @@
 
         document.getElementById('right').addEventListener('click', function () {
             socket.emit('control_command', { steering_angle: 30 });
+        });
+
+        document.getElementById('camera-url-btn').addEventListener('click', function () {
+            const url = document.getElementById('camera-url-input').value.trim();
+            if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+                const feed = document.getElementById('camera-feed');
+                feed.src = url;
+                feed.alt = 'Live camera feed';
+            }
         });
     </script>
 </body>
