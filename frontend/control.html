@@ -310,13 +310,17 @@
 
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script>
-        // Restore session info from sessionStorage
-        let sessionData = {};
-        try {
-            sessionData = JSON.parse(sessionStorage.getItem('activeSession') || '{}');
-        } catch (e) {
-            sessionData = {};
+        // Read activeSession from sessionStorage, returning null if missing or invalid
+        function getActiveSession() {
+            try {
+                return JSON.parse(sessionStorage.getItem('activeSession') || 'null');
+            } catch (e) {
+                return null;
+            }
         }
+
+        // Restore session info from sessionStorage
+        const sessionData = getActiveSession() || {};
 
         const hasSession = !!sessionData.carId;
 
@@ -330,8 +334,18 @@
 
         // If no active session, redirect to main page
         if (!hasSession) {
-            window.location.replace('/?message=no_session');
+            window.location.replace('/');
         }
+
+        // Handle bfcache back navigation: re-check session on pageshow
+        window.addEventListener('pageshow', function (event) {
+            if (event.persisted) {
+                const session = getActiveSession();
+                if (!session || !session.carId) {
+                    window.location.replace('/');
+                }
+            }
+        });
 
         const carId = sessionData.carId || null;
         const carName = sessionData.carName || 'Неизвестная машина';
