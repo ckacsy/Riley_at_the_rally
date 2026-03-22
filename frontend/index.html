@@ -114,6 +114,122 @@
             margin-top: 60px;
             font-size: 16px;
         }
+        /* Races & Leaderboard sections */
+        .section-title {
+            text-align: center;
+            color: #333;
+            margin: 40px 0 16px;
+            font-size: 20px;
+        }
+        .races-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            justify-content: center;
+            max-width: 960px;
+            margin: 0 auto 8px;
+        }
+        .race-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+            padding: 18px 24px;
+            min-width: 220px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+        .race-name {
+            font-weight: bold;
+            font-size: 16px;
+            color: #222;
+        }
+        .race-players {
+            font-size: 13px;
+            color: #666;
+        }
+        .race-join-btn {
+            padding: 8px 18px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        .race-join-btn:hover {
+            background-color: #0056b3;
+        }
+        .create-race-btn {
+            display: block;
+            margin: 0 auto 16px;
+            padding: 10px 28px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 15px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .create-race-btn:hover {
+            background-color: #1e7e34;
+        }
+        .no-data {
+            text-align: center;
+            color: #888;
+            font-size: 14px;
+            margin: 8px 0;
+        }
+        .leaderboard-wrap {
+            max-width: 700px;
+            margin: 0 auto 40px;
+            overflow-x: auto;
+        }
+        .leaderboard-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .leaderboard-table th {
+            background-color: #007BFF;
+            color: white;
+            padding: 10px 14px;
+            text-align: left;
+            font-size: 14px;
+        }
+        .leaderboard-table td {
+            padding: 9px 14px;
+            font-size: 14px;
+            color: #333;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .leaderboard-table tr:last-child td {
+            border-bottom: none;
+        }
+        .leaderboard-table tr:nth-child(odd) td {
+            background-color: #f9f9f9;
+        }
+        .medal-1 { color: #FFD700; font-weight: bold; }
+        .medal-2 { color: #C0C0C0; font-weight: bold; }
+        .medal-3 { color: #CD7F32; font-weight: bold; }
+        .selected-race-notice {
+            text-align: center;
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            border-radius: 6px;
+            padding: 10px 18px;
+            max-width: 500px;
+            margin: 0 auto 12px;
+            font-size: 14px;
+            display: none;
+        }
         /* Stale session summary modal */
         .stale-overlay {
             display: none;
@@ -184,6 +300,24 @@
             <p id="stale-duration">Длительность: —</p>
             <p class="cost" id="stale-cost">$0.00</p>
             <button class="close-btn" id="stale-close">Закрыть</button>
+        </div>
+    </div>
+
+    <!-- Active Races Section -->
+    <h2 class="section-title">🏁 Активные гонки</h2>
+    <div id="selected-race-notice" class="selected-race-notice"></div>
+    <div style="text-align:center">
+        <button class="create-race-btn" id="create-race-btn">➕ Создать новую гонку</button>
+    </div>
+    <div class="races-grid" id="races-grid">
+        <p class="no-data">Загрузка гонок…</p>
+    </div>
+
+    <!-- Global Leaderboard Section -->
+    <h2 class="section-title">🏆 Рекорды — лучшие круги</h2>
+    <div class="leaderboard-wrap">
+        <div id="leaderboard-container">
+            <p class="no-data">Загрузка рекордов…</p>
         </div>
     </div>
 
@@ -306,6 +440,7 @@
             if (!socket) {
                 socket = io(window.location.origin);
             }
+            const selectedRace = sessionStorage.getItem('selectedRaceId') || null;
             socket.emit('start_session', { carId: carId, userId: 'user-' + Date.now() + '-' + Math.random().toString(36).slice(2) });
             socket.once('session_started', function (data) {
                     // Save session info so /control can read it
@@ -314,11 +449,118 @@
                         carName: carName,
                         startTime: new Date().toISOString(),
                         sessionId: data.sessionId,
-                        ratePerMinute: ratePerMinute
+                        ratePerMinute: ratePerMinute,
+                        selectedRaceId: selectedRace
                     }));
                     window.location.href = '/control';
                 });
         }
+
+        // --- Races & Leaderboard ---
+        let selectedRaceId = null;
+
+        function formatLapTime(ms) {
+            const mins = String(Math.floor(ms / 60000)).padStart(2, '0');
+            const secs = String(Math.floor((ms % 60000) / 1000)).padStart(2, '0');
+            const millis = String(ms % 1000).padStart(3, '0');
+            return `${mins}:${secs}.${millis}`;
+        }
+
+        function renderRaces(races) {
+            const grid = document.getElementById('races-grid');
+            if (!races || races.length === 0) {
+                grid.innerHTML = '<p class="no-data">Нет активных гонок. Создайте первую!</p>';
+                return;
+            }
+            grid.innerHTML = '';
+            races.forEach(function (r) {
+                const card = document.createElement('div');
+                card.className = 'race-card';
+                const isSelected = r.id === selectedRaceId;
+                card.innerHTML = `
+                    <div class="race-name">${r.name}</div>
+                    <div class="race-players">👥 ${r.playerCount} участник(ов)</div>
+                    <button class="race-join-btn" data-race-id="${r.id}" style="${isSelected ? 'background:#28a745' : ''}">
+                        ${isSelected ? '✓ Выбрана' : 'Присоединиться'}
+                    </button>
+                `;
+                grid.appendChild(card);
+            });
+            grid.querySelectorAll('.race-join-btn').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    selectRace(btn.getAttribute('data-race-id'));
+                });
+            });
+        }
+
+        function selectRace(raceId) {
+            selectedRaceId = raceId;
+            sessionStorage.setItem('selectedRaceId', raceId);
+            const notice = document.getElementById('selected-race-notice');
+            notice.textContent = '✓ Гонка выбрана. Активируйте машину, чтобы присоединиться!';
+            notice.style.display = 'block';
+            loadRaces();
+        }
+
+        function renderLeaderboard(entries) {
+            const container = document.getElementById('leaderboard-container');
+            if (!entries || entries.length === 0) {
+                container.innerHTML = '<p class="no-data">Рекордов пока нет. Станьте первым!</p>';
+                return;
+            }
+            const medals = ['medal-1', 'medal-2', 'medal-3'];
+            const rows = entries.map(function (e, i) {
+                const rankClass = medals[i] || '';
+                const rank = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
+                return `<tr>
+                    <td class="${rankClass}">${rank}</td>
+                    <td>${e.carName}</td>
+                    <td>${e.userId}</td>
+                    <td><strong>${formatLapTime(e.lapTimeMs)}</strong></td>
+                    <td>${new Date(e.date).toLocaleDateString()}</td>
+                </tr>`;
+            }).join('');
+            container.innerHTML = `
+                <table class="leaderboard-table">
+                    <thead>
+                        <tr><th>#</th><th>Машина</th><th>Гонщик</th><th>Время круга</th><th>Дата</th></tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>`;
+        }
+
+        function loadRaces() {
+            fetch('/api/races')
+                .then(function (res) { return res.json(); })
+                .then(function (data) { renderRaces(data.races); })
+                .catch(function () {
+                    document.getElementById('races-grid').innerHTML =
+                        '<p class="no-data">Не удалось загрузить гонки.</p>';
+                });
+        }
+
+        function loadLeaderboard() {
+            fetch('/api/leaderboard')
+                .then(function (res) { return res.json(); })
+                .then(function (data) { renderLeaderboard(data.leaderboard); })
+                .catch(function () {
+                    document.getElementById('leaderboard-container').innerHTML =
+                        '<p class="no-data">Не удалось загрузить рекорды.</p>';
+                });
+        }
+
+        document.getElementById('create-race-btn').addEventListener('click', function () {
+            selectedRaceId = null;
+            sessionStorage.removeItem('selectedRaceId');
+            const notice = document.getElementById('selected-race-notice');
+            notice.textContent = '✓ Будет создана новая гонка. Активируйте машину для участия!';
+            notice.style.display = 'block';
+        });
+
+        loadRaces();
+        loadLeaderboard();
+        setInterval(loadRaces, 10000);
+        setInterval(loadLeaderboard, 10000);
     </script>
 </body>
 </html>

@@ -36,6 +36,49 @@ const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 const activeSessions = new Map();
 const inactivityTimeouts = new Map();
 
+// --- Race Management ---
+const raceRooms = new Map(); // raceId -> race object
+const leaderboard = []; // sorted array of { userId, carName, lapTimeMs, date }
+const MAX_LEADERBOARD = 20;
+
+function createRaceId() {
+  return 'race-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+}
+
+function serializePlayer(p) {
+  return {
+    socketId: p.socketId,
+    userId: p.userId,
+    carId: p.carId,
+    carName: p.carName,
+    lapCount: p.lapCount,
+    bestLapTime: p.bestLapTime,
+  };
+}
+
+function findRaceBySocketId(socketId) {
+  for (const race of raceRooms.values()) {
+    if (race.players.some((p) => p.socketId === socketId)) return race;
+  }
+  return null;
+}
+
+function removeFromRace(socket) {
+  const race = findRaceBySocketId(socket.id);
+  if (!race) return;
+  race.players = race.players.filter((p) => p.socketId !== socket.id);
+  socket.leave(race.id);
+  if (race.players.length === 0) {
+    raceRooms.delete(race.id);
+  } else {
+    io.to(race.id).emit('race_updated', {
+      raceId: race.id,
+      raceName: race.name,
+      players: race.players.map(serializePlayer),
+    });
+  }
+}
+
 function clearInactivityTimeout(socketId) {
   if (inactivityTimeouts.has(socketId)) {
     clearTimeout(inactivityTimeouts.get(socketId));
@@ -69,6 +112,23 @@ app.get('/api/cars', (req, res) => {
       { id: 1, name: 'MJX Hyper Go 14302', status: activeCars.has(1) ? 'unavailable' : 'available', model: 'Drift Car' },
     ],
   });
+});
+
+// API: Get active race sessions
+app.get('/api/races', (req, res) => {
+  const races = [...raceRooms.values()].map((r) => ({
+    id: r.id,
+    name: r.name,
+    playerCount: r.players.length,
+    status: r.status,
+    createdAt: r.createdAt,
+  }));
+  res.json({ races });
+});
+
+// API: Get global leaderboard (top 10 best lap times)
+app.get('/api/leaderboard', (req, res) => {
+  res.json({ leaderboard: leaderboard.slice(0, 10) });
 });
 
 // End session via HTTP (used by navigator.sendBeacon on page unload)
@@ -148,7 +208,116 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     clearInactivityTimeout(socket.id);
     activeSessions.delete(socket.id);
+    removeFromRace(socket);
     console.log('Client disconnected:', socket.id);
+  });
+
+  // --- Race events ---
+
+  socket.on('join_race', (data) => {
+    const { raceId, userId, carId, carName } = data || {};
+    if (!userId) return;
+
+    // Leave current race before joining a new one
+    removeFromRace(socket);
+
+    let race;
+    if (raceId && raceRooms.has(raceId)) {
+      race = raceRooms.get(raceId);
+    } else {
+      const newId = createRaceId();
+      race = {
+        id: newId,
+        name: 'Гонка #' + (raceRooms.size + 1),
+        players: [],
+        status: 'racing',
+        createdAt: new Date().toISOString(),
+      };
+      raceRooms.set(newId, race);
+    }
+
+    const player = {
+      socketId: socket.id,
+      userId,
+      carId: carId || null,
+      carName: carName || ('Машина #' + (carId || '?')),
+      lapCount: 0,
+      bestLapTime: null,
+      currentLapStart: null,
+    };
+    race.players.push(player);
+    socket.join(race.id);
+
+    socket.emit('race_joined', {
+      raceId: race.id,
+      raceName: race.name,
+      players: race.players.map(serializePlayer),
+      leaderboard: leaderboard.slice(0, 10),
+    });
+
+    io.to(race.id).emit('race_updated', {
+      raceId: race.id,
+      raceName: race.name,
+      players: race.players.map(serializePlayer),
+    });
+
+    console.log(`User ${userId} joined race ${race.id}`);
+  });
+
+  socket.on('leave_race', () => {
+    removeFromRace(socket);
+    socket.emit('race_left');
+  });
+
+  socket.on('start_lap', () => {
+    const race = findRaceBySocketId(socket.id);
+    if (!race) return;
+    const player = race.players.find((p) => p.socketId === socket.id);
+    if (!player) return;
+    player.currentLapStart = Date.now();
+    socket.emit('lap_started', { startTime: player.currentLapStart });
+  });
+
+  socket.on('end_lap', () => {
+    const race = findRaceBySocketId(socket.id);
+    if (!race) return;
+    const player = race.players.find((p) => p.socketId === socket.id);
+    if (!player || !player.currentLapStart) return;
+
+    const lapTimeMs = Date.now() - player.currentLapStart;
+    player.currentLapStart = null;
+    player.lapCount++;
+
+    const isPersonalBest = !player.bestLapTime || lapTimeMs < player.bestLapTime;
+    if (isPersonalBest) player.bestLapTime = lapTimeMs;
+
+    const isGlobalRecord = leaderboard.length === 0 || lapTimeMs < leaderboard[0].lapTimeMs;
+
+    leaderboard.push({
+      userId: player.userId,
+      carName: player.carName,
+      lapTimeMs,
+      date: new Date().toISOString(),
+    });
+    leaderboard.sort((a, b) => a.lapTimeMs - b.lapTimeMs);
+    if (leaderboard.length > MAX_LEADERBOARD) leaderboard.length = MAX_LEADERBOARD;
+
+    io.to(race.id).emit('lap_recorded', {
+      userId: player.userId,
+      carName: player.carName,
+      lapTimeMs,
+      isPersonalBest,
+      isGlobalRecord,
+      leaderboard: leaderboard.slice(0, 10),
+    });
+
+    io.to(race.id).emit('race_updated', {
+      raceId: race.id,
+      raceName: race.name,
+      players: race.players.map(serializePlayer),
+    });
+
+    console.log(`Lap recorded: ${player.carName}, ${lapTimeMs}ms, personal best: ${isPersonalBest}`);
   });
 });
 
