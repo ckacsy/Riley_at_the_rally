@@ -3,6 +3,7 @@ const http = require('http');
 const path = require('path');
 const socketIo = require('socket.io');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const app = express();
@@ -28,17 +29,26 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'Server is running' });
 });
 
+const RATE_PER_MINUTE = 0.50;
+
 app.get('/api/cars', (req, res) => {
   res.json({
+    ratePerMinute: RATE_PER_MINUTE,
     cars: [
       { id: 1, name: 'MJX Hyper Go 14302', status: 'available', model: 'Drift Car' },
     ],
   });
 });
 
-// SPA fallback: serve index.html for non-API routes
-app.get('/', (req, res) => {
+// Routes for frontend pages
+const pageRateLimit = rateLimit({ windowMs: 60 * 1000, max: 60 });
+
+app.get('/', pageRateLimit, (req, res) => {
   res.sendFile(path.join(frontendDir, 'index.html'));
+});
+
+app.get('/control', pageRateLimit, (req, res) => {
+  res.sendFile(path.join(frontendDir, 'control.html'));
 });
 
 // Socket.io events for real-time car control
@@ -60,6 +70,22 @@ io.on('connection', (socket) => {
       `Control command received: direction=${direction}, speed=${speed}`
     );
     socket.broadcast.emit('car_moving', { direction, speed });
+  });
+
+  socket.on('end_session', (data) => {
+    const session = activeSessions.get(socket.id);
+    if (!session) {
+      socket.emit('session_error', { message: 'No active session found.' });
+      return;
+    }
+    const endTime = new Date();
+    const durationMs = endTime - session.startTime;
+    const durationSeconds = Math.floor(durationMs / 1000);
+    const durationMinutes = durationMs / 60000;
+    const cost = durationMinutes * RATE_PER_MINUTE;
+    activeSessions.delete(socket.id);
+    socket.emit('session_ended', { carId: session.carId, durationSeconds, cost });
+    console.log(`Session ended: Car ${session.carId}, duration ${durationSeconds}s, cost $${cost.toFixed(2)}`);
   });
 
   socket.on('disconnect', () => {
