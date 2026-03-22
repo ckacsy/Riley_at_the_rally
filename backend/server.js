@@ -30,9 +30,36 @@ app.get('/api/health', (req, res) => {
 });
 
 const RATE_PER_MINUTE = 0.50;
+const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
-// Track active sessions (keyed by socket.id)
+// Track active sessions and inactivity timers (keyed by socket.id)
 const activeSessions = new Map();
+const inactivityTimeouts = new Map();
+
+function clearInactivityTimeout(socketId) {
+  if (inactivityTimeouts.has(socketId)) {
+    clearTimeout(inactivityTimeouts.get(socketId));
+    inactivityTimeouts.delete(socketId);
+  }
+}
+
+function setInactivityTimeout(socket) {
+  clearInactivityTimeout(socket.id);
+  const timeout = setTimeout(() => {
+    const session = activeSessions.get(socket.id);
+    if (!session) return;
+    const endTime = new Date();
+    const durationMs = endTime - session.startTime;
+    const durationSeconds = Math.floor(durationMs / 1000);
+    const durationMinutes = durationMs / 60000;
+    const cost = durationMinutes * RATE_PER_MINUTE;
+    activeSessions.delete(socket.id);
+    inactivityTimeouts.delete(socket.id);
+    socket.emit('session_ended', { carId: session.carId, durationSeconds, cost, reason: 'inactivity' });
+    console.log(`Session auto-ended (inactivity): Car ${session.carId}, duration ${durationSeconds}s, cost $${cost.toFixed(2)}`);
+  }, INACTIVITY_TIMEOUT_MS);
+  inactivityTimeouts.set(socket.id, timeout);
+}
 
 app.get('/api/cars', (req, res) => {
   const activeCars = new Set([...activeSessions.values()].map((s) => s.carId));
@@ -54,6 +81,7 @@ app.post('/api/session/end', (req, res) => {
   if (!session) {
     return res.json({ ended: false, message: 'No active session found.' });
   }
+  clearInactivityTimeout(sessionId);
   const endTime = new Date();
   const durationMs = endTime - session.startTime;
   const durationSeconds = Math.floor(durationMs / 1000);
@@ -83,6 +111,7 @@ io.on('connection', (socket) => {
     const { carId, userId } = data;
     activeSessions.set(socket.id, { carId, userId, startTime: new Date() });
     socket.emit('session_started', { carId, sessionId: socket.id });
+    setInactivityTimeout(socket);
     console.log(`Session started: User ${userId} connected to Car ${carId}`);
   });
 
@@ -91,10 +120,15 @@ io.on('connection', (socket) => {
     console.log(
       `Control command received: direction=${direction}, speed=${speed}`
     );
+    // Reset inactivity timer on every command
+    if (activeSessions.has(socket.id)) {
+      setInactivityTimeout(socket);
+    }
     socket.broadcast.emit('car_moving', { direction, speed });
   });
 
   socket.on('end_session', (data) => {
+    clearInactivityTimeout(socket.id);
     const session = activeSessions.get(socket.id);
     if (!session) {
       socket.emit('session_error', { message: 'No active session found.' });
@@ -111,6 +145,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
+    clearInactivityTimeout(socket.id);
     activeSessions.delete(socket.id);
     console.log('Client disconnected:', socket.id);
   });

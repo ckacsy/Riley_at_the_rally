@@ -320,7 +320,6 @@
 
         const hasSession = !!sessionData.carId;
 
-        // If no active session, disable controls and show message
         function disableControls() {
             ['forward', 'backward', 'left', 'right'].forEach(function (id) {
                 document.getElementById(id).disabled = true;
@@ -329,8 +328,9 @@
             document.getElementById('session-inactive-msg').style.display = 'block';
         }
 
+        // If no active session, redirect to main page
         if (!hasSession) {
-            disableControls();
+            window.location.replace('/?message=no_session');
         }
 
         const carId = sessionData.carId || null;
@@ -361,12 +361,30 @@
             }
         }
 
-        window.addEventListener('beforeunload', function () {
+        // Flag to prevent double-ending the session
+        let sessionEnded = false;
+
+        function endSessionOnLeave() {
+            if (sessionEnded) return;
+            sessionEnded = true;
             clearInterval(timerInterval);
-            if (hasSession && socket.id) {
-                socket.emit('end_session', { carId: carId });
-                sendEndSessionBeacon(socket.id);
+            if (hasSession) {
+                const currentSocketId = socket && socket.id ? socket.id : null;
+                if (currentSocketId) {
+                    socket.emit('end_session', { carId: carId });
+                    sendEndSessionBeacon(currentSocketId);
+                }
                 sessionStorage.removeItem('activeSession');
+            }
+        }
+
+        window.addEventListener('beforeunload', endSessionOnLeave);
+
+        window.addEventListener('pagehide', endSessionOnLeave);
+
+        document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'hidden') {
+                endSessionOnLeave();
             }
         });
 
@@ -405,7 +423,9 @@
         });
 
         socket.on('session_ended', function (data) {
+            sessionEnded = true;
             clearInterval(timerInterval);
+            sessionStorage.removeItem('activeSession');
             const durationSec = data.durationSeconds || 0;
             const cost = data.cost || 0;
             const minutes = Math.floor(durationSec / 60);
@@ -435,10 +455,12 @@
         });
 
         document.getElementById('end-rental').addEventListener('click', function () {
+            sessionEnded = true;
             socket.emit('end_session', { carId: carId });
         });
 
         document.getElementById('back-to-main').addEventListener('click', function () {
+            sessionEnded = true;
             sessionStorage.removeItem('activeSession');
             window.location.href = '/';
         });
