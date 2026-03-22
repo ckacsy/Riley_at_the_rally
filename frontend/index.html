@@ -193,7 +193,7 @@
         let ratePerMinute = 0.50; // default; overridden by API response
 
         // On load: if a stale activeSession exists, end it server-side and show summary
-        (function checkStaleSession() {
+        function checkStaleSession() {
             let stale = null;
             try {
                 stale = JSON.parse(sessionStorage.getItem('activeSession') || 'null');
@@ -239,7 +239,17 @@
             .catch(function () {
                 // Silently ignore if server is unreachable
             });
-        })();
+        }
+
+        // Run on initial load
+        checkStaleSession();
+
+        // Run when page is restored from bfcache (browser back navigation)
+        window.addEventListener('pageshow', function (event) {
+            if (event.persisted) {
+                checkStaleSession();
+            }
+        });
 
         document.getElementById('stale-close').addEventListener('click', function () {
             document.getElementById('stale-overlay').classList.remove('visible');
