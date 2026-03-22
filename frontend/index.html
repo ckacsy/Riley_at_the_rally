@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RC Car Rental — Choose Your Car</title>
+    <title>Аренда RC-машины — Выбор модели</title>
     <style>
         * {
             box-sizing: border-box;
@@ -117,11 +117,11 @@
     </style>
 </head>
 <body>
-    <h1>🏎️ RC Car Rental</h1>
-    <p class="subtitle">Choose a car below and press <strong>Activate</strong> to start your rental session.</p>
+    <h1>🏎️ Выберите модель RC-машины</h1>
+    <p class="subtitle">Выберите машину ниже и нажмите <strong>Активировать</strong>, чтобы начать аренду.</p>
 
     <div class="cars-grid" id="cars-grid">
-        <p class="loading">Loading available cars…</p>
+        <p class="loading">Загрузка доступных машин…</p>
     </div>
 
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
@@ -137,7 +137,7 @@
                 const grid = document.getElementById('cars-grid');
                 const cars = data.cars || [];
                 if (cars.length === 0) {
-                    grid.innerHTML = '<p class="error-msg">No cars available at the moment.</p>';
+                    grid.innerHTML = '<p class="error-msg">В данный момент машины недоступны.</p>';
                     return;
                 }
                 grid.innerHTML = '';
@@ -150,10 +150,10 @@
                         <div class="car-name">${car.name}</div>
                         <div class="car-model">${car.model || ''}</div>
                         <span class="car-status ${available ? 'available' : 'unavailable'}">
-                            ${available ? 'Available' : 'Unavailable'}
+                            ${available ? 'Доступна' : 'Недоступна'}
                         </span>
                         <button class="activate-btn" data-car-id="${car.id}" data-car-name="${car.name}" ${available ? '' : 'disabled'}>
-                            ${available ? 'Activate' : 'Not Available'}
+                            ${available ? 'Активировать' : 'Недоступна'}
                         </button>
                         <div class="rate-info">$${ratePerMinute.toFixed(2)} / minute</div>
                     `;
@@ -166,14 +166,14 @@
                         const carId = parseInt(btn.getAttribute('data-car-id'), 10);
                         const carName = btn.getAttribute('data-car-name');
                         btn.disabled = true;
-                        btn.textContent = 'Starting…';
+                        btn.textContent = 'Запуск…';
                         startSession(carId, carName);
                     });
                 });
             })
             .catch(function () {
                 document.getElementById('cars-grid').innerHTML =
-                    '<p class="error-msg">Failed to load cars. Please try again.</p>';
+                    '<p class="error-msg">Не удалось загрузить список машин. Попробуйте снова.</p>';
             });
 
         function startSession(carId, carName) {
