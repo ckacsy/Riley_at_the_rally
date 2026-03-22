@@ -116,15 +116,16 @@ io.on('connection', (socket) => {
   });
 
   socket.on('control_command', (data) => {
-    const { direction, speed } = data;
+    const { direction, speed, steering_angle } = data;
     console.log(
-      `Control command received: direction=${direction}, speed=${speed}`
+      `Control command received: direction=${direction}, speed=${speed}, steering_angle=${steering_angle}`
     );
     // Reset inactivity timer on every command
     if (activeSessions.has(socket.id)) {
       setInactivityTimeout(socket);
     }
-    socket.broadcast.emit('car_moving', { direction, speed });
+    // Forward full command to Pi (and other clients) so the Pi can act on it
+    socket.broadcast.emit('control_command', data);
   });
 
   socket.on('end_session', (data) => {
