@@ -30,7 +30,7 @@ app.get('/api/health', (req, res) => {
 });
 
 const RATE_PER_MINUTE = 0.50;
-const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+const INACTIVITY_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes AFK
 
 const CARS = [
   { id: 1, name: 'MJX Hyper Go 14302', model: 'Drift Car' },
@@ -86,6 +86,24 @@ function removeFromRace(socket) {
   }
 }
 
+function broadcastCarsUpdate() {
+  const activeCars = new Set([...activeSessions.values()].map((s) => s.carId));
+  io.emit('cars_updated', {
+    cars: CARS.map((c) => ({ ...c, status: activeCars.has(c.id) ? 'unavailable' : 'available' })),
+  });
+}
+
+function broadcastRacesUpdate() {
+  const races = [...raceRooms.values()].map((r) => ({
+    id: r.id,
+    name: r.name,
+    playerCount: r.players.length,
+    status: r.status,
+    createdAt: r.createdAt,
+  }));
+  io.emit('races_updated', { races });
+}
+
 function clearInactivityTimeout(socketId) {
   if (inactivityTimeouts.has(socketId)) {
     clearTimeout(inactivityTimeouts.get(socketId));
@@ -106,6 +124,8 @@ function setInactivityTimeout(socket) {
     activeSessions.delete(socket.id);
     inactivityTimeouts.delete(socket.id);
     socket.emit('session_ended', { carId: session.carId, durationSeconds, cost, reason: 'inactivity' });
+    // Bug 2: Notify all clients that the car is now available
+    broadcastCarsUpdate();
     console.log(`Session auto-ended (inactivity): Car ${session.carId}, duration ${durationSeconds}s, cost $${cost.toFixed(2)}`);
   }, INACTIVITY_TIMEOUT_MS);
   inactivityTimeouts.set(socket.id, timeout);
@@ -153,6 +173,8 @@ app.post('/api/session/end', (req, res) => {
   const durationMinutes = durationMs / 60000;
   const cost = durationMinutes * RATE_PER_MINUTE;
   activeSessions.delete(sessionId);
+  // Bug 2: Notify all clients that the car is now available
+  broadcastCarsUpdate();
   console.log(`Session ended via HTTP: Car ${session.carId}, duration ${durationSeconds}s, cost $${cost.toFixed(2)}`);
   res.json({ ended: true, carId: session.carId, durationSeconds, cost });
 });
@@ -174,9 +196,17 @@ io.on('connection', (socket) => {
 
   socket.on('start_session', (data) => {
     const { carId, userId } = data;
+    // Bug 5: Prevent multiple users controlling the same car
+    const carAlreadyActive = [...activeSessions.values()].some((s) => s.carId === carId);
+    if (carAlreadyActive) {
+      socket.emit('session_error', { message: 'Эта машина уже занята. Выберите другую.' });
+      return;
+    }
     activeSessions.set(socket.id, { carId, userId, startTime: new Date() });
     socket.emit('session_started', { carId, sessionId: socket.id });
     setInactivityTimeout(socket);
+    // Bug 2: Notify all clients of updated car availability in real time
+    broadcastCarsUpdate();
     console.log(`Session started: User ${userId} connected to Car ${carId}`);
   });
 
@@ -207,13 +237,18 @@ io.on('connection', (socket) => {
     const cost = durationMinutes * RATE_PER_MINUTE;
     activeSessions.delete(socket.id);
     socket.emit('session_ended', { carId: session.carId, durationSeconds, cost });
+    // Bug 2: Notify all clients that the car is now available
+    broadcastCarsUpdate();
     console.log(`Session ended: Car ${session.carId}, duration ${durationSeconds}s, cost $${cost.toFixed(2)}`);
   });
 
   socket.on('disconnect', () => {
     clearInactivityTimeout(socket.id);
+    const hadSession = activeSessions.has(socket.id);
     activeSessions.delete(socket.id);
     removeFromRace(socket);
+    if (hadSession) broadcastCarsUpdate();
+    broadcastRacesUpdate();
     console.log('Client disconnected:', socket.id);
   });
 
@@ -266,12 +301,17 @@ io.on('connection', (socket) => {
       players: race.players.map(serializePlayer),
     });
 
+    // Bug 4: Notify all clients instantly of updated race list
+    broadcastRacesUpdate();
+
     console.log(`User ${userId} joined race ${race.id}`);
   });
 
   socket.on('leave_race', () => {
     removeFromRace(socket);
     socket.emit('race_left');
+    // Bug 4: Keep race list up to date for all clients
+    broadcastRacesUpdate();
   });
 
   socket.on('start_lap', () => {
