@@ -114,6 +114,58 @@
             margin-top: 60px;
             font-size: 16px;
         }
+        /* Stale session summary modal */
+        .stale-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.55);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+        }
+        .stale-overlay.visible {
+            display: flex;
+        }
+        .stale-card {
+            background: white;
+            border-radius: 10px;
+            padding: 36px 48px;
+            text-align: center;
+            max-width: 380px;
+            width: 90%;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+        }
+        .stale-card h2 {
+            margin-top: 0;
+            color: #333;
+        }
+        .stale-card p {
+            font-size: 16px;
+            color: #555;
+            margin: 10px 0;
+        }
+        .stale-card .cost {
+            font-size: 28px;
+            font-weight: bold;
+            color: #007BFF;
+            margin: 16px 0;
+        }
+        .stale-card .close-btn {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 12px 32px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .stale-card .close-btn:hover {
+            background-color: #0056b3;
+        }
     </style>
 </head>
 <body>
@@ -124,10 +176,74 @@
         <p class="loading">Загрузка доступных машин…</p>
     </div>
 
+    <!-- Stale session summary modal (shown when returning from /control) -->
+    <div class="stale-overlay" id="stale-overlay">
+        <div class="stale-card">
+            <h2>Сессия завершена</h2>
+            <p id="stale-car">Машина: —</p>
+            <p id="stale-duration">Длительность: —</p>
+            <p class="cost" id="stale-cost">$0.00</p>
+            <button class="close-btn" id="stale-close">Закрыть</button>
+        </div>
+    </div>
+
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script>
         let socket = null;
         let ratePerMinute = 0.50; // default; overridden by API response
+
+        // On load: if a stale activeSession exists, end it server-side and show summary
+        (function checkStaleSession() {
+            let stale = null;
+            try {
+                stale = JSON.parse(sessionStorage.getItem('activeSession') || 'null');
+            } catch (e) {
+                stale = null;
+            }
+            if (!stale || !stale.sessionId) {
+                sessionStorage.removeItem('activeSession');
+                return;
+            }
+            sessionStorage.removeItem('activeSession');
+            fetch('/api/session/end', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionId: stale.sessionId })
+            })
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                const carName = stale.carName || ('Машина #' + (stale.carId || '?'));
+                let durationText = '—';
+                let costText = '$0.00';
+                if (data.ended) {
+                    const durationSec = data.durationSeconds || 0;
+                    const minutes = Math.floor(durationSec / 60);
+                    const seconds = durationSec % 60;
+                    durationText = `${minutes}м ${seconds}с`;
+                    costText = '$' + (data.cost || 0).toFixed(2);
+                } else if (stale.startTime) {
+                    // Session already ended server-side; compute elapsed from saved startTime
+                    const elapsedSec = Math.max(0, Math.floor((Date.now() - new Date(stale.startTime).getTime()) / 1000));
+                    const minutes = Math.floor(elapsedSec / 60);
+                    const seconds = elapsedSec % 60;
+                    durationText = `${minutes}м ${seconds}с`;
+                    const sessionRate = stale.ratePerMinute || ratePerMinute;
+                    const cost = (elapsedSec / 60) * sessionRate;
+                    costText = '$' + cost.toFixed(2);
+                }
+                document.getElementById('stale-car').textContent = 'Машина: ' + carName;
+                document.getElementById('stale-duration').textContent = 'Длительность: ' + durationText;
+                document.getElementById('stale-cost').textContent = costText;
+                document.getElementById('stale-overlay').classList.add('visible');
+            })
+            .catch(function () {
+                // Silently ignore if server is unreachable
+            });
+        })();
+
+        document.getElementById('stale-close').addEventListener('click', function () {
+            document.getElementById('stale-overlay').classList.remove('visible');
+        });
 
         // Fetch cars from API and render cards
         fetch('/api/cars')
@@ -182,15 +298,16 @@
             }
             socket.emit('start_session', { carId: carId, userId: 'user-' + Date.now() + '-' + Math.random().toString(36).slice(2) });
             socket.once('session_started', function (data) {
-                // Save session info so /control can read it
-                sessionStorage.setItem('activeSession', JSON.stringify({
-                    carId: carId,
-                    carName: carName,
-                    startTime: new Date().toISOString(),
-                    sessionId: data.sessionId
-                }));
-                window.location.href = '/control';
-            });
+                    // Save session info so /control can read it
+                    sessionStorage.setItem('activeSession', JSON.stringify({
+                        carId: carId,
+                        carName: carName,
+                        startTime: new Date().toISOString(),
+                        sessionId: data.sessionId,
+                        ratePerMinute: ratePerMinute
+                    }));
+                    window.location.href = '/control';
+                });
         }
     </script>
 </body>
