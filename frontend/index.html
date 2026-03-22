@@ -323,7 +323,7 @@
 
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script>
-        let socket = null;
+        let socket = io(window.location.origin);
         let ratePerMinute = 0.50; // default; overridden by API response
 
         // On load: if a stale activeSession exists, end it server-side and show summary
@@ -389,71 +389,86 @@
             document.getElementById('stale-overlay').classList.remove('visible');
         });
 
-        // Fetch cars from API and render cards
-        fetch('/api/cars')
-            .then(function (res) { return res.json(); })
-            .then(function (data) {
-                ratePerMinute = data.ratePerMinute || ratePerMinute;
-                const grid = document.getElementById('cars-grid');
-                const cars = data.cars || [];
-                if (cars.length === 0) {
-                    grid.innerHTML = '<p class="error-msg">В данный момент машины недоступны.</p>';
-                    return;
-                }
-                grid.innerHTML = '';
-                cars.forEach(function (car) {
-                    const available = car.status === 'available';
-                    const card = document.createElement('div');
-                    card.className = 'car-card';
-                    card.innerHTML = `
-                        <div class="car-icon">🚗</div>
-                        <div class="car-name">${car.name}</div>
-                        <div class="car-model">${car.model || ''}</div>
-                        <span class="car-status ${available ? 'available' : 'unavailable'}">
-                            ${available ? 'Доступна' : 'Недоступна'}
-                        </span>
-                        <button class="activate-btn" data-car-id="${car.id}" data-car-name="${car.name}" ${available ? '' : 'disabled'}>
-                            ${available ? 'Активировать' : 'Недоступна'}
-                        </button>
-                        <div class="rate-info">$${ratePerMinute.toFixed(2)} / мин</div>
-                    `;
-                    grid.appendChild(card);
-                });
-
-                // Attach activate handlers
-                document.querySelectorAll('.activate-btn:not([disabled])').forEach(function (btn) {
-                    btn.addEventListener('click', function () {
-                        const carId = parseInt(btn.getAttribute('data-car-id'), 10);
-                        const carName = btn.getAttribute('data-car-name');
-                        btn.disabled = true;
-                        btn.textContent = 'Запуск…';
-                        startSession(carId, carName);
-                    });
-                });
-            })
-            .catch(function () {
-                document.getElementById('cars-grid').innerHTML =
-                    '<p class="error-msg">Не удалось загрузить список машин. Попробуйте снова.</p>';
+        // Render car cards from data
+        function renderCars(cars) {
+            const grid = document.getElementById('cars-grid');
+            if (!cars || cars.length === 0) {
+                grid.innerHTML = '<p class="error-msg">В данный момент машины недоступны.</p>';
+                return;
+            }
+            grid.innerHTML = '';
+            cars.forEach(function (car) {
+                const available = car.status === 'available';
+                const card = document.createElement('div');
+                card.className = 'car-card';
+                card.innerHTML = `
+                    <div class="car-icon">🚗</div>
+                    <div class="car-name">${car.name}</div>
+                    <div class="car-model">${car.model || ''}</div>
+                    <span class="car-status ${available ? 'available' : 'unavailable'}">
+                        ${available ? 'Доступна' : 'Недоступна'}
+                    </span>
+                    <button class="activate-btn" data-car-id="${car.id}" data-car-name="${car.name}" ${available ? '' : 'disabled'}>
+                        ${available ? 'Активировать' : 'Недоступна'}
+                    </button>
+                    <div class="rate-info">$${ratePerMinute.toFixed(2)} / мин</div>
+                `;
+                grid.appendChild(card);
             });
+            document.querySelectorAll('.activate-btn:not([disabled])').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    const carId = parseInt(btn.getAttribute('data-car-id'), 10);
+                    const carName = btn.getAttribute('data-car-name');
+                    btn.disabled = true;
+                    btn.textContent = 'Запуск…';
+                    startSession(carId, carName);
+                });
+            });
+        }
+
+        // Fetch cars from API and render cards
+        function loadCars() {
+            fetch('/api/cars')
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    ratePerMinute = data.ratePerMinute || ratePerMinute;
+                    renderCars(data.cars || []);
+                })
+                .catch(function () {
+                    document.getElementById('cars-grid').innerHTML =
+                        '<p class="error-msg">Не удалось загрузить список машин. Попробуйте снова.</p>';
+                });
+        }
+
+        loadCars();
+
+        // Bug 2: Real-time car availability updates via socket
+        socket.on('cars_updated', function (data) {
+            renderCars(data.cars || []);
+        });
 
         function startSession(carId, carName) {
-            if (!socket) {
-                socket = io(window.location.origin);
-            }
             const selectedRace = sessionStorage.getItem('selectedRaceId') || null;
-            socket.emit('start_session', { carId: carId, userId: 'user-' + Date.now() + '-' + Math.random().toString(36).slice(2) });
+            const userId = 'user-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+            socket.emit('start_session', { carId: carId, userId: userId });
             socket.once('session_started', function (data) {
-                    // Save session info so /control can read it
-                    sessionStorage.setItem('activeSession', JSON.stringify({
-                        carId: carId,
-                        carName: carName,
-                        startTime: new Date().toISOString(),
-                        sessionId: data.sessionId,
-                        ratePerMinute: ratePerMinute,
-                        selectedRaceId: selectedRace
-                    }));
-                    window.location.href = '/control';
-                });
+                // Save session info so /control can read it
+                sessionStorage.setItem('activeSession', JSON.stringify({
+                    carId: carId,
+                    carName: carName,
+                    startTime: new Date().toISOString(),
+                    sessionId: data.sessionId,
+                    userId: userId,
+                    ratePerMinute: ratePerMinute,
+                    selectedRaceId: selectedRace
+                }));
+                window.location.href = '/control';
+            });
+            // Bug 5: Handle car already taken
+            socket.once('session_error', function (data) {
+                alert(data.message || 'Не удалось начать сессию.');
+                loadCars();
+            });
         }
 
         // --- Races & Leaderboard ---
@@ -559,7 +574,11 @@
 
         loadRaces();
         loadLeaderboard();
-        setInterval(loadRaces, 10000);
+        // Bug 4: Real-time race list updates via socket (instant, no polling delay)
+        socket.on('races_updated', function () {
+            loadRaces();
+        });
+        setInterval(loadRaces, 30000);
         setInterval(loadLeaderboard, 10000);
     </script>
 </body>

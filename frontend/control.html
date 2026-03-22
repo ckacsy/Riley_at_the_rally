@@ -597,12 +597,6 @@
 
         window.addEventListener('pagehide', endSessionOnLeave);
 
-        document.addEventListener('visibilitychange', function () {
-            if (document.visibilityState === 'hidden') {
-                endSessionOnLeave();
-            }
-        });
-
         const socket = io(window.location.origin);
 
         const statusDot = document.getElementById('status-dot');
@@ -901,18 +895,23 @@
         });
 
         socket.on('lap_recorded', function (data) {
-            lapRunning = false;
-            clearInterval(lapDisplayInterval);
-            lapDisplayInterval = null;
-            document.getElementById('start-lap-btn').disabled = false;
-            document.getElementById('stop-lap-btn').disabled = true;
-            document.getElementById('lap-time-display').textContent = formatLapTime(data.lapTimeMs);
-            if (data.isGlobalRecord) {
-                flashMessage('🏆 Новый рекорд трассы: ' + formatLapTime(data.lapTimeMs) + '!', true);
-            } else if (data.isPersonalBest) {
-                flashMessage('🎉 Личный рекорд: ' + formatLapTime(data.lapTimeMs), false);
-            } else {
-                flashMessage('Круг: ' + formatLapTime(data.lapTimeMs), false);
+            // Bug 1: Only reset lap UI for the player who finished their lap
+            if (data.userId === getMyUserId()) {
+                lapRunning = false;
+                clearInterval(lapDisplayInterval);
+                lapDisplayInterval = null;
+                document.getElementById('start-lap-btn').disabled = false;
+                document.getElementById('stop-lap-btn').disabled = true;
+                document.getElementById('lap-time-display').textContent = formatLapTime(data.lapTimeMs);
+                if (data.isGlobalRecord) {
+                    flashMessage('🏆 Новый рекорд трассы: ' + formatLapTime(data.lapTimeMs) + '!', true);
+                } else if (data.isPersonalBest) {
+                    flashMessage('🎉 Личный рекорд: ' + formatLapTime(data.lapTimeMs), false);
+                } else {
+                    flashMessage('Круг: ' + formatLapTime(data.lapTimeMs), false);
+                }
+            } else if (data.isGlobalRecord) {
+                flashMessage('🏆 ' + data.userId + ' побил рекорд трассы: ' + formatLapTime(data.lapTimeMs) + '!', true);
             }
             if (data.leaderboard) renderLeaderboard(data.leaderboard);
         });
@@ -949,9 +948,13 @@
 
         // Load races for the join dropdown initially
         loadActiveRaces();
+        // Bug 4: Update race list instantly via socket instead of polling
+        socket.on('races_updated', function () {
+            if (!currentRaceId) loadActiveRaces();
+        });
         setInterval(function () {
             if (!currentRaceId) loadActiveRaces();
-        }, 10000);
+        }, 30000);
     </script>
 </body>
 </html>
