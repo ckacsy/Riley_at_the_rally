@@ -313,6 +313,16 @@
             });
         }
 
+        function esc(str) {
+            if (str == null) return '—';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
         function loadProfile() {
             fetch('/api/profile')
                 .then(function (res) {
@@ -350,9 +360,14 @@
                 img.className = 'avatar-img';
                 img.src = user.avatar_path;
                 img.alt = 'Аватар';
-                document.getElementById('avatar-container').replaceChild(img, document.getElementById('avatar-placeholder'));
-                document.getElementById('avatar-container').querySelector('img')
-                    || (document.getElementById('avatar-container').innerHTML = '<img class="avatar-img" src="' + user.avatar_path + '" alt="Аватар">');
+                const container = document.getElementById('avatar-container');
+                const placeholder = document.getElementById('avatar-placeholder');
+                if (placeholder) {
+                    container.replaceChild(img, placeholder);
+                } else {
+                    container.innerHTML = '';
+                    container.appendChild(img);
+                }
             }
 
             // Profile info
