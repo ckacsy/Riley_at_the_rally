@@ -861,6 +861,10 @@
 
         socket.on('race_joined', function (data) {
             currentRaceId = data.raceId;
+            // Clear the selectedRaceId so reconnections don't re-join automatically
+            const updated = Object.assign({}, sessionData);
+            delete updated.selectedRaceId;
+            sessionStorage.setItem('activeSession', JSON.stringify(updated));
             document.getElementById('race-status-bar').textContent =
                 '🏎 ' + data.raceName + ' — вы в гонке!';
             showRaceUI(true);
@@ -924,7 +928,7 @@
         document.getElementById('join-race-btn').addEventListener('click', function () {
             const raceId = document.getElementById('race-select').value;
             socket.emit('join_race', {
-                raceId: raceId || undefined,
+                raceId: raceId,
                 userId: getMyUserId(),
                 carId: carId,
                 carName: carName,

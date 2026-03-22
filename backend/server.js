@@ -40,9 +40,11 @@ const inactivityTimeouts = new Map();
 const raceRooms = new Map(); // raceId -> race object
 const leaderboard = []; // sorted array of { userId, carName, lapTimeMs, date }
 const MAX_LEADERBOARD = 20;
+let raceCounter = 0;
 
 function createRaceId() {
-  return 'race-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+  raceCounter += 1;
+  return 'race-' + Date.now() + '-' + raceCounter + '-' + Math.random().toString(36).slice(2, 7);
 }
 
 function serializePlayer(p) {
@@ -291,8 +293,6 @@ io.on('connection', (socket) => {
     const isPersonalBest = !player.bestLapTime || lapTimeMs < player.bestLapTime;
     if (isPersonalBest) player.bestLapTime = lapTimeMs;
 
-    const isGlobalRecord = leaderboard.length === 0 || lapTimeMs < leaderboard[0].lapTimeMs;
-
     leaderboard.push({
       userId: player.userId,
       carName: player.carName,
@@ -301,6 +301,9 @@ io.on('connection', (socket) => {
     });
     leaderboard.sort((a, b) => a.lapTimeMs - b.lapTimeMs);
     if (leaderboard.length > MAX_LEADERBOARD) leaderboard.length = MAX_LEADERBOARD;
+
+    // After sorting, the new entry is a global record if it sits at position 0
+    const isGlobalRecord = leaderboard[0].lapTimeMs === lapTimeMs && leaderboard[0].userId === player.userId;
 
     io.to(race.id).emit('lap_recorded', {
       userId: player.userId,
