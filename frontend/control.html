@@ -226,6 +226,30 @@
         .summary-card .back-btn:hover {
             background-color: #0056b3;
         }
+        .button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .button:disabled:hover {
+            background-color: #007BFF;
+        }
+        .end-rental-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .end-rental-btn:disabled:hover {
+            background-color: #dc3545;
+        }
+        .session-inactive-msg {
+            display: none;
+            text-align: center;
+            color: #dc3545;
+            font-size: 16px;
+            margin-top: 16px;
+        }
+        .session-inactive-msg a {
+            color: #007BFF;
+        }
     </style>
 </head>
 <body>
@@ -267,6 +291,10 @@
         <span id="status-text">Отключено</span>
     </div>
 
+    <p class="session-inactive-msg" id="session-inactive-msg" role="alert">
+        Нет активной сессии. Управление недоступно. <a href="/">Вернуться к выбору машины</a>.
+    </p>
+
     <button class="end-rental-btn" id="end-rental">Завершить аренду</button>
 
     <!-- Rental summary overlay -->
@@ -289,9 +317,20 @@
         } catch (e) {
             sessionData = {};
         }
-        if (!sessionData.carId) {
-            // No active session — redirect back to main page
-            window.location.href = '/';
+
+        const hasSession = !!sessionData.carId;
+
+        // If no active session, disable controls and show message
+        function disableControls() {
+            ['forward', 'backward', 'left', 'right'].forEach(function (id) {
+                document.getElementById(id).disabled = true;
+            });
+            document.getElementById('end-rental').disabled = true;
+            document.getElementById('session-inactive-msg').style.display = 'block';
+        }
+
+        if (!hasSession) {
+            disableControls();
         }
 
         const carId = sessionData.carId || null;
@@ -308,9 +347,27 @@
             document.getElementById('session-timer').textContent = `${minutes}:${seconds}`;
         }, 1000);
 
-        // Clear timer when leaving the page
+        // End session via HTTP beacon (reliable on page unload/back navigation)
+        function sendEndSessionBeacon(socketId) {
+            if (!socketId) return;
+            try {
+                const blob = new Blob(
+                    [JSON.stringify({ sessionId: socketId })],
+                    { type: 'application/json' }
+                );
+                navigator.sendBeacon('/api/session/end', blob);
+            } catch (e) {
+                // sendBeacon not supported — socket disconnect will clean up
+            }
+        }
+
         window.addEventListener('beforeunload', function () {
             clearInterval(timerInterval);
+            if (hasSession && socket.id) {
+                socket.emit('end_session', { carId: carId });
+                sendEndSessionBeacon(socket.id);
+                sessionStorage.removeItem('activeSession');
+            }
         });
 
         const socket = io(window.location.origin);
@@ -328,6 +385,17 @@
             statusDot.classList.remove('disconnected');
             statusDot.classList.add('connected');
             statusText.textContent = 'Подключено';
+            // Re-establish server-side session so car status is 'unavailable'
+            if (hasSession && carId) {
+                const userId = sessionData.userId || ('user-' + socket.id);
+                socket.emit('start_session', { carId: carId, userId: userId });
+            }
+        });
+
+        socket.on('session_started', function (data) {
+            // Update sessionStorage with new socket-based sessionId
+            const updated = Object.assign({}, sessionData, { sessionId: data.sessionId });
+            sessionStorage.setItem('activeSession', JSON.stringify(updated));
         });
 
         socket.on('disconnect', function () {
@@ -351,9 +419,19 @@
         });
 
         socket.on('session_error', function (data) {
-            alert(data.message || 'Ошибка сессии. Перенаправление на выбор машины.');
+            clearInterval(timerInterval);
+            disableControls();
+            const msg = document.getElementById('session-inactive-msg');
+            msg.innerHTML = '';
+            msg.appendChild(document.createTextNode(
+                (data.message || 'Ошибка сессии.') + ' Управление недоступно. '
+            ));
+            const link = document.createElement('a');
+            link.href = '/';
+            link.textContent = 'Вернуться к выбору машины';
+            msg.appendChild(link);
+            msg.appendChild(document.createTextNode('.'));
             sessionStorage.removeItem('activeSession');
-            window.location.href = '/';
         });
 
         document.getElementById('end-rental').addEventListener('click', function () {

@@ -31,13 +31,37 @@ app.get('/api/health', (req, res) => {
 
 const RATE_PER_MINUTE = 0.50;
 
+// Track active sessions (keyed by socket.id)
+const activeSessions = new Map();
+
 app.get('/api/cars', (req, res) => {
+  const activeCars = new Set([...activeSessions.values()].map((s) => s.carId));
   res.json({
     ratePerMinute: RATE_PER_MINUTE,
     cars: [
-      { id: 1, name: 'MJX Hyper Go 14302', status: 'available', model: 'Drift Car' },
+      { id: 1, name: 'MJX Hyper Go 14302', status: activeCars.has(1) ? 'unavailable' : 'available', model: 'Drift Car' },
     ],
   });
+});
+
+// End session via HTTP (used by navigator.sendBeacon on page unload)
+app.post('/api/session/end', (req, res) => {
+  const { sessionId } = req.body || {};
+  if (!sessionId || typeof sessionId !== 'string') {
+    return res.status(400).json({ ended: false, message: 'Invalid sessionId.' });
+  }
+  const session = activeSessions.get(sessionId);
+  if (!session) {
+    return res.json({ ended: false, message: 'No active session found.' });
+  }
+  const endTime = new Date();
+  const durationMs = endTime - session.startTime;
+  const durationSeconds = Math.floor(durationMs / 1000);
+  const durationMinutes = durationMs / 60000;
+  const cost = durationMinutes * RATE_PER_MINUTE;
+  activeSessions.delete(sessionId);
+  console.log(`Session ended via HTTP: Car ${session.carId}, duration ${durationSeconds}s, cost $${cost.toFixed(2)}`);
+  res.json({ ended: true, carId: session.carId, durationSeconds, cost });
 });
 
 // Routes for frontend pages
@@ -52,8 +76,6 @@ app.get('/control', pageRateLimit, (req, res) => {
 });
 
 // Socket.io events for real-time car control
-const activeSessions = new Map();
-
 io.on('connection', (socket) => {
   console.log('New client connected:', socket.id);
 
