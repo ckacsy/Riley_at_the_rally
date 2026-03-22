@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RC Car Control Interface</title>
+    <title>RC Car Rental — Choose Your Car</title>
     <style>
+        * {
+            box-sizing: border-box;
+        }
         body {
             font-family: Arial, sans-serif;
             background-color: #f4f4f4;
@@ -13,230 +16,182 @@
         }
         h1 {
             text-align: center;
+            color: #222;
+            margin-bottom: 8px;
         }
-        .control-panel {
-            display: flex;
-            justify-content: center;
-            margin-top: 20px;
-        }
-        .button {
-            background-color: #007BFF;
-            border: none;
-            color: white;
-            padding: 15px 20px;
-            margin: 10px;
-            cursor: pointer;
-            border-radius: 5px;
-            font-size: 16px;
-            transition: background-color 0.3s;
-        }
-        .button:hover {
-            background-color: #0056b3;
-        }
-        .status {
+        .subtitle {
             text-align: center;
-            margin-top: 20px;
-            font-size: 14px;
-            color: #555;
+            color: #666;
+            margin-bottom: 32px;
+            font-size: 15px;
         }
-        .status-indicator {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-right: 6px;
-            background-color: #ccc;
-            vertical-align: middle;
+        .cars-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            justify-content: center;
+            max-width: 960px;
+            margin: 0 auto;
         }
-        .status-indicator.connected {
-            background-color: #28a745;
-        }
-        .status-indicator.disconnected {
-            background-color: #dc3545;
-        }
-        .camera-section {
+        .car-card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.10);
+            padding: 28px 32px;
+            width: 280px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            margin: 20px auto;
-            max-width: 680px;
+            transition: box-shadow 0.2s;
         }
-        .camera-section h2 {
-            margin-bottom: 10px;
+        .car-card:hover {
+            box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+        }
+        .car-icon {
+            font-size: 56px;
+            margin-bottom: 12px;
+        }
+        .car-name {
             font-size: 18px;
-            color: #333;
+            font-weight: bold;
+            color: #222;
+            text-align: center;
+            margin-bottom: 6px;
         }
-        .camera-feed {
-            width: 640px;
-            height: 480px;
-            background-color: #000;
-            border: 2px solid #ccc;
-            border-radius: 5px;
-            object-fit: contain;
+        .car-model {
+            font-size: 13px;
+            color: #888;
+            margin-bottom: 10px;
         }
-        .camera-url-row {
-            display: flex;
-            gap: 8px;
-            margin-top: 10px;
+        .car-status {
+            display: inline-block;
+            padding: 3px 12px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: bold;
+            margin-bottom: 18px;
+        }
+        .car-status.available {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .car-status.unavailable {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .activate-btn {
             width: 100%;
-            justify-content: center;
-        }
-        .camera-url-input {
-            flex: 1;
-            max-width: 480px;
-            padding: 6px 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-        .camera-url-btn {
-            padding: 6px 14px;
-            background-color: #007BFF;
+            padding: 12px 0;
+            background-color: #28a745;
             color: white;
             border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        .camera-url-btn:hover {
-            background-color: #0056b3;
-        }
-        .speed-control {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin-top: 20px;
-            gap: 12px;
+            border-radius: 6px;
             font-size: 16px;
-            color: #333;
-        }
-        .speed-control label {
-            font-weight: bold;
-        }
-        .speed-control input[type="range"] {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 200px;
-            height: 8px;
-            border-radius: 5px;
-            background-color: #007BFF;
-            outline: none;
             cursor: pointer;
             transition: background-color 0.3s;
         }
-        .speed-control input[type="range"]:hover {
-            background-color: #0056b3;
+        .activate-btn:hover {
+            background-color: #1e7e34;
         }
-        .speed-control input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background-color: white;
-            border: 2px solid #007BFF;
-            cursor: pointer;
+        .activate-btn:disabled {
+            background-color: #aaa;
+            cursor: not-allowed;
         }
-        .speed-control input[type="range"]::-moz-range-thumb {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background-color: white;
-            border: 2px solid #007BFF;
-            cursor: pointer;
+        .rate-info {
+            font-size: 12px;
+            color: #888;
+            margin-top: 10px;
         }
-        .speed-control span {
-            min-width: 32px;
-            text-align: left;
+        .loading {
+            text-align: center;
+            color: #888;
+            margin-top: 60px;
+            font-size: 16px;
+        }
+        .error-msg {
+            text-align: center;
+            color: #dc3545;
+            margin-top: 60px;
+            font-size: 16px;
         }
     </style>
 </head>
 <body>
-    <h1>RC Car Control Interface</h1>
+    <h1>🏎️ RC Car Rental</h1>
+    <p class="subtitle">Choose a car below and press <strong>Activate</strong> to start your rental session.</p>
 
-    <div class="camera-section">
-        <h2>Live Camera Feed</h2>
-        <img id="camera-feed" class="camera-feed" src="" alt="Live camera feed — not connected" />
-        <div class="camera-url-row">
-            <input
-                type="text"
-                id="camera-url-input"
-                class="camera-url-input"
-                placeholder="http://<pi-ip>:8000"
-            />
-            <button class="camera-url-btn" id="camera-url-btn">Connect</button>
-        </div>
-    </div>
-
-    <div class="control-panel">
-        <button class="button" id="forward">Forward</button>
-        <button class="button" id="backward">Backward</button>
-    </div>
-    <div class="control-panel">
-        <button class="button" id="left">Left</button>
-        <button class="button" id="right">Right</button>
-    </div>
-    <div class="speed-control">
-        <label for="speed-slider">Speed:</label>
-        <input type="range" id="speed-slider" min="0" max="100" value="50" />
-        <span id="speed-value">50</span>
-    </div>
-    <div class="status">
-        <span class="status-indicator disconnected" id="status-dot"></span>
-        <span id="status-text">Disconnected</span>
+    <div class="cars-grid" id="cars-grid">
+        <p class="loading">Loading available cars…</p>
     </div>
 
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script>
-        const socket = io(window.location.origin);
+        let socket = null;
+        let ratePerMinute = 0.50; // default; overridden by API response
 
-        const statusDot = document.getElementById('status-dot');
-        const statusText = document.getElementById('status-text');
-        const speedSlider = document.getElementById('speed-slider');
-        const speedValue = document.getElementById('speed-value');
+        // Fetch cars from API and render cards
+        fetch('/api/cars')
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                ratePerMinute = data.ratePerMinute || ratePerMinute;
+                const grid = document.getElementById('cars-grid');
+                const cars = data.cars || [];
+                if (cars.length === 0) {
+                    grid.innerHTML = '<p class="error-msg">No cars available at the moment.</p>';
+                    return;
+                }
+                grid.innerHTML = '';
+                cars.forEach(function (car) {
+                    const available = car.status === 'available';
+                    const card = document.createElement('div');
+                    card.className = 'car-card';
+                    card.innerHTML = `
+                        <div class="car-icon">🚗</div>
+                        <div class="car-name">${car.name}</div>
+                        <div class="car-model">${car.model || ''}</div>
+                        <span class="car-status ${available ? 'available' : 'unavailable'}">
+                            ${available ? 'Available' : 'Unavailable'}
+                        </span>
+                        <button class="activate-btn" data-car-id="${car.id}" data-car-name="${car.name}" ${available ? '' : 'disabled'}>
+                            ${available ? 'Activate' : 'Not Available'}
+                        </button>
+                        <div class="rate-info">$${ratePerMinute.toFixed(2)} / minute</div>
+                    `;
+                    grid.appendChild(card);
+                });
 
-        speedSlider.addEventListener('input', function () {
-            speedValue.textContent = speedSlider.value;
-        });
+                // Attach activate handlers
+                document.querySelectorAll('.activate-btn:not([disabled])').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        const carId = parseInt(btn.getAttribute('data-car-id'), 10);
+                        const carName = btn.getAttribute('data-car-name');
+                        btn.disabled = true;
+                        btn.textContent = 'Starting…';
+                        startSession(carId, carName);
+                    });
+                });
+            })
+            .catch(function () {
+                document.getElementById('cars-grid').innerHTML =
+                    '<p class="error-msg">Failed to load cars. Please try again.</p>';
+            });
 
-        socket.on('connect', function () {
-            statusDot.classList.remove('disconnected');
-            statusDot.classList.add('connected');
-            statusText.textContent = 'Connected';
-        });
-
-        socket.on('disconnect', function () {
-            statusDot.classList.remove('connected');
-            statusDot.classList.add('disconnected');
-            statusText.textContent = 'Disconnected';
-        });
-
-        document.getElementById('forward').addEventListener('click', function () {
-            const speed = parseInt(speedSlider.value, 10);
-            socket.emit('control_command', { direction: 'forward', speed: speed });
-        });
-
-        document.getElementById('backward').addEventListener('click', function () {
-            const speed = parseInt(speedSlider.value, 10);
-            socket.emit('control_command', { direction: 'backward', speed: -speed });
-        });
-
-        document.getElementById('left').addEventListener('click', function () {
-            socket.emit('control_command', { steering_angle: -30 });
-        });
-
-        document.getElementById('right').addEventListener('click', function () {
-            socket.emit('control_command', { steering_angle: 30 });
-        });
-
-        document.getElementById('camera-url-btn').addEventListener('click', function () {
-            const url = document.getElementById('camera-url-input').value.trim();
-            if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
-                const feed = document.getElementById('camera-feed');
-                feed.src = url;
-                feed.alt = 'Live camera feed';
+        function startSession(carId, carName) {
+            if (!socket) {
+                socket = io(window.location.origin);
             }
-        });
+            socket.emit('start_session', { carId: carId, userId: 'user-' + Date.now() + '-' + Math.random().toString(36).slice(2) });
+            socket.once('session_started', function (data) {
+                // Save session info so /control can read it
+                sessionStorage.setItem('activeSession', JSON.stringify({
+                    carId: carId,
+                    carName: carName,
+                    startTime: new Date().toISOString(),
+                    sessionId: data.sessionId
+                }));
+                window.location.href = '/control';
+            });
+        }
     </script>
 </body>
 </html>
