@@ -12,7 +12,29 @@ const Database = require('better-sqlite3');
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const multer = require('multer');
-require('dotenv').config({ path: path.join(__dirname, '.env') });
+// Load environment variables from backend/.env (works regardless of cwd).
+// Falls back to repo-root .env if backend/.env does not exist.
+{
+  const backendEnvPath = path.join(__dirname, '.env');
+  const rootEnvPath = path.join(__dirname, '..', '.env');
+  if (fs.existsSync(backendEnvPath)) {
+    const result = require('dotenv').config({ path: backendEnvPath });
+    if (result.error) {
+      console.warn(`[dotenv] Failed to parse ${backendEnvPath}:`, result.error.message);
+    } else {
+      console.log(`[dotenv] Loaded env from: ${backendEnvPath}`);
+    }
+  } else if (fs.existsSync(rootEnvPath)) {
+    const result = require('dotenv').config({ path: rootEnvPath });
+    if (result.error) {
+      console.warn(`[dotenv] Failed to parse ${rootEnvPath}:`, result.error.message);
+    } else {
+      console.log(`[dotenv] Loaded env from fallback: ${rootEnvPath}`);
+    }
+  } else {
+    console.warn(`[dotenv] No .env file found at ${backendEnvPath} or ${rootEnvPath}; relying on process environment.`);
+  }
+}
 
 const metrics = require('./metrics');
 const mailer = require('./mailer');
