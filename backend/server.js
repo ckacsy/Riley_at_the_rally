@@ -218,6 +218,26 @@ const loginLimiter = rateLimit({
   skip: () => process.env.NODE_ENV === 'test',
 });
 
+const verifyEmailLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Слишком много запросов. Попробуйте через минуту.' },
+  keyGenerator: (req) => req.ip,
+  skip: () => process.env.NODE_ENV === 'test',
+});
+
+const avatarUploadLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Слишком много загрузок. Попробуйте через минуту.' },
+  keyGenerator: (req) => req.ip,
+  skip: () => process.env.NODE_ENV === 'test',
+});
+
 // --- Login failure lockout (in-memory per IP) ---
 // NOTE: Resets on server restart. Sufficient for single-process Pi deployment.
 // For multi-instance production, persist to DB or Redis.
@@ -528,7 +548,7 @@ app.get('/api/auth/me', (req, res) => {
 });
 
 // --- Email verification ---
-app.get('/api/auth/verify-email', (req, res) => {
+app.get('/api/auth/verify-email', verifyEmailLimiter, (req, res) => {
   const rawToken = req.query.token;
   if (!rawToken || typeof rawToken !== 'string') {
     return res.status(400).json({ error: 'Токен отсутствует или недействителен' });
@@ -552,7 +572,7 @@ app.get('/api/auth/verify-email', (req, res) => {
   res.json({ success: true, message: 'Email подтверждён! Теперь вы можете арендовать машины и участвовать в гонках.' });
 });
 
-app.post('/api/auth/resend-verification', requireAuth, csrfMiddleware, (req, res) => {
+app.post('/api/auth/resend-verification', verifyEmailLimiter, requireAuth, csrfMiddleware, (req, res) => {
   const user = db
     .prepare('SELECT id, email, email_normalized, status FROM users WHERE id = ?')
     .get(req.session.userId);
@@ -595,7 +615,7 @@ app.get('/api/profile', requireAuth, (req, res) => {
   });
 });
 
-app.post('/api/profile/avatar', requireAuth, csrfMiddleware, upload.single('avatar'), (req, res) => {
+app.post('/api/profile/avatar', avatarUploadLimiter, requireAuth, csrfMiddleware, upload.single('avatar'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Файл не загружен или неверный формат' });
   const avatarPath = '/uploads/' + req.file.filename;
   const existing = db.prepare('SELECT avatar_path FROM users WHERE id = ?').get(req.session.userId);
