@@ -1,51 +1,98 @@
+import argparse
 import threading
+import time
+
 import socketio
 from rc_car_controller import RCCarController
 from camera_stream import start_streaming
 
-sio = socketio.Client()
+# ---------------------------------------------------------------------------
+# Argument parsing
+# ---------------------------------------------------------------------------
 
-car = RCCarController()
+parser = argparse.ArgumentParser(description='RC Car Pi Controller')
+parser.add_argument('--server', default='http://localhost:5000',
+                    help='Backend server URL (default: http://localhost:5000)')
+parser.add_argument('--stream-port', type=int, default=8000,
+                    help='Camera stream port (default: 8000)')
+parser.add_argument('--mock', action='store_true',
+                    help='Run without real GPIO/camera hardware (for testing)')
+args = parser.parse_args()
+
+SERVER_URL  = args.server
+STREAM_PORT = args.stream_port
+MOCK        = args.mock
+
+# ---------------------------------------------------------------------------
+# Socket.io + motor control
+# ---------------------------------------------------------------------------
+
+sio = socketio.Client()
+car = RCCarController() if not MOCK else None
+
 
 @sio.on('control_command')
 def on_control_command(data):
-    direction = data.get('direction')
-    speed = data.get('speed', 50)
+    direction      = data.get('direction')
+    speed          = data.get('speed', 0)
     steering_angle = data.get('steering_angle', 0)
-    
     try:
-        car.drive_command(speed, steering_angle)
-        print(f"Executed: {direction} at {speed}% with {steering_angle}° steering")
+        if car is None:
+            print(f'[MOCK] direction={direction}, speed={speed}, steering={steering_angle}')
+            return
+        if direction == 'stop':
+            car.stop()
+        else:
+            car.drive_command(speed, steering_angle)
+        print(f'Executed: {direction} at {speed}% with {steering_angle}° steering')
     except Exception as e:
-        print(f"Error executing command: {e}")
+        print(f'Error executing command: {e}')
+
 
 @sio.on('connect')
 def on_connect():
-    print('Connected to backend server')
+    print(f'Connected to backend server: {SERVER_URL}')
+
 
 @sio.on('disconnect')
 def on_disconnect():
-    print('Disconnected from backend server')
-    car.stop()
+    print('Disconnected from backend server — stopping car')
+    if car:
+        car.stop()
+
 
 def connect_to_server():
-    server_url = 'http://localhost:5000'
-    try:
-        sio.connect(server_url)
-        sio.wait()
-    except Exception as e:
-        print(f"Connection error: {e}")
+    """Connect to backend with automatic reconnection on failure."""
+    while True:
+        try:
+            sio.connect(SERVER_URL)
+            sio.wait()
+        except Exception as exc:
+            print(f'Connection error: {exc}. Retrying in 5 s…')
+            time.sleep(5)
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
 
 if __name__ == '__main__':
-    car_thread = threading.Thread(target=connect_to_server, daemon=True)
-    car_thread.start()
-    
-    camera_thread = threading.Thread(target=start_streaming, daemon=True)
+    print(f'RC Car controller starting '
+          f'(mock={MOCK}, server={SERVER_URL}, stream_port={STREAM_PORT})')
+
+    camera_thread = threading.Thread(
+        target=start_streaming, kwargs={'port': STREAM_PORT, 'mock': MOCK}, daemon=True
+    )
     camera_thread.start()
-    
+    print(f'Camera stream: http://<pi-ip>:{STREAM_PORT}/stream')
+
+    sio_thread = threading.Thread(target=connect_to_server, daemon=True)
+    sio_thread.start()
+
     try:
         while True:
-            pass
+            time.sleep(1)
     except KeyboardInterrupt:
-        print("Shutting down...")
-        car.stop()
+        print('Shutting down…')
+        if car:
+            car.stop()

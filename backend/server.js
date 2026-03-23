@@ -742,6 +742,12 @@ io.on('connection', (socket) => {
   socket.on('start_session', (data) => {
     const { carId, userId, dbUserId } = data;
 
+    // Validate that the requested car exists
+    if (!CARS.some((c) => c.id === carId)) {
+      socket.emit('session_error', { message: 'Неверный идентификатор машины.' });
+      return;
+    }
+
     // Block pending users from renting
     if (Number.isInteger(dbUserId)) {
       const user = db.prepare('SELECT status FROM users WHERE id = ?').get(dbUserId);
@@ -769,13 +775,15 @@ io.on('connection', (socket) => {
   });
 
   socket.on('control_command', (data) => {
+    // Only forward commands from sockets that own an active rental session
+    if (!activeSessions.has(socket.id)) {
+      return;
+    }
     const { direction, speed, steering_angle } = data;
     console.log(
       `Control command received: direction=${direction}, speed=${speed}, steering_angle=${steering_angle}`
     );
-    if (activeSessions.has(socket.id)) {
-      setInactivityTimeout(socket);
-    }
+    setInactivityTimeout(socket);
     socket.broadcast.emit('control_command', data);
   });
 
