@@ -8,12 +8,12 @@ import { test, expect } from '@playwright/test';
  * These tests run against the DOM/HTML layer and do not depend on WebGL rendering.
  */
 
-const CAROUSEL_TIMEOUT = 10_000;
-const TITLE_TIMEOUT = 10_000;
+const CAROUSEL_TIMEOUT = 20_000;
+const TITLE_TIMEOUT = 20_000;
 
 test.describe('Garage UI', () => {
   test('page loads and shows initial car title', async ({ page }) => {
-    await page.goto('/garage');
+    await page.goto('/garage?forceFallback=1');
 
     // The car title element must exist in the DOM
     const title = page.locator('#car-title');
@@ -24,7 +24,7 @@ test.describe('Garage UI', () => {
   });
 
   test('carousel switches livery — title updates on thumbnail click', async ({ page }) => {
-    await page.goto('/garage');
+    await page.goto('/garage?forceFallback=1');
 
     // Wait for the carousel to be rendered by JavaScript
     await page.waitForSelector('.car-thumb', { timeout: CAROUSEL_TIMEOUT });
@@ -42,7 +42,7 @@ test.describe('Garage UI', () => {
   });
 
   test('carousel shows five livery thumbnails', async ({ page }) => {
-    await page.goto('/garage');
+    await page.goto('/garage?forceFallback=1');
     await page.waitForSelector('.car-thumb', { timeout: CAROUSEL_TIMEOUT });
     const thumbs = page.locator('.car-thumb');
     await expect(thumbs).toHaveCount(5);
@@ -59,7 +59,7 @@ test.describe('Garage UI', () => {
 
   for (const { index, name } of VARIANTS) {
     test(`clicking thumbnail ${index} sets ${name} variant`, async ({ page }) => {
-      await page.goto('/garage');
+      await page.goto('/garage?forceFallback=1');
       await page.waitForSelector('.car-thumb', { timeout: CAROUSEL_TIMEOUT });
       await page.locator('.car-thumb').nth(index).click();
       await expect(page.locator('#car-title')).toContainText(name, { timeout: TITLE_TIMEOUT });

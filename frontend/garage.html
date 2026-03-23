@@ -378,9 +378,13 @@
             } catch (e) { return false; }
         }
 
-        if (!hasWebGL()) {
+        const forceFallback = new URLSearchParams(window.location.search).get('forceFallback') === '1';
+
+        if (!hasWebGL() || forceFallback) {
             document.getElementById('webgl-fallback').classList.add('active');
             document.getElementById('scene-loading').classList.add('hidden');
+            renderCarousel();
+            document.getElementById('car-title').textContent = 'Riley-X1 · ' + CAR_VARIANTS[0].name;
         } else {
             initScene();
         }
@@ -599,14 +603,16 @@
             activeVariant = index;
             const v = CAR_VARIANTS[index];
 
-            scene.remove(carGroup);
-            carGroup = buildCar(v.body, v.trim);
-            scene.add(carGroup);
-
             document.querySelectorAll('.car-thumb').forEach((el, i) =>
                 el.classList.toggle('active', i === index)
             );
             document.getElementById('car-title').textContent = 'Riley-X1 · ' + v.name;
+
+            if (!scene || !renderer) return;
+
+            scene.remove(carGroup);
+            carGroup = buildCar(v.body, v.trim);
+            scene.add(carGroup);
         }
 
         // ---- Render carousel ----
