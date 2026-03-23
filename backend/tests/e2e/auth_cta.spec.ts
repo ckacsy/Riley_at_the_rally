@@ -101,14 +101,14 @@ test.describe('CTA button states by role', () => {
 
   test('guest: CTA shows "Только просмотр / Войти"', async ({ page }) => {
     // No cookies, no session — pure guest
-    await page.goto('/garage');
+    await page.goto('/garage?forceFallback=1');
     await waitForCta(page, 'Только просмотр');
     await expect(page.locator('#cta-btn')).toContainText('Войти');
     await expect(page.locator('#cta-btn')).toHaveClass(/observer/);
   });
 
   test('guest: CTA click redirects to /login', async ({ page }) => {
-    await page.goto('/garage');
+    await page.goto('/garage?forceFallback=1');
     await waitForCta(page, 'Только просмотр');
 
     await page.locator('#cta-btn').click();
@@ -122,7 +122,7 @@ test.describe('CTA button states by role', () => {
     // Register creates user with status='pending' and logs them in
     await registerUser(page, 'testpending', 'testpending@example.com', 'Secure#Pass1');
 
-    await page.goto('/garage');
+    await page.goto('/garage?forceFallback=1');
     await waitForCta(page, 'Подтвердите email');
   });
 
@@ -140,7 +140,7 @@ test.describe('CTA button states by role', () => {
     activateUser(user.username);
 
     // Navigate to garage — /api/auth/me will now return status='active'
-    await page.goto('/garage');
+    await page.goto('/garage?forceFallback=1');
     await waitForCta(page, 'Старт / Подключиться');
     await expect(page.locator('#cta-btn')).not.toHaveClass(/observer/);
   });
