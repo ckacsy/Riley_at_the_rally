@@ -230,6 +230,26 @@
             min-height: 16px;
             color: #28a745;
         }
+        .pending-banner {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            padding: 16px 20px;
+            max-width: 860px;
+            margin: 0 auto 24px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+        .pending-banner-icon { font-size: 28px; }
+        .pending-banner-text { flex: 1; }
+        .pending-banner-text strong { display: block; color: #856404; margin-bottom: 4px; }
+        .pending-banner-text span { color: #664d03; font-size: 13px; }
+        .pending-banner-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        .resend-btn { padding: 8px 16px; background: #ffc107; color: #333; border: none; border-radius: 5px; cursor: pointer; font-size: 13px; font-weight: bold; min-height: 36px; }
+        .resend-btn:hover { background: #e0a800; }
+        .resend-btn:disabled { opacity: 0.6; cursor: not-allowed; }
     </style>
 </head>
 <body>
@@ -240,6 +260,16 @@
 
     <div id="loading" class="loading-msg">Загрузка профиля…</div>
     <div id="error" class="error-msg" style="display:none"></div>
+    <div id="pending-banner" class="pending-banner" style="display:none">
+        <div class="pending-banner-icon">📧</div>
+        <div class="pending-banner-text">
+            <strong>Подтвердите ваш email</strong>
+            <span>Ваш аккаунт ожидает подтверждения. Ссылка для активации выведена в консоль сервера (dev-режим).</span>
+        </div>
+        <div class="pending-banner-actions">
+            <button class="resend-btn" id="resend-btn">Отправить повторно</button>
+        </div>
+    </div>
     <div id="profile-content" style="display:none">
 
         <!-- Profile header -->
@@ -294,6 +324,9 @@
     </div>
 
     <script>
+        var csrfToken = '';
+        fetch('/api/csrf-token').then(function(r){return r.json();}).then(function(d){csrfToken=d.csrfToken||'';});
+
         function formatLapTime(ms) {
             const mins = String(Math.floor(ms / 60000)).padStart(2, '0');
             const secs = String(Math.floor((ms % 60000) / 1000)).padStart(2, '0');
@@ -354,6 +387,11 @@
         function renderProfile(data) {
             const { user, stats } = data;
 
+            // Show pending banner if account not active
+            if (user.status === 'pending') {
+                document.getElementById('pending-banner').style.display = 'flex';
+            }
+
             // Avatar
             if (user.avatar_path) {
                 const img = document.createElement('img');
@@ -371,7 +409,7 @@
             }
 
             // Profile info
-            document.getElementById('profile-username').textContent = user.username;
+            document.getElementById('profile-username').textContent = user.display_name || user.username;
             document.getElementById('profile-email').textContent = user.email;
             document.getElementById('profile-joined').textContent = 'Участник с ' + formatDate(user.created_at);
 
@@ -428,7 +466,11 @@
             statusEl.style.color = '#888';
             const formData = new FormData();
             formData.append('avatar', file);
-            fetch('/api/profile/avatar', { method: 'POST', body: formData })
+            fetch('/api/profile/avatar', {
+                method: 'POST',
+                headers: { 'x-csrf-token': csrfToken },
+                body: formData
+            })
                 .then(function (res) { return res.json(); })
                 .then(function (data) {
                     if (data.success) {
@@ -450,9 +492,40 @@
 
         // Logout
         document.getElementById('logout-btn').addEventListener('click', function () {
-            fetch('/api/auth/logout', { method: 'POST' })
+            fetch('/api/auth/logout', {
+                method: 'POST',
+                headers: { 'x-csrf-token': csrfToken }
+            })
                 .then(function () { window.location.href = '/'; });
         });
+
+        // Resend verification email
+        var resendBtn = document.getElementById('resend-btn');
+        if (resendBtn) {
+            resendBtn.addEventListener('click', function () {
+                resendBtn.disabled = true;
+                resendBtn.textContent = 'Отправка…';
+                fetch('/api/auth/resend-verification', {
+                    method: 'POST',
+                    headers: { 'x-csrf-token': csrfToken }
+                })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        resendBtn.textContent = data.success ? '✅ Отправлено' : '❌ Ошибка';
+                        setTimeout(function () {
+                            resendBtn.disabled = false;
+                            resendBtn.textContent = 'Отправить повторно';
+                        }, 5000);
+                    })
+                    .catch(function () {
+                        resendBtn.textContent = '❌ Ошибка';
+                        setTimeout(function () {
+                            resendBtn.disabled = false;
+                            resendBtn.textContent = 'Отправить повторно';
+                        }, 3000);
+                    });
+            });
+        }
 
         loadProfile();
     </script>
