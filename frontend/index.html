@@ -728,7 +728,7 @@
         }
 
         function loadLeaderboard() {
-            fetch('/api/leaderboard')
+            fetch('/api/leaderboard', { cache: 'no-store' })
                 .then(function (res) { return res.json(); })
                 .then(function (data) { renderLeaderboard(data.leaderboard); })
                 .catch(function () {
