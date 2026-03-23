@@ -172,7 +172,7 @@
                 spinner.style.display='none';
                 if(data.success){
                     if(data.csrfToken)csrfToken=data.csrfToken;
-                    successEl.textContent='✅ Аккаунт создан! Ссылка для подтверждения email выведена в консоль сервера. Перенаправление…';
+                    successEl.textContent='✅ Аккаунт создан! Письмо с подтверждением email отправлено на указанный адрес. Перенаправление…';
                     successEl.style.display='block';
                     setTimeout(function(){window.location.href='/profile';},2500);
                 }else{

@@ -9,6 +9,12 @@ const nodemailer = require('nodemailer');
 const MAIL_DISABLED =
   process.env.NODE_ENV === 'test' || process.env.DISABLE_EMAIL === 'true';
 
+if (MAIL_DISABLED) {
+  console.log('[Mailer] Email sending is DISABLED (NODE_ENV=test or DISABLE_EMAIL=true). Verification links will be printed to server console instead.');
+} else if (!process.env.SMTP_HOST) {
+  console.warn('[Mailer] WARNING: SMTP_HOST is not set; defaulting to localhost. Email delivery will likely fail. Set SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASS in .env to enable email sending.');
+}
+
 /**
  * Lazy-initialised SMTP transporter (only created when email is enabled).
  */
@@ -35,11 +41,11 @@ function getTransporter() {
  */
 async function sendMail({ to, subject, text, html }) {
   if (MAIL_DISABLED) {
-    console.log('\n=== [MAIL DISABLED] Would send email ===');
+    console.log('\n=== [MAIL DISABLED] Email not sent — printing to console instead ===');
     console.log(`To: ${to}`);
     console.log(`Subject: ${subject}`);
     console.log(text);
-    console.log('========================================\n');
+    console.log('=====================================================================\n');
     return;
   }
 

@@ -12,7 +12,7 @@ const Database = require('better-sqlite3');
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const multer = require('multer');
-require('dotenv').config();
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const metrics = require('./metrics');
 const mailer = require('./mailer');
@@ -281,6 +281,11 @@ function clearLoginFailures(ip) {
 }
 
 // --- Mailer helpers ---
+
+// In non-production environments, keep the last verification URL per normalised email
+// so the /api/dev/verification-link endpoint can return it when SMTP is unavailable.
+const _devVerificationLinks = process.env.NODE_ENV !== 'production' ? new Map() : null;
+
 function sendVerificationEmail(email, token, req) {
   const baseUrl = process.env.APP_BASE_URL ||
     (req ? `${req.protocol}://${req.get('host')}` : `http://localhost:${PORT}`);
@@ -288,8 +293,15 @@ function sendVerificationEmail(email, token, req) {
   const subject = 'Подтвердите email — Riley at the Rally';
   const text = `Здравствуйте!\n\nДля подтверждения вашего email перейдите по ссылке:\n${verifyUrl}\n\nСсылка действительна 24 часа.\n\nЕсли вы не регистрировались на нашем сайте, просто проигнорируйте это письмо.`;
   const html = `<p>Здравствуйте!</p><p>Для подтверждения вашего email перейдите по ссылке:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p><p>Ссылка действительна 24 часа.</p><p>Если вы не регистрировались на нашем сайте, просто проигнорируйте это письмо.</p>`;
+  if (_devVerificationLinks) {
+    _devVerificationLinks.set(normalizeEmail(email), verifyUrl);
+  }
   mailer.sendMail({ to: email, subject, text, html }).catch((err) => {
     console.error('[Mailer] Failed to send verification email:', err.message);
+    if (_devVerificationLinks) {
+      console.error('[Mailer] Tip: set DISABLE_EMAIL=true to print links to console, or fix SMTP env vars (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS) in .env');
+      console.error(`[Mailer] Verification link (dev only): ${verifyUrl}`);
+    }
   });
 }
 
@@ -1366,6 +1378,41 @@ io.on('connection', (socket) => {
 // --- Dev-only: reset database (delete all users and sessions) ---
 // Accessible only when NODE_ENV !== 'production'
 if (process.env.NODE_ENV !== 'production') {
+  const devLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests from this IP, please try again later.' },
+    keyGenerator: (req) => req.ip,
+  });
+
+  // Dev helper: retrieve the current pending verification link for a user by email.
+  // Useful when SMTP is misconfigured and emails cannot be delivered.
+  app.get('/api/dev/verification-link', devLimiter, (req, res) => {
+    const rawEmail = typeof req.query.email === 'string' ? req.query.email.trim() : '';
+    if (!rawEmail) {
+      return res.status(400).json({ error: 'Query param "email" is required' });
+    }
+    const emailNorm = normalizeEmail(rawEmail);
+    const user = db
+      .prepare('SELECT id, username, status FROM users WHERE email_normalized = ?')
+      .get(emailNorm);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    if (user.status !== 'pending') {
+      return res.status(400).json({ error: 'Account is already verified', status: user.status });
+    }
+    const link = _devVerificationLinks && _devVerificationLinks.get(emailNorm);
+    if (!link) {
+      return res.status(404).json({
+        error: 'No verification link in memory. Try resending from the profile page (POST /api/auth/resend-verification) -- the new link will be stored here.',
+      });
+    }
+    return res.json({ verificationLink: link });
+  });
+
   app.post('/api/dev/reset-db', (req, res) => {
     try {
       db.transaction(() => {
@@ -1378,6 +1425,7 @@ if (process.env.NODE_ENV !== 'production') {
         db.exec("DELETE FROM sqlite_sequence WHERE name IN ('users','lap_times','rental_sessions','email_verification_tokens','password_reset_tokens')");
       })();
       req.session.destroy((err) => { if (err) console.error('Session destroy error:', err); });
+      if (_devVerificationLinks) _devVerificationLinks.clear();
       console.log('[DEV] Database reset: all users and sessions deleted.');
       res.json({ success: true, message: 'Database reset: all users, sessions and tokens deleted.' });
     } catch (e) {
