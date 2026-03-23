@@ -177,6 +177,10 @@
         .create-race-btn:hover {
             background-color: #1e7e34;
         }
+        .create-race-btn:disabled {
+            background-color: #aaa;
+            cursor: not-allowed;
+        }
         .no-data {
             text-align: center;
             color: #888;
@@ -260,6 +264,40 @@
             transition: background-color 0.2s, color 0.2s;
         }
         .auth-nav .logout-btn:hover { background-color: #dc3545; color: white; }
+        .auth-nav .user-avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1px solid #ccc;
+            vertical-align: middle;
+        }
+        .auth-nav .avatar-placeholder {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #6c757d;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            color: white;
+            vertical-align: middle;
+            font-weight: bold;
+        }
+        /* Pending email verification banner */
+        .pending-banner {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+            padding: 12px 18px;
+            max-width: 960px;
+            margin: 0 auto 16px;
+            font-size: 14px;
+            color: #856404;
+            text-align: center;
+            display: none;
+        }
         /* Stale session summary modal */
         .stale-overlay {
             display: none;
@@ -319,6 +357,10 @@
     <div class="auth-nav" id="auth-nav">
         <span id="auth-loading" style="color:#aaa">…</span>
     </div>
+    <!-- Pending email verification banner -->
+    <div class="pending-banner" id="pending-banner">
+        ⚠️ Подтвердите email — без подтверждения доступ к гонкам/аренде ограничен.
+    </div>
 
     <h1>🏎️ Выберите модель RC-машины</h1>
     <p class="subtitle">Выберите машину ниже и нажмите <strong>Активировать</strong>, чтобы начать аренду.</p>
@@ -361,6 +403,12 @@
         let socket = io(window.location.origin);
         let ratePerMinute = 0.50; // default; overridden by API response
         let currentUser = null; // logged-in user from /api/auth/me
+        let csrfToken = '';
+
+        // Fetch CSRF token on page load so logout can include it
+        fetch('/api/csrf-token')
+            .then(function (r) { return r.json(); })
+            .then(function (d) { csrfToken = d.csrfToken || ''; });
 
         // Load auth state and render nav
         function loadAuthNav() {
@@ -369,19 +417,64 @@
                 .then(function (data) {
                     currentUser = data.user || null;
                     const nav = document.getElementById('auth-nav');
+                    const banner = document.getElementById('pending-banner');
+                    const createBtn = document.getElementById('create-race-btn');
                     if (currentUser) {
-                        nav.innerHTML =
-                            '<span class="user-greeting">👤 ' + currentUser.username + '</span>' +
-                            '<a href="/profile">Профиль</a>' +
-                            '<button class="logout-btn" id="logout-btn">Выйти</button>';
-                        document.getElementById('logout-btn').addEventListener('click', function () {
-                            fetch('/api/auth/logout', { method: 'POST' })
+                        nav.innerHTML = '';
+
+                        // Avatar: use DOM to safely set src/textContent
+                        if (currentUser.avatar_path) {
+                            const img = document.createElement('img');
+                            img.className = 'user-avatar';
+                            img.src = currentUser.avatar_path;
+                            img.alt = 'Аватар';
+                            nav.appendChild(img);
+                        } else {
+                            const placeholder = document.createElement('span');
+                            placeholder.className = 'avatar-placeholder';
+                            placeholder.textContent = currentUser.username.charAt(0).toUpperCase();
+                            nav.appendChild(placeholder);
+                        }
+
+                        const greeting = document.createElement('span');
+                        greeting.className = 'user-greeting';
+                        greeting.textContent = '👤 ' + currentUser.username;
+                        nav.appendChild(greeting);
+
+                        const profileLink = document.createElement('a');
+                        profileLink.href = '/profile';
+                        profileLink.textContent = 'Профиль';
+                        nav.appendChild(profileLink);
+
+                        const logoutBtn = document.createElement('button');
+                        logoutBtn.className = 'logout-btn';
+                        logoutBtn.id = 'logout-btn';
+                        logoutBtn.textContent = 'Выйти';
+                        logoutBtn.addEventListener('click', function () {
+                            fetch('/api/auth/logout', {
+                                method: 'POST',
+                                headers: { 'x-csrf-token': csrfToken }
+                            })
                                 .then(function () { currentUser = null; loadAuthNav(); });
                         });
+                        nav.appendChild(logoutBtn);
+
+                        // Show pending banner and disable controls for unverified users
+                        if (currentUser.status === 'pending') {
+                            banner.style.display = 'block';
+                            createBtn.disabled = true;
+                            createBtn.title = 'Подтвердите email для создания гонки';
+                        } else {
+                            banner.style.display = 'none';
+                            createBtn.disabled = false;
+                            createBtn.title = '';
+                        }
                     } else {
                         nav.innerHTML =
                             '<a href="/login">Войти</a>' +
                             '<a href="/register" style="background:#28a745;color:white;padding:6px 14px;border-radius:5px">Регистрация</a>';
+                        banner.style.display = 'none';
+                        createBtn.disabled = false;
                     }
                 })
                 .catch(function () {
@@ -484,6 +577,10 @@
             });
             document.querySelectorAll('.activate-btn:not([disabled])').forEach(function (btn) {
                 btn.addEventListener('click', function () {
+                    if (currentUser && currentUser.status === 'pending') {
+                        alert('Подтвердите email для аренды машины.');
+                        return;
+                    }
                     const carId = parseInt(btn.getAttribute('data-car-id'), 10);
                     const carName = btn.getAttribute('data-car-name');
                     btn.disabled = true;
@@ -580,6 +677,10 @@
         }
 
         function selectRace(raceId) {
+            if (currentUser && currentUser.status === 'pending') {
+                alert('Подтвердите email для участия в гонке.');
+                return;
+            }
             selectedRaceId = raceId;
             sessionStorage.setItem('selectedRaceId', raceId);
             sessionStorage.removeItem('createNewRace');
@@ -637,6 +738,10 @@
         }
 
         document.getElementById('create-race-btn').addEventListener('click', function () {
+            if (currentUser && currentUser.status === 'pending') {
+                alert('Подтвердите email для создания гонки.');
+                return;
+            }
             selectedRaceId = null;
             sessionStorage.removeItem('selectedRaceId');
             sessionStorage.setItem('createNewRace', 'true');
