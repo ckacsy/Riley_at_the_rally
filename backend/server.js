@@ -740,21 +740,31 @@ io.on('connection', (socket) => {
   console.log('New client connected:', socket.id);
 
   socket.on('start_session', (data) => {
-    const { carId, userId, dbUserId } = data;
+    const { carId, dbUserId } = data;
+
+    // Require authenticated & verified user
+    if (!Number.isInteger(dbUserId)) {
+      socket.emit('session_error', { message: 'Требуется авторизация.', code: 'auth_required' });
+      return;
+    }
+    const user = db.prepare('SELECT username, status FROM users WHERE id = ?').get(dbUserId);
+    if (!user) {
+      socket.emit('session_error', { message: 'Пользователь не найден.', code: 'auth_required' });
+      return;
+    }
+    if (user.status === 'pending') {
+      socket.emit('session_error', { message: 'Подтвердите email для аренды машины.', code: 'pending_verification' });
+      return;
+    }
+    if (user.status === 'disabled') {
+      socket.emit('session_error', { message: 'Аккаунт заблокирован.', code: 'account_disabled' });
+      return;
+    }
 
     // Validate that the requested car exists
     if (!CARS.some((c) => c.id === carId)) {
       socket.emit('session_error', { message: 'Неверный идентификатор машины.' });
       return;
-    }
-
-    // Block pending users from renting
-    if (Number.isInteger(dbUserId)) {
-      const user = db.prepare('SELECT status FROM users WHERE id = ?').get(dbUserId);
-      if (user && user.status === 'pending') {
-        socket.emit('session_error', { message: 'Подтвердите email для аренды машины.', code: 'pending_verification' });
-        return;
-      }
     }
 
     const carAlreadyActive = [...activeSessions.values()].some((s) => s.carId === carId);
@@ -764,14 +774,14 @@ io.on('connection', (socket) => {
     }
     activeSessions.set(socket.id, {
       carId,
-      userId,
-      dbUserId: Number.isInteger(dbUserId) ? dbUserId : null,
+      userId: user.username,
+      dbUserId,
       startTime: new Date(),
     });
     socket.emit('session_started', { carId, sessionId: socket.id });
     setInactivityTimeout(socket);
     broadcastCarsUpdate();
-    console.log(`Session started: User ${userId} connected to Car ${carId}`);
+    console.log(`Session started: User ${user.username} connected to Car ${carId}`);
   });
 
   socket.on('control_command', (data) => {
@@ -819,16 +829,25 @@ io.on('connection', (socket) => {
   // --- Race events ---
 
   socket.on('join_race', (data) => {
-    const { raceId, userId, carId, carName, dbUserId } = data || {};
-    if (!userId) return;
+    const { raceId, carId, carName, dbUserId } = data || {};
 
-    // Block pending users from joining races
-    if (Number.isInteger(dbUserId)) {
-      const user = db.prepare('SELECT status FROM users WHERE id = ?').get(dbUserId);
-      if (user && user.status === 'pending') {
-        socket.emit('race_error', { message: 'Подтвердите email для участия в гонках.', code: 'pending_verification' });
-        return;
-      }
+    // Require authenticated & verified user
+    if (!Number.isInteger(dbUserId)) {
+      socket.emit('race_error', { message: 'Требуется авторизация.', code: 'auth_required' });
+      return;
+    }
+    const user = db.prepare('SELECT username, status FROM users WHERE id = ?').get(dbUserId);
+    if (!user) {
+      socket.emit('race_error', { message: 'Пользователь не найден.', code: 'auth_required' });
+      return;
+    }
+    if (user.status === 'pending') {
+      socket.emit('race_error', { message: 'Подтвердите email для участия в гонках.', code: 'pending_verification' });
+      return;
+    }
+    if (user.status === 'disabled') {
+      socket.emit('race_error', { message: 'Аккаунт заблокирован.', code: 'account_disabled' });
+      return;
     }
 
     removeFromRace(socket);
@@ -850,8 +869,8 @@ io.on('connection', (socket) => {
 
     const player = {
       socketId: socket.id,
-      userId,
-      dbUserId: Number.isInteger(dbUserId) ? dbUserId : null,
+      userId: user.username,
+      dbUserId,
       carId: carId || null,
       carName: carName || ('Машина #' + (carId || '?')),
       lapCount: 0,
@@ -876,7 +895,7 @@ io.on('connection', (socket) => {
 
     broadcastRacesUpdate();
 
-    console.log(`User ${userId} joined race ${race.id}`);
+    console.log(`User ${user.username} joined race ${race.id}`);
   });
 
   socket.on('leave_race', () => {

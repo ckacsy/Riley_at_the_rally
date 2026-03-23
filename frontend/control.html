@@ -615,9 +615,11 @@
             statusText.textContent = 'Подключено';
             // Re-establish server-side session so car status is 'unavailable'
             if (hasSession && carId) {
-                const userId = sessionData.userId || ('user-' + socket.id);
-                const dbUserId = sessionData.dbUserId || null;
-                socket.emit('start_session', { carId: carId, userId: userId, dbUserId: dbUserId });
+                if (!sessionData.dbUserId) {
+                    console.warn('Сессия недоступна: требуется вход и подтверждённый email.');
+                    return;
+                }
+                socket.emit('start_session', { carId: carId, userId: sessionData.userId, dbUserId: sessionData.dbUserId });
             }
         });
 
@@ -859,7 +861,11 @@
         // Auto-join race if selected from index.html, or auto-create if "create new race" was chosen
         socket.on('connect', function () {
             const sd = sessionData || {};
-            const playerInfo = { userId: getMyUserId(), carId: carId, carName: carName, dbUserId: sd.dbUserId || null };
+            if (!sd.dbUserId) {
+                console.warn('Автоматическое подключение к гонке пропущено: требуется вход и подтверждённый email.');
+                return;
+            }
+            const playerInfo = { userId: getMyUserId(), carId: carId, carName: carName, dbUserId: sd.dbUserId };
             if (sd.selectedRaceId && !currentRaceId) {
                 socket.emit('join_race', Object.assign({ raceId: sd.selectedRaceId }, playerInfo));
             } else if (sessionStorage.getItem('createNewRace') === 'true' && !currentRaceId) {
@@ -932,23 +938,31 @@
         });
 
         document.getElementById('create-race-btn').addEventListener('click', function () {
+            if (!sessionData.dbUserId) {
+                alert('Войдите и подтвердите email для участия в гонках.');
+                return;
+            }
             socket.emit('join_race', {
                 userId: getMyUserId(),
                 carId: carId,
                 carName: carName,
-                dbUserId: sessionData.dbUserId || null,
+                dbUserId: sessionData.dbUserId,
             });
         });
 
         document.getElementById('join-race-btn').addEventListener('click', function () {
             const raceId = document.getElementById('race-select').value;
             if (!raceId) return;
+            if (!sessionData.dbUserId) {
+                alert('Войдите и подтвердите email для участия в гонках.');
+                return;
+            }
             socket.emit('join_race', {
                 raceId: raceId,
                 userId: getMyUserId(),
                 carId: carId,
                 carName: carName,
-                dbUserId: sessionData.dbUserId || null,
+                dbUserId: sessionData.dbUserId,
             });
         });
 
