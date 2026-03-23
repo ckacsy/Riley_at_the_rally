@@ -890,6 +890,14 @@ app.get('/api/leaderboard', apiReadLimiter, (req, res) => {
   }
 });
 
+// Session config (public read, for frontend hydration)
+app.get('/api/config/session', (req, res) => {
+  res.json({
+    sessionMaxDurationMs: SESSION_MAX_DURATION_MS,
+    inactivityTimeoutMs: INACTIVITY_TIMEOUT_MS,
+  });
+});
+
 // End session via HTTP (used by navigator.sendBeacon on page unload)
 app.post('/api/session/end', (req, res) => {
   const { sessionId, dbUserId } = req.body || {};
@@ -1003,7 +1011,12 @@ io.on('connection', (socket) => {
       dbUserId,
       startTime: new Date(),
     });
-    socket.emit('session_started', { carId, sessionId: socket.id });
+    socket.emit('session_started', {
+      carId,
+      sessionId: socket.id,
+      sessionMaxDurationMs: SESSION_MAX_DURATION_MS,
+      inactivityTimeoutMs: INACTIVITY_TIMEOUT_MS,
+    });
     setInactivityTimeout(socket);
     setSessionDurationTimeout(socket);
     broadcastCarsUpdate();

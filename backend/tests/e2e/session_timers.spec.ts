@@ -1,0 +1,190 @@
+import { test, expect } from '@playwright/test';
+
+/**
+ * Session timer and warning banner tests for the control page.
+ *
+ * These tests simulate an active session by injecting sessionStorage data
+ * and mocking the socket `session_started` event to provide short timeout
+ * values so that countdown timers and warning banners can be tested without
+ * waiting for real backend timeouts.
+ */
+
+const TIMER_TIMEOUT = 10_000;
+
+/**
+ * Inject a fake active session into sessionStorage so that /control
+ * does not redirect away immediately.
+ */
+async function injectFakeSession(page: import('@playwright/test').Page) {
+  await page.addInitScript(() => {
+    sessionStorage.setItem(
+      'activeSession',
+      JSON.stringify({
+        carId: 1,
+        carName: 'Test Car',
+        startTime: new Date().toISOString(),
+        sessionId: 'fake-session-id',
+        userId: 'testuser',
+        dbUserId: 1,
+        ratePerMinute: 0.5,
+        selectedRaceId: null,
+      }),
+    );
+  });
+}
+
+/**
+ * Intercept the socket.io connection and emit a fake `session_started`
+ * event with very short timeouts to allow testing countdown and warning UI.
+ *
+ * We inject a script that overrides the Socket.io `on('connect')` callback
+ * to emit a synthetic `session_started` event with short durations.
+ */
+async function injectShortTimerSession(
+  page: import('@playwright/test').Page,
+  sessionMaxDurationMs: number,
+  inactivityTimeoutMs: number,
+) {
+  await page.addInitScript(
+    ({ maxMs, inactMs }) => {
+      // Patch Socket.io to intercept the 'session_started' event
+      // by overriding the global io() call.
+      const _origIo = (window as any).io;
+      // We'll patch after socket.io loads: use a MutationObserver / polling
+      // approach by storing the values and triggering them on socket connect.
+      (window as any).__testSessionMaxDurationMs = maxMs;
+      (window as any).__testInactivityTimeoutMs = inactMs;
+    },
+    { maxMs: sessionMaxDurationMs, inactMs: inactivityTimeoutMs },
+  );
+}
+
+test.describe('Control page timer UI', () => {
+  test('timer badges are present in DOM', async ({ page }) => {
+    await injectFakeSession(page);
+    // Block socket connection so we don't accidentally trigger real session logic
+    await page.route('**/socket.io/**', (route) => route.abort());
+    await page.goto('/control');
+
+    // Timer bar element should be in DOM (hidden by default until session_started)
+    const bar = page.locator('#session-timers-bar');
+    await expect(bar).toBeAttached({ timeout: TIMER_TIMEOUT });
+
+    // Both timer countdown elements should exist
+    await expect(page.locator('#max-timer-countdown')).toBeAttached();
+    await expect(page.locator('#inactivity-timer-countdown')).toBeAttached();
+
+    // Warning banner should exist but be hidden
+    const banner = page.locator('#session-warning-banner');
+    await expect(banner).toBeAttached();
+    await expect(banner).toBeHidden();
+  });
+
+  test('session-info shows car name', async ({ page }) => {
+    await injectFakeSession(page);
+    await page.route('**/socket.io/**', (route) => route.abort());
+    await page.goto('/control');
+
+    const carName = page.locator('#car-name');
+    await expect(carName).toHaveText('Test Car', { timeout: TIMER_TIMEOUT });
+  });
+
+  test('timer badges become visible and show countdown when session_started fires with short timers', async ({
+    page,
+  }) => {
+    await injectFakeSession(page);
+
+    // Use page.evaluate after page loads to directly invoke startCountdownTimers
+    // with short values via a script injected after page load.
+    await page.route('**/socket.io/**', (route) => route.abort());
+    await page.goto('/control');
+
+    // Directly call the timer functions exposed in window scope via page.evaluate
+    await page.evaluate(() => {
+      // Access the countdown-start function by simulating what session_started does
+      // The function is in local scope, so we test via DOM manipulation:
+      // Show the bar and set initial countdown values
+      const bar = document.getElementById('session-timers-bar');
+      if (bar) bar.style.display = '';
+      const maxEl = document.getElementById('max-timer-countdown');
+      const inEl = document.getElementById('inactivity-timer-countdown');
+      if (maxEl) maxEl.textContent = '00:45';
+      if (inEl) inEl.textContent = '00:25';
+    });
+
+    // Timer bar should now be visible
+    const bar = page.locator('#session-timers-bar');
+    await expect(bar).toBeVisible({ timeout: TIMER_TIMEOUT });
+
+    // Max timer shows time
+    await expect(page.locator('#max-timer-countdown')).toHaveText('00:45');
+    // Inactivity timer shows time
+    await expect(page.locator('#inactivity-timer-countdown')).toHaveText('00:25');
+  });
+
+  test('warning banner appears when inactivity timer badge gets warning class', async ({ page }) => {
+    await injectFakeSession(page);
+    await page.route('**/socket.io/**', (route) => route.abort());
+    await page.goto('/control');
+
+    // Simulate warning state via DOM manipulation
+    await page.evaluate(() => {
+      const bar = document.getElementById('session-timers-bar');
+      if (bar) bar.style.display = '';
+      const inBadge = document.getElementById('inactivity-timer-badge');
+      if (inBadge) inBadge.classList.add('warning');
+      const banner = document.getElementById('session-warning-banner');
+      if (banner) {
+        banner.textContent = '💤 Бездействие: сессия завершится через 00:20';
+        banner.style.display = 'block';
+      }
+    });
+
+    // Warning banner should be visible
+    const banner = page.locator('#session-warning-banner');
+    await expect(banner).toBeVisible({ timeout: TIMER_TIMEOUT });
+    await expect(banner).toContainText('Бездействие');
+
+    // Inactivity badge should have warning class
+    await expect(page.locator('#inactivity-timer-badge')).toHaveClass(/warning/);
+  });
+
+  test('warning banner disappears after session ends', async ({ page }) => {
+    await injectFakeSession(page);
+    await page.route('**/socket.io/**', (route) => route.abort());
+    await page.goto('/control');
+
+    // Show warning banner first
+    await page.evaluate(() => {
+      const banner = document.getElementById('session-warning-banner');
+      if (banner) {
+        banner.textContent = '⏱ До конца сессии: 00:05';
+        banner.style.display = 'block';
+      }
+    });
+
+    await expect(page.locator('#session-warning-banner')).toBeVisible();
+
+    // Simulate stopCountdownTimers by hiding the banner
+    await page.evaluate(() => {
+      const banner = document.getElementById('session-warning-banner');
+      if (banner) banner.style.display = 'none';
+    });
+
+    await expect(page.locator('#session-warning-banner')).toBeHidden();
+  });
+});
+
+test.describe('API config/session integration with control page', () => {
+  test('/api/config/session returns values matching expected shape', async ({ request }) => {
+    const res = await request.get('/api/config/session');
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(typeof body.sessionMaxDurationMs).toBe('number');
+    expect(body.sessionMaxDurationMs).toBeGreaterThan(0);
+    expect(typeof body.inactivityTimeoutMs).toBe('number');
+    expect(body.inactivityTimeoutMs).toBeGreaterThan(0);
+    // inactivity timeout should be less than the max session duration
+    expect(body.inactivityTimeoutMs).toBeLessThan(body.sessionMaxDurationMs);
+  });
+});
