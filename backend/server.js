@@ -462,7 +462,17 @@ function checkControlRateLimit(socketId) {
 
 // --- Routes ---
 
-app.get('/api/health', async (req, res) => {
+const healthLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Слишком много запросов. Попробуйте позже.' },
+  keyGenerator: (req) => req.ip,
+  skip: () => process.env.NODE_ENV === 'test',
+});
+
+app.get('/api/health', healthLimiter, async (req, res) => {
   const health = { ok: true, ts: new Date().toISOString(), details: {} };
 
   // DB connectivity check
@@ -501,7 +511,7 @@ app.get('/api/health', async (req, res) => {
           () => resolve()
         );
         reqCam.on('error', reject);
-        reqCam.on('timeout', () => { reqCam.destroy(); reject(new Error('timeout')); });
+        reqCam.on('timeout', () => { reqCam.destroy(); reject(new Error('camera stream health check timed out')); });
         reqCam.end();
       });
       health.details.camera = { ok: true };
@@ -521,6 +531,9 @@ app.get('/api/health', async (req, res) => {
 });
 
 // --- Metrics endpoint ---
+const IS_DEV_MODE = process.env.DEBUG === 'true' || process.env.NODE_ENV !== 'production';
+const METRICS_SECRET = process.env.METRICS_SECRET || '';
+
 const metricsLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 30,
@@ -533,10 +546,8 @@ const metricsLimiter = rateLimit({
 
 app.get('/api/metrics', metricsLimiter, requireAuth, (req, res) => {
   // Access control: open in debug/dev mode; require METRICS_SECRET header in production
-  const isDevMode = process.env.DEBUG === 'true' || process.env.NODE_ENV !== 'production';
-  const metricsSecret = process.env.METRICS_SECRET;
   const providedSecret = req.headers['x-metrics-key'];
-  if (!isDevMode && !(metricsSecret && providedSecret === metricsSecret)) {
+  if (!IS_DEV_MODE && !(METRICS_SECRET && providedSecret === METRICS_SECRET)) {
     return res.status(403).json({ error: 'Доступ запрещён' });
   }
   res.json(metrics.getMetrics(activeSessions, raceRooms));
@@ -980,8 +991,8 @@ io.on('connection', (socket) => {
       socket.emit('control_error', { message: 'Слишком много команд. Подождите немного.', code: 'rate_limited' });
       return;
     }
-    const t0 = performance.now();
     setInactivityTimeout(socket);
+    const t0 = performance.now();
     socket.broadcast.emit('control_command', data);
     metrics.recordCommand();
     metrics.recordLatency(socket.id, performance.now() - t0);
