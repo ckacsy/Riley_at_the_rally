@@ -50,6 +50,19 @@ app.use(session({
 const PORT = process.env.PORT || 5000;
 const RATE_PER_MINUTE = 0.50;
 const INACTIVITY_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes AFK
+// Max session duration: default 10 min, override via SESSION_MAX_DURATION_MS env var
+const _rawMaxDuration = parseInt(process.env.SESSION_MAX_DURATION_MS || '', 10);
+if (process.env.SESSION_MAX_DURATION_MS && isNaN(_rawMaxDuration)) {
+  console.warn(`Invalid SESSION_MAX_DURATION_MS value "${process.env.SESSION_MAX_DURATION_MS}", using default 600000`);
+}
+const SESSION_MAX_DURATION_MS = (!isNaN(_rawMaxDuration) && _rawMaxDuration > 0) ? _rawMaxDuration : 10 * 60 * 1000;
+// Control command rate limit: max commands per sliding window per socket
+const _rawRateLimit = parseInt(process.env.CONTROL_RATE_LIMIT_MAX || '', 10);
+if (process.env.CONTROL_RATE_LIMIT_MAX && isNaN(_rawRateLimit)) {
+  console.warn(`Invalid CONTROL_RATE_LIMIT_MAX value "${process.env.CONTROL_RATE_LIMIT_MAX}", using default 20`);
+}
+const CONTROL_RATE_LIMIT_MAX = (!isNaN(_rawRateLimit) && _rawRateLimit > 0) ? _rawRateLimit : 20; // per second
+const CONTROL_RATE_LIMIT_WINDOW_MS = 1000;
 
 const CARS = [
   { id: 1, name: 'MJX Hyper Go 14302', model: 'Drift Car' },
@@ -292,6 +305,10 @@ function saveRentalSession(dbUserId, carId, durationSeconds, cost) {
 // Track active sessions and inactivity timers (keyed by socket.id)
 const activeSessions = new Map();
 const inactivityTimeouts = new Map();
+// Session duration limit timers (keyed by socket.id)
+const sessionDurationTimeouts = new Map();
+// Control-command rate-limit counters (keyed by socket.id)
+const controlCommandCounters = new Map(); // socketId -> { count, windowStart }
 
 // --- Race Management ---
 const raceRooms = new Map(); // raceId -> race object
@@ -375,12 +392,54 @@ function setInactivityTimeout(socket) {
     const cost = durationMinutes * RATE_PER_MINUTE;
     activeSessions.delete(socket.id);
     inactivityTimeouts.delete(socket.id);
+    clearSessionDurationTimeout(socket.id);
     saveRentalSession(session.dbUserId, session.carId, durationSeconds, cost);
     socket.emit('session_ended', { carId: session.carId, durationSeconds, cost, reason: 'inactivity' });
     broadcastCarsUpdate();
     console.log(`Session auto-ended (inactivity): Car ${session.carId}, duration ${durationSeconds}s, cost $${cost.toFixed(2)}`);
   }, INACTIVITY_TIMEOUT_MS);
   inactivityTimeouts.set(socket.id, timeout);
+}
+
+function clearSessionDurationTimeout(socketId) {
+  if (sessionDurationTimeouts.has(socketId)) {
+    clearTimeout(sessionDurationTimeouts.get(socketId));
+    sessionDurationTimeouts.delete(socketId);
+  }
+}
+
+function setSessionDurationTimeout(socket) {
+  clearSessionDurationTimeout(socket.id);
+  const timeout = setTimeout(() => {
+    const session = activeSessions.get(socket.id);
+    if (!session) return;
+    const endTime = new Date();
+    const durationMs = endTime - session.startTime;
+    const durationSeconds = Math.floor(durationMs / 1000);
+    const durationMinutes = durationMs / 60000;
+    const cost = durationMinutes * RATE_PER_MINUTE;
+    activeSessions.delete(socket.id);
+    sessionDurationTimeouts.delete(socket.id);
+    clearInactivityTimeout(socket.id);
+    saveRentalSession(session.dbUserId, session.carId, durationSeconds, cost);
+    socket.emit('session_ended', { carId: session.carId, durationSeconds, cost, reason: 'time_limit' });
+    broadcastCarsUpdate();
+    console.log(`Session auto-ended (time_limit): Car ${session.carId}, duration ${durationSeconds}s, cost $${cost.toFixed(2)}`);
+  }, SESSION_MAX_DURATION_MS);
+  sessionDurationTimeouts.set(socket.id, timeout);
+}
+
+// Returns true if the command is within the allowed rate, false if throttled.
+function checkControlRateLimit(socketId) {
+  const now = Date.now();
+  const entry = controlCommandCounters.get(socketId) || { count: 0, windowStart: now };
+  if (now - entry.windowStart >= CONTROL_RATE_LIMIT_WINDOW_MS) {
+    entry.count = 0;
+    entry.windowStart = now;
+  }
+  entry.count += 1;
+  controlCommandCounters.set(socketId, entry);
+  return entry.count <= CONTROL_RATE_LIMIT_MAX;
 }
 
 // --- Routes ---
@@ -780,6 +839,7 @@ io.on('connection', (socket) => {
     });
     socket.emit('session_started', { carId, sessionId: socket.id });
     setInactivityTimeout(socket);
+    setSessionDurationTimeout(socket);
     broadcastCarsUpdate();
     console.log(`Session started: User ${user.username} connected to Car ${carId}`);
   });
@@ -787,6 +847,10 @@ io.on('connection', (socket) => {
   socket.on('control_command', (data) => {
     // Only forward commands from sockets that own an active rental session
     if (!activeSessions.has(socket.id)) {
+      return;
+    }
+    if (!checkControlRateLimit(socket.id)) {
+      socket.emit('control_error', { message: 'Слишком много команд. Подождите немного.', code: 'rate_limited' });
       return;
     }
     const { direction, speed, steering_angle } = data;
@@ -799,6 +863,7 @@ io.on('connection', (socket) => {
 
   socket.on('end_session', (data) => {
     clearInactivityTimeout(socket.id);
+    clearSessionDurationTimeout(socket.id);
     const session = activeSessions.get(socket.id);
     if (!session) {
       socket.emit('session_error', { message: 'No active session found.' });
@@ -818,6 +883,8 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     clearInactivityTimeout(socket.id);
+    clearSessionDurationTimeout(socket.id);
+    controlCommandCounters.delete(socket.id);
     const hadSession = activeSessions.has(socket.id);
     activeSessions.delete(socket.id);
     removeFromRace(socket);

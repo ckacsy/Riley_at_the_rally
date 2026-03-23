@@ -506,6 +506,7 @@
             <p id="summary-car">Машина: —</p>
             <p id="summary-duration">Длительность: —</p>
             <p class="cost" id="summary-cost">$0.00</p>
+            <p id="summary-reason" style="color:#e67e22;font-weight:bold;display:none;"></p>
             <button class="back-btn" id="back-to-main">Вернуться к выбору машины</button>
         </div>
     </div>
@@ -648,7 +649,31 @@
                 `Длительность: ${minutes}м ${seconds}с`;
             document.getElementById('summary-cost').textContent =
                 `$${cost.toFixed(2)}`;
+            const reasonEl = document.getElementById('summary-reason');
+            if (reasonEl) {
+                if (data.reason === 'time_limit') {
+                    reasonEl.textContent = '⏱ Сессия завершена: превышен лимит времени.';
+                    reasonEl.style.display = '';
+                } else {
+                    reasonEl.style.display = 'none';
+                }
+            }
             document.getElementById('summary-overlay').classList.add('visible');
+        });
+
+        socket.on('control_error', function (data) {
+            if (data && data.code === 'rate_limited') {
+                const el = document.getElementById('lap-flash');
+                if (el) {
+                    el.textContent = data.message || 'Слишком много команд.';
+                    el.style.color = '#e67e22';
+                    clearTimeout(el._ctrlErrTimeout);
+                    el._ctrlErrTimeout = setTimeout(function () {
+                        el.textContent = '';
+                        el.style.color = '';
+                    }, 2000);
+                }
+            }
         });
 
         socket.on('session_error', function (data) {
