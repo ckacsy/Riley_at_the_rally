@@ -409,7 +409,7 @@
             }
 
             // Profile info
-            document.getElementById('profile-username').textContent = user.display_name || user.username;
+            document.getElementById('profile-username').textContent = user.username;
             document.getElementById('profile-email').textContent = user.email;
             document.getElementById('profile-joined').textContent = 'Участник с ' + formatDate(user.created_at);
 

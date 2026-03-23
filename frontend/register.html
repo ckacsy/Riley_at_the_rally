@@ -47,15 +47,6 @@
         <form id="register-form" novalidate autocomplete="on">
 
             <div class="form-group">
-                <label for="display_name">Отображаемое имя</label>
-                <input type="text" id="display_name" name="display_name"
-                    placeholder="Ваше имя (2–100 символов)"
-                    autocomplete="name" minlength="2" maxlength="100"
-                    aria-describedby="display_name-err">
-                <div class="field-error" id="display_name-err" role="alert"></div>
-            </div>
-
-            <div class="form-group">
                 <label for="username">Имя пользователя <span class="label-hint">(уникальный логин)</span></label>
                 <input type="text" id="username" name="username"
                     placeholder="От 3 до 30 символов"
@@ -153,7 +144,7 @@
             else{err.textContent='';err.classList.remove('visible');if(inp)inp.setAttribute('aria-invalid','false');}
         }
 
-        document.getElementById('display_name').focus();
+        document.getElementById('username').focus();
 
         document.getElementById('register-form').addEventListener('submit',function(e){
             e.preventDefault();
@@ -162,7 +153,7 @@
             var spinner=document.getElementById('btn-spinner');
             var successEl=document.getElementById('success-msg');
             successEl.style.display='none';
-            ['display_name','username','email','password','confirm_password'].forEach(function(f){setErr(f,'');});
+            ['username','email','password','confirm_password'].forEach(function(f){setErr(f,'');});
 
             btn.disabled=true;btnText.textContent='Регистрация…';spinner.style.display='inline-block';
 
@@ -170,7 +161,6 @@
                 method:'POST',
                 headers:{'Content-Type':'application/json','x-csrf-token':csrfToken},
                 body:JSON.stringify({
-                    display_name:document.getElementById('display_name').value,
                     username:document.getElementById('username').value,
                     email:document.getElementById('email').value,
                     password:document.getElementById('password').value,

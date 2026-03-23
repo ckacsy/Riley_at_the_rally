@@ -43,12 +43,12 @@
         <form id="login-form" novalidate autocomplete="on">
 
             <div class="form-group">
-                <label for="email">Email</label>
-                <input type="email" id="email" name="email"
-                    placeholder="your@email.com"
-                    autocomplete="email" maxlength="254"
-                    aria-describedby="email-err">
-                <div class="field-error" id="email-err" role="alert"></div>
+                <label for="identifier">Имя пользователя или Email</label>
+                <input type="text" id="identifier" name="identifier"
+                    placeholder="username или your@email.com"
+                    autocomplete="username" maxlength="254"
+                    aria-describedby="identifier-err">
+                <div class="field-error" id="identifier-err" role="alert"></div>
             </div>
 
             <div class="form-group">
@@ -92,7 +92,7 @@
             else{err.textContent='';err.classList.remove('visible');if(inp)inp.removeAttribute('aria-invalid');}
         }
 
-        document.getElementById('email').focus();
+        document.getElementById('identifier').focus();
 
         document.getElementById('login-form').addEventListener('submit', function(e){
             e.preventDefault();
@@ -104,7 +104,7 @@
 
             successEl.style.display='none';
             lockoutEl.style.display='none';
-            setErr('email','');setErr('password','');
+            setErr('identifier','');setErr('password','');
 
             btn.disabled=true;btnText.textContent='Вход…';spinner.style.display='inline-block';
 
@@ -112,7 +112,7 @@
                 method:'POST',
                 headers:{'Content-Type':'application/json','x-csrf-token':csrfToken},
                 body:JSON.stringify({
-                    email:document.getElementById('email').value,
+                    identifier:document.getElementById('identifier').value,
                     password:document.getElementById('password').value
                 })
             })
@@ -130,7 +130,7 @@
                         lockoutEl.textContent='⚠️ '+data.error;
                         lockoutEl.style.display='block';
                     }else{
-                        setErr('password',data.error||'Неверный email или пароль');
+                        setErr('password',data.error||'Неверный логин или пароль');
                         document.getElementById('password').focus();
                     }
                     btn.disabled=false;btnText.textContent='Войти';
@@ -138,7 +138,7 @@
             })
             .catch(function(){
                 spinner.style.display='none';
-                setErr('email','Ошибка соединения с сервером.');
+                setErr('identifier','Ошибка соединения с сервером.');
                 btn.disabled=false;btnText.textContent='Войти';
             });
         });
