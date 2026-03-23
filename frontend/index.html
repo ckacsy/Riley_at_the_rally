@@ -613,10 +613,17 @@
 
         function startSession(carId, carName) {
             const selectedRace = sessionStorage.getItem('selectedRaceId') || null;
-            const userId = currentUser
-                ? currentUser.username
-                : ('user-' + Date.now() + '-' + Math.random().toString(36).slice(2));
-            const dbUserId = currentUser ? currentUser.id : null;
+            if (!currentUser) {
+                alert('Войдите в аккаунт, чтобы арендовать машину и участвовать в гонке.');
+                window.location.href = '/login?redirect=/';
+                return;
+            }
+            if (currentUser.status === 'pending') {
+                alert('Подтвердите email, чтобы участвовать.');
+                return;
+            }
+            const userId = currentUser.username;
+            const dbUserId = currentUser.id;
             socket.emit('start_session', { carId: carId, userId: userId, dbUserId: dbUserId });
             socket.once('session_started', function (data) {
                 // Save session info so /control can read it
