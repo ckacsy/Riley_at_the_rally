@@ -922,6 +922,29 @@ io.on('connection', (socket) => {
   });
 });
 
+// --- Dev-only: reset database (delete all users and sessions) ---
+// Accessible only when NODE_ENV !== 'production'
+if (process.env.NODE_ENV !== 'production') {
+  app.post('/api/dev/reset-db', (req, res) => {
+    try {
+      db.transaction(() => {
+        db.exec('DELETE FROM email_verification_tokens');
+        db.exec('DELETE FROM lap_times');
+        db.exec('DELETE FROM rental_sessions');
+        db.exec('DELETE FROM users');
+        // Reset autoincrement counters
+        db.exec("DELETE FROM sqlite_sequence WHERE name IN ('users','lap_times','rental_sessions','email_verification_tokens')");
+      })();
+      req.session.destroy((err) => { if (err) console.error('Session destroy error:', err); });
+      console.log('[DEV] Database reset: all users and sessions deleted.');
+      res.json({ success: true, message: 'Database reset: all users, sessions and tokens deleted.' });
+    } catch (e) {
+      console.error('Dev reset error:', e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+}
+
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
