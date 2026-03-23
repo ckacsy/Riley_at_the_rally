@@ -1,8 +1,10 @@
 const express = require('express');
 const http = require('http');
+const https = require('https');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { performance } = require('perf_hooks');
 const socketIo = require('socket.io');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
@@ -11,6 +13,8 @@ const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const multer = require('multer');
 require('dotenv').config();
+
+const metrics = require('./metrics');
 
 const {
   validateUsername,
@@ -396,7 +400,14 @@ function setInactivityTimeout(socket) {
     saveRentalSession(session.dbUserId, session.carId, durationSeconds, cost);
     socket.emit('session_ended', { carId: session.carId, durationSeconds, cost, reason: 'inactivity' });
     broadcastCarsUpdate();
-    console.log(`Session auto-ended (inactivity): Car ${session.carId}, duration ${durationSeconds}s, cost $${cost.toFixed(2)}`);
+    metrics.log('info', 'session_end', {
+      userId: session.userId,
+      dbUserId: session.dbUserId,
+      carId: session.carId,
+      durationSeconds,
+      cost: parseFloat(cost.toFixed(4)),
+      reason: 'inactivity',
+    });
   }, INACTIVITY_TIMEOUT_MS);
   inactivityTimeouts.set(socket.id, timeout);
 }
@@ -424,7 +435,14 @@ function setSessionDurationTimeout(socket) {
     saveRentalSession(session.dbUserId, session.carId, durationSeconds, cost);
     socket.emit('session_ended', { carId: session.carId, durationSeconds, cost, reason: 'time_limit' });
     broadcastCarsUpdate();
-    console.log(`Session auto-ended (time_limit): Car ${session.carId}, duration ${durationSeconds}s, cost $${cost.toFixed(2)}`);
+    metrics.log('info', 'session_end', {
+      userId: session.userId,
+      dbUserId: session.dbUserId,
+      carId: session.carId,
+      durationSeconds,
+      cost: parseFloat(cost.toFixed(4)),
+      reason: 'time_limit',
+    });
   }, SESSION_MAX_DURATION_MS);
   sessionDurationTimeouts.set(socket.id, timeout);
 }
@@ -444,11 +462,85 @@ function checkControlRateLimit(socketId) {
 
 // --- Routes ---
 
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'Server is running' });
+app.get('/api/health', async (req, res) => {
+  const health = { ok: true, ts: new Date().toISOString(), details: {} };
+
+  // DB connectivity check
+  try {
+    db.prepare('SELECT 1').get();
+    health.details.db = { ok: true };
+  } catch (e) {
+    health.ok = false;
+    health.details.db = { ok: false, error: e.message };
+  }
+
+  // Socket subsystem check
+  try {
+    health.details.socket = { ok: true, connectedClients: io.engine.clientsCount };
+  } catch (e) {
+    health.ok = false;
+    health.details.socket = { ok: false, error: e.message };
+  }
+
+  // Camera stream check (optional — only if CAMERA_STREAM_URL is configured)
+  const cameraUrl = process.env.CAMERA_STREAM_URL;
+  if (cameraUrl) {
+    try {
+      await new Promise((resolve, reject) => {
+        let parsed;
+        try { parsed = new URL(cameraUrl); } catch (e) { return reject(e); }
+        const lib = parsed.protocol === 'https:' ? https : http;
+        const reqCam = lib.request(
+          {
+            hostname: parsed.hostname,
+            port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+            path: parsed.pathname + (parsed.search || ''),
+            method: 'HEAD',
+            timeout: 2000,
+          },
+          () => resolve()
+        );
+        reqCam.on('error', reject);
+        reqCam.on('timeout', () => { reqCam.destroy(); reject(new Error('timeout')); });
+        reqCam.end();
+      });
+      health.details.camera = { ok: true };
+    } catch (e) {
+      // Camera is optional — report but do not fail overall health
+      health.details.camera = { ok: false, error: e.message };
+    }
+  }
+
+  if (!health.ok) {
+    metrics.fireAlert('health_check_failure', health);
+    metrics.log('error', 'health_check_fail', health);
+    return res.status(503).json(health);
+  }
+
+  res.json(health);
 });
 
-// --- CSRF token endpoint ---
+// --- Metrics endpoint ---
+const metricsLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Слишком много запросов. Попробуйте позже.' },
+  keyGenerator: (req) => req.ip,
+  skip: () => process.env.NODE_ENV === 'test',
+});
+
+app.get('/api/metrics', metricsLimiter, requireAuth, (req, res) => {
+  // Access control: open in debug/dev mode; require METRICS_SECRET header in production
+  const isDevMode = process.env.DEBUG === 'true' || process.env.NODE_ENV !== 'production';
+  const metricsSecret = process.env.METRICS_SECRET;
+  const providedSecret = req.headers['x-metrics-key'];
+  if (!isDevMode && !(metricsSecret && providedSecret === metricsSecret)) {
+    return res.status(403).json({ error: 'Доступ запрещён' });
+  }
+  res.json(metrics.getMetrics(activeSessions, raceRooms));
+});
 app.get('/api/csrf-token', (req, res) => {
   if (!req.session.csrfToken) {
     req.session.csrfToken = generateCsrfToken();
@@ -550,10 +642,14 @@ app.post('/api/auth/login', loginLimiter, csrfMiddleware, (req, res) => {
 
   if (!user || !bcrypt.compareSync(password, user.password_hash)) {
     recordLoginFailure(clientIp);
+    metrics.log('warn', 'auth_fail', { event: 'login', reason: 'invalid_credentials', ip: clientIp });
+    metrics.recordError();
     return res.status(401).json({ error: 'Неверный логин или пароль' });
   }
 
   if (user.status === 'disabled') {
+    metrics.log('warn', 'auth_fail', { event: 'login', reason: 'account_disabled', ip: clientIp, userId: user.id });
+    metrics.recordError();
     return res.status(403).json({ error: 'Аккаунт заблокирован. Обратитесь в поддержку.' });
   }
 
@@ -778,7 +874,14 @@ app.post('/api/session/end', (req, res) => {
   const effectiveDbUserId = session.dbUserId || (Number.isInteger(dbUserId) ? dbUserId : null);
   saveRentalSession(effectiveDbUserId, session.carId, durationSeconds, cost);
   broadcastCarsUpdate();
-  console.log(`Session ended via HTTP: Car ${session.carId}, duration ${durationSeconds}s, cost $${cost.toFixed(2)}`);
+  metrics.log('info', 'session_end', {
+    userId: session.userId,
+    dbUserId: effectiveDbUserId,
+    carId: session.carId,
+    durationSeconds,
+    cost: parseFloat(cost.toFixed(4)),
+    reason: 'http_beacon',
+  });
   res.json({ ended: true, carId: session.carId, durationSeconds, cost });
 });
 
@@ -811,26 +914,34 @@ app.get('/verify-email', pageRateLimit, (req, res) => {
 
 // Socket.io events for real-time car control
 io.on('connection', (socket) => {
-  console.log('New client connected:', socket.id);
+  metrics.log('debug', 'socket_connect', { socketId: socket.id });
 
   socket.on('start_session', (data) => {
     const { carId, dbUserId } = data;
 
     // Require authenticated & verified user
     if (!Number.isInteger(dbUserId)) {
+      metrics.log('warn', 'auth_fail', { event: 'start_session', code: 'auth_required', socketId: socket.id });
+      metrics.recordError();
       socket.emit('session_error', { message: 'Требуется авторизация.', code: 'auth_required' });
       return;
     }
     const user = db.prepare('SELECT username, status FROM users WHERE id = ?').get(dbUserId);
     if (!user) {
+      metrics.log('warn', 'auth_fail', { event: 'start_session', code: 'user_not_found', socketId: socket.id });
+      metrics.recordError();
       socket.emit('session_error', { message: 'Пользователь не найден.', code: 'auth_required' });
       return;
     }
     if (user.status === 'pending') {
+      metrics.log('warn', 'auth_fail', { event: 'start_session', code: 'pending_verification', userId: dbUserId });
+      metrics.recordError();
       socket.emit('session_error', { message: 'Подтвердите email для аренды машины.', code: 'pending_verification' });
       return;
     }
     if (user.status === 'disabled') {
+      metrics.log('warn', 'auth_fail', { event: 'start_session', code: 'account_disabled', userId: dbUserId });
+      metrics.recordError();
       socket.emit('session_error', { message: 'Аккаунт заблокирован.', code: 'account_disabled' });
       return;
     }
@@ -856,7 +967,7 @@ io.on('connection', (socket) => {
     setInactivityTimeout(socket);
     setSessionDurationTimeout(socket);
     broadcastCarsUpdate();
-    console.log(`Session started: User ${user.username} connected to Car ${carId}`);
+    metrics.log('info', 'session_start', { userId: user.username, dbUserId, carId, socketId: socket.id });
   });
 
   socket.on('control_command', (data) => {
@@ -865,15 +976,15 @@ io.on('connection', (socket) => {
       return;
     }
     if (!checkControlRateLimit(socket.id)) {
+      metrics.recordError();
       socket.emit('control_error', { message: 'Слишком много команд. Подождите немного.', code: 'rate_limited' });
       return;
     }
-    const { direction, speed, steering_angle } = data;
-    console.log(
-      `Control command received: direction=${direction}, speed=${speed}, steering_angle=${steering_angle}`
-    );
+    const t0 = performance.now();
     setInactivityTimeout(socket);
     socket.broadcast.emit('control_command', data);
+    metrics.recordCommand();
+    metrics.recordLatency(socket.id, performance.now() - t0);
   });
 
   socket.on('end_session', (data) => {
@@ -893,19 +1004,27 @@ io.on('connection', (socket) => {
     saveRentalSession(session.dbUserId, session.carId, durationSeconds, cost);
     socket.emit('session_ended', { carId: session.carId, durationSeconds, cost });
     broadcastCarsUpdate();
-    console.log(`Session ended: Car ${session.carId}, duration ${durationSeconds}s, cost $${cost.toFixed(2)}`);
+    metrics.log('info', 'session_end', {
+      userId: session.userId,
+      dbUserId: session.dbUserId,
+      carId: session.carId,
+      durationSeconds,
+      cost: parseFloat(cost.toFixed(4)),
+      reason: 'user',
+    });
   });
 
   socket.on('disconnect', () => {
     clearInactivityTimeout(socket.id);
     clearSessionDurationTimeout(socket.id);
     controlCommandCounters.delete(socket.id);
+    metrics.clearLatency(socket.id);
     const hadSession = activeSessions.has(socket.id);
     activeSessions.delete(socket.id);
     removeFromRace(socket);
     if (hadSession) broadcastCarsUpdate();
     broadcastRacesUpdate();
-    console.log('Client disconnected:', socket.id);
+    metrics.log('debug', 'socket_disconnect', { socketId: socket.id, hadSession });
   });
 
   // --- Race events ---
@@ -915,19 +1034,27 @@ io.on('connection', (socket) => {
 
     // Require authenticated & verified user
     if (!Number.isInteger(dbUserId)) {
+      metrics.log('warn', 'auth_fail', { event: 'join_race', code: 'auth_required', socketId: socket.id });
+      metrics.recordError();
       socket.emit('race_error', { message: 'Требуется авторизация.', code: 'auth_required' });
       return;
     }
     const user = db.prepare('SELECT username, status FROM users WHERE id = ?').get(dbUserId);
     if (!user) {
+      metrics.log('warn', 'auth_fail', { event: 'join_race', code: 'user_not_found', socketId: socket.id });
+      metrics.recordError();
       socket.emit('race_error', { message: 'Пользователь не найден.', code: 'auth_required' });
       return;
     }
     if (user.status === 'pending') {
+      metrics.log('warn', 'auth_fail', { event: 'join_race', code: 'pending_verification', userId: dbUserId });
+      metrics.recordError();
       socket.emit('race_error', { message: 'Подтвердите email для участия в гонках.', code: 'pending_verification' });
       return;
     }
     if (user.status === 'disabled') {
+      metrics.log('warn', 'auth_fail', { event: 'join_race', code: 'account_disabled', userId: dbUserId });
+      metrics.recordError();
       socket.emit('race_error', { message: 'Аккаунт заблокирован.', code: 'account_disabled' });
       return;
     }
@@ -977,13 +1104,16 @@ io.on('connection', (socket) => {
 
     broadcastRacesUpdate();
 
-    console.log(`User ${user.username} joined race ${race.id}`);
+    metrics.log('info', 'race_join', { userId: user.username, dbUserId, raceId: race.id, socketId: socket.id });
   });
 
   socket.on('leave_race', () => {
+    const race = findRaceBySocketId(socket.id);
+    const raceId = race ? race.id : null;
     removeFromRace(socket);
     socket.emit('race_left');
     broadcastRacesUpdate();
+    if (raceId) metrics.log('info', 'race_leave', { socketId: socket.id, raceId });
   });
 
   socket.on('start_lap', () => {
@@ -1022,8 +1152,17 @@ io.on('connection', (socket) => {
         db.prepare(
           'INSERT INTO lap_times (user_id, car_id, car_name, lap_time_ms, race_id) VALUES (?, ?, ?, ?, ?)'
         ).run(player.dbUserId, player.carId, player.carName, lapTimeMs, race.id);
+        metrics.log('info', 'lap_save_success', {
+          userId: player.userId,
+          dbUserId: player.dbUserId,
+          carName: player.carName,
+          lapTimeMs,
+          raceId: race.id,
+          isPersonalBest,
+        });
       } catch (e) {
-        console.error('Failed to save lap time:', e.message);
+        metrics.log('error', 'lap_save_fail', { userId: player.userId, error: e.message });
+        metrics.recordError();
       }
     }
 
@@ -1044,7 +1183,14 @@ io.on('connection', (socket) => {
       players: race.players.map(serializePlayer),
     });
 
-    console.log(`Lap recorded: ${player.carName}, ${lapTimeMs}ms, personal best: ${isPersonalBest}`);
+    metrics.log('info', 'lap_recorded', {
+      userId: player.userId,
+      carName: player.carName,
+      lapTimeMs,
+      isPersonalBest,
+      isGlobalRecord,
+      raceId: race.id,
+    });
   });
 });
 
@@ -1072,5 +1218,5 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  metrics.log('info', 'server_start', { port: PORT, nodeEnv: process.env.NODE_ENV || 'development' });
 });
