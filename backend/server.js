@@ -517,7 +517,18 @@ app.post('/api/auth/logout', csrfMiddleware, (req, res) => {
   req.session.destroy(() => res.json({ success: true }));
 });
 
-app.get('/api/auth/me', (req, res) => {
+// General API rate limiter for authenticated read endpoints
+const apiReadLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Слишком много запросов. Попробуйте позже.' },
+  keyGenerator: (req) => req.ip,
+  skip: () => process.env.NODE_ENV === 'test',
+});
+
+app.get('/api/auth/me', apiReadLimiter, (req, res) => {
   if (!req.session.userId) return res.json({ user: null });
   const user = db
     .prepare('SELECT id, username, email, avatar_path, status, created_at FROM users WHERE id = ?')
@@ -530,7 +541,7 @@ app.get('/api/auth/me', (req, res) => {
 });
 
 // --- Email verification ---
-app.get('/api/auth/verify-email', (req, res) => {
+app.get('/api/auth/verify-email', apiReadLimiter, (req, res) => {
   const rawToken = req.query.token;
   if (!rawToken || typeof rawToken !== 'string') {
     return res.status(400).json({ error: 'Токен отсутствует или недействителен' });
@@ -577,7 +588,7 @@ app.post('/api/auth/resend-verification', requireAuth, verifyResendLimiter, csrf
 });
 
 // --- Profile routes ---
-app.get('/api/profile', requireAuth, (req, res) => {
+app.get('/api/profile', requireAuth, apiReadLimiter, (req, res) => {
   const userId = req.session.userId;
   const user = db
     .prepare('SELECT id, username, email, avatar_path, status, created_at FROM users WHERE id = ?')
