@@ -923,6 +923,10 @@ app.get('/verify-email', pageRateLimit, (req, res) => {
   res.sendFile(path.join(frontendDir, 'verify-email.html'));
 });
 
+app.get('/garage', pageRateLimit, (req, res) => {
+  res.sendFile(path.join(frontendDir, 'garage.html'));
+});
+
 // Socket.io events for real-time car control
 io.on('connection', (socket) => {
   metrics.log('debug', 'socket_connect', { socketId: socket.id });
