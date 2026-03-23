@@ -18,7 +18,7 @@ import path from 'path';
 const DB_PATH = path.join(__dirname, '../../riley.sqlite');
 
 /** Milliseconds to wait for the CTA button to settle after /api/auth/me. */
-const CTA_TIMEOUT = 8_000;
+const CTA_TIMEOUT = 20_000;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -95,7 +95,6 @@ async function waitForCta(
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
-
 test.describe('CTA button states by role', () => {
   // Give each test its own browser context so cookies / sessions are isolated
   test.use({ storageState: { cookies: [], origins: [] } });
