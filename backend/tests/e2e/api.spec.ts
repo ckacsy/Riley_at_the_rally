@@ -83,3 +83,17 @@ test.describe('API cars', () => {
     }
   });
 });
+
+test.describe('API car-status', () => {
+  test('/api/car-status returns status and lastUpdated', async ({ request }) => {
+    const res = await request.get('/api/car-status');
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body).toHaveProperty('status');
+    expect(['available', 'busy', 'offline']).toContain(body.status);
+    expect(body).toHaveProperty('lastUpdated');
+    expect(typeof body.lastUpdated).toBe('string');
+    // lastUpdated must be a valid ISO 8601 timestamp
+    expect(new Date(body.lastUpdated).getTime()).not.toBeNaN();
+  });
+});

@@ -164,6 +164,32 @@
             box-shadow: 0 6px 28px rgba(21,101,192,0.7);
         }
 
+        /* Car availability status badge */
+        .car-availability-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+        .car-availability-badge .badge-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .car-availability-badge.status-available { border-color: rgba(76,175,80,0.6); color: #81c784; }
+        .car-availability-badge.status-available .badge-dot { background: #4caf50; box-shadow: 0 0 6px #4caf50; }
+        .car-availability-badge.status-busy { border-color: rgba(255,152,0,0.6); color: #ffb74d; }
+        .car-availability-badge.status-busy .badge-dot { background: #ff9800; box-shadow: 0 0 6px #ff9800; }
+        .car-availability-badge.status-offline { border-color: rgba(244,67,54,0.6); color: #e57373; }
+        .car-availability-badge.status-offline .badge-dot { background: #f44336; box-shadow: 0 0 6px #f44336; }
+
         /* Auth info chip top-right */
         .auth-chip {
             position: fixed;
@@ -294,6 +320,10 @@
         <div class="fallback-car">🚗</div>
         <h2>3D-гараж недоступен</h2>
         <p>Ваш браузер не поддерживает WebGL.<br>Обновите браузер для полного 3D-опыта.</p>
+        <div class="car-availability-badge" id="fallback-availability-badge" style="margin-top:16px;">
+            <span class="badge-dot"></span>
+            <span id="fallback-availability-text">…</span>
+        </div>
         <button class="fallback-cta" id="fallback-cta-btn">Старт / Подключиться</button>
     </div>
 
@@ -314,6 +344,10 @@
         <!-- CTA center -->
         <div class="cta-area">
             <div class="car-title" id="car-title">Riley-X1</div>
+            <div class="car-availability-badge" id="car-availability-badge">
+                <span class="badge-dot"></span>
+                <span id="car-availability-text">…</span>
+            </div>
             <button class="cta-btn" id="cta-btn" disabled>Загрузка…</button>
         </div>
 
@@ -656,6 +690,7 @@
         var currentUser = null;
         var ratePerMinute = 0.50;
         var availableCars = [];
+        var carAvailabilityStatus = 'available';
 
         // Navigation helpers
         document.getElementById('btn-leaderboard').addEventListener('click', function () {
@@ -714,6 +749,7 @@
 
                 if (fallbackBtn) {
                     fallbackBtn.textContent = 'Войти';
+                    fallbackBtn.disabled = false;
                     fallbackBtn.onclick = function () { window.location.href = '/login?redirect=/garage'; };
                 }
             } else if (currentUser.status === 'pending') {
@@ -724,7 +760,30 @@
 
                 if (fallbackBtn) {
                     fallbackBtn.textContent = 'Подтвердите email';
+                    fallbackBtn.disabled = false;
                     fallbackBtn.onclick = function () { window.location.href = '/verify-email'; };
+                }
+            } else if (carAvailabilityStatus === 'busy') {
+                btn.textContent = 'Машина занята';
+                btn.className = 'cta-btn';
+                btn.disabled = true;
+                btn.onclick = null;
+
+                if (fallbackBtn) {
+                    fallbackBtn.textContent = 'Машина занята';
+                    fallbackBtn.disabled = true;
+                    fallbackBtn.onclick = null;
+                }
+            } else if (carAvailabilityStatus === 'offline') {
+                btn.textContent = 'Машина недоступна';
+                btn.className = 'cta-btn';
+                btn.disabled = true;
+                btn.onclick = null;
+
+                if (fallbackBtn) {
+                    fallbackBtn.textContent = 'Машина недоступна';
+                    fallbackBtn.disabled = true;
+                    fallbackBtn.onclick = null;
                 }
             } else {
                 btn.textContent = 'Старт / Подключиться';
@@ -734,9 +793,44 @@
 
                 if (fallbackBtn) {
                     fallbackBtn.textContent = 'Старт / Подключиться';
+                    fallbackBtn.disabled = false;
                     fallbackBtn.onclick = startSession;
                 }
             }
+        }
+
+        // Render availability badge for both HUD and fallback
+        function renderAvailabilityBadge() {
+            var statusText = { available: 'Доступна', busy: 'Занята', offline: 'Недоступна' };
+            var text = statusText[carAvailabilityStatus] || carAvailabilityStatus;
+            var cssClass = 'car-availability-badge status-' + carAvailabilityStatus;
+
+            var badge = document.getElementById('car-availability-badge');
+            if (badge) {
+                badge.className = cssClass;
+                document.getElementById('car-availability-text').textContent = text;
+            }
+            var fallbackBadge = document.getElementById('fallback-availability-badge');
+            if (fallbackBadge) {
+                fallbackBadge.className = cssClass;
+                document.getElementById('fallback-availability-text').textContent = text;
+            }
+        }
+
+        // Load car availability status from API
+        function loadCarStatus() {
+            fetch('/api/car-status')
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    carAvailabilityStatus = data.status || 'available';
+                    renderAvailabilityBadge();
+                    updateCTA();
+                })
+                .catch(function (err) {
+                    console.warn('car-status fetch failed:', err);
+                    carAvailabilityStatus = 'available';
+                    renderAvailabilityBadge();
+                });
         }
 
         // Load available cars
@@ -843,6 +937,7 @@
         // Init
         loadAuth();
         loadCars();
+        loadCarStatus();
         checkStaleSession();
     </script>
 </body>

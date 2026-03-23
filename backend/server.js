@@ -314,6 +314,26 @@ const sessionDurationTimeouts = new Map();
 // Control-command rate-limit counters (keyed by socket.id)
 const controlCommandCounters = new Map(); // socketId -> { count, windowStart }
 
+// Car availability status tracking
+let carStatusLastUpdated = new Date().toISOString();
+let prevCarStatus = null;
+
+function getCarAvailabilityStatus() {
+  let status;
+  if (process.env.CAR_OFFLINE === 'true') {
+    status = 'offline';
+  } else if (activeSessions.size > 0) {
+    status = 'busy';
+  } else {
+    status = 'available';
+  }
+  if (status !== prevCarStatus) {
+    carStatusLastUpdated = new Date().toISOString();
+    prevCarStatus = status;
+  }
+  return { status, lastUpdated: carStatusLastUpdated };
+}
+
 // --- Race Management ---
 const raceRooms = new Map(); // raceId -> race object
 const leaderboard = []; // sorted array of { userId, carName, lapTimeMs, date }
@@ -814,6 +834,11 @@ app.get('/api/cars', (req, res) => {
     ratePerMinute: RATE_PER_MINUTE,
     cars: CARS.map((c) => ({ ...c, status: activeCars.has(c.id) ? 'unavailable' : 'available' })),
   });
+});
+
+// API: Car availability status (available / busy / offline)
+app.get('/api/car-status', (req, res) => {
+  res.json(getCarAvailabilityStatus());
 });
 
 // API: Get active race sessions
