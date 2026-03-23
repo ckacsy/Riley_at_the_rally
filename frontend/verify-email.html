@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Подтверждение email — Riley at the Rally</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }
+        .auth-nav { text-align: right; max-width: 480px; margin: 0 auto 16px; font-size: 14px; }
+        .auth-nav a { color: #007BFF; text-decoration: none; }
+        .auth-nav a:hover { text-decoration: underline; }
+        .card { background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.10); padding: 40px; max-width: 480px; margin: 0 auto; text-align: center; }
+        .icon { font-size: 64px; margin-bottom: 16px; }
+        h1 { color: #222; margin-top: 0; margin-bottom: 12px; font-size: 22px; }
+        p { color: #555; font-size: 15px; line-height: 1.6; }
+        .btn { display: inline-block; margin-top: 20px; padding: 12px 28px; background: #007BFF; color: white; border-radius: 6px; text-decoration: none; font-size: 15px; border: none; cursor: pointer; min-height: 44px; }
+        .btn:hover { background: #0056b3; }
+        .btn-outline { background: none; border: 1px solid #007BFF; color: #007BFF; margin-left: 10px; }
+        .btn-outline:hover { background: #007BFF; color: white; }
+        .error-box { background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 6px; padding: 14px; color: #721c24; margin-top: 12px; }
+        .success-box { background: #d4edda; border: 1px solid #c3e6cb; border-radius: 6px; padding: 14px; color: #155724; margin-top: 12px; }
+        #loading { color: #888; }
+    </style>
+</head>
+<body>
+    <div class="auth-nav"><a href="/">← Главная</a></div>
+    <div class="card" id="main-card">
+        <div class="icon" id="status-icon">⏳</div>
+        <h1 id="status-title">Подтверждение email…</h1>
+        <p id="status-msg">Пожалуйста, подождите.</p>
+        <div id="actions"></div>
+    </div>
+
+    <script>
+        var token = new URLSearchParams(window.location.search).get('token');
+
+        if (!token) {
+            showResult(false, '❌', 'Недопустимая ссылка', 'Ссылка подтверждения отсутствует или некорректна.');
+        } else {
+            fetch('/api/auth/verify-email?token=' + encodeURIComponent(token))
+                .then(function(r){ return r.json(); })
+                .then(function(data){
+                    if (data.success) {
+                        showResult(true, '✅', 'Email подтверждён!', data.message || 'Ваш аккаунт активирован. Теперь вы можете арендовать машины и участвовать в гонках!',
+                            '<a href="/profile" class="btn">Перейти в профиль</a>');
+                    } else {
+                        showResult(false, '❌', 'Ошибка подтверждения', data.error || 'Ссылка недействительна или истекла.',
+                            '<a href="/profile" class="btn btn-outline">В профиль</a>');
+                    }
+                })
+                .catch(function(){
+                    showResult(false, '❌', 'Ошибка', 'Не удалось подключиться к серверу. Попробуйте позже.');
+                });
+        }
+
+        function showResult(ok, icon, title, msg, actionsHtml) {
+            document.getElementById('status-icon').textContent = icon;
+            document.getElementById('status-title').textContent = title;
+            document.getElementById('status-msg').textContent = msg;
+            if (actionsHtml) document.getElementById('actions').innerHTML = actionsHtml;
+        }
+    </script>
+</body>
+</html>

@@ -6,161 +6,198 @@
     <title>Регистрация — Riley at the Rally</title>
     <style>
         * { box-sizing: border-box; }
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
-            margin: 0;
-            padding: 20px;
-        }
-        .auth-nav {
-            text-align: right;
-            max-width: 480px;
-            margin: 0 auto 16px;
-            font-size: 14px;
-        }
+        body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }
+        .auth-nav { text-align: right; max-width: 480px; margin: 0 auto 16px; font-size: 14px; }
         .auth-nav a { color: #007BFF; text-decoration: none; }
         .auth-nav a:hover { text-decoration: underline; }
-        .auth-card {
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.10);
-            padding: 36px 40px;
-            max-width: 480px;
-            margin: 0 auto;
-        }
-        h1 {
-            text-align: center;
-            color: #222;
-            margin-top: 0;
-            margin-bottom: 24px;
-            font-size: 24px;
-        }
-        .form-group {
-            margin-bottom: 18px;
-        }
-        label {
-            display: block;
-            margin-bottom: 6px;
-            font-size: 14px;
-            color: #444;
-            font-weight: bold;
-        }
-        input[type="text"],
-        input[type="email"],
-        input[type="password"] {
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            font-size: 15px;
-            outline: none;
-            transition: border-color 0.2s;
+        .auth-card { background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.10); padding: 36px 40px; max-width: 480px; margin: 0 auto; }
+        h1 { text-align: center; color: #222; margin-top: 0; margin-bottom: 24px; font-size: 24px; }
+        .form-group { margin-bottom: 16px; }
+        label { display: block; margin-bottom: 5px; font-size: 14px; color: #444; font-weight: bold; }
+        .label-hint { font-weight: normal; color: #888; font-size: 12px; margin-left: 5px; }
+        input[type="text"], input[type="email"], input[type="password"] {
+            width: 100%; padding: 10px 12px; border: 1px solid #ccc; border-radius: 6px;
+            font-size: 15px; outline: none; transition: border-color 0.2s; min-height: 44px;
         }
         input:focus { border-color: #007BFF; }
-        .submit-btn {
-            width: 100%;
-            padding: 12px;
-            background-color: #28a745;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-            margin-top: 8px;
-        }
+        input[aria-invalid="true"] { border-color: #dc3545; }
+        input[aria-invalid="false"] { border-color: #28a745; }
+        .field-error { color: #dc3545; font-size: 12px; margin-top: 4px; display: none; }
+        .field-error.visible { display: block; }
+        .input-wrap { position: relative; }
+        .toggle-pw { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 16px; color: #888; padding: 4px; }
+        .pw-strength { margin-top: 5px; height: 4px; border-radius: 2px; background: #e0e0e0; overflow: hidden; }
+        .pw-strength-bar { height: 100%; width: 0; border-radius: 2px; transition: width 0.3s, background-color 0.3s; }
+        .pw-strength-label { font-size: 11px; color: #888; margin-top: 2px; }
+        .submit-btn { width: 100%; padding: 12px; background-color: #28a745; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; transition: background-color 0.3s; margin-top: 8px; min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; }
         .submit-btn:hover { background-color: #1e7e34; }
         .submit-btn:disabled { background-color: #aaa; cursor: not-allowed; }
-        .error-msg {
-            color: #dc3545;
-            font-size: 14px;
-            margin-top: 12px;
-            text-align: center;
-            display: none;
-        }
-        .success-msg {
-            color: #28a745;
-            font-size: 14px;
-            margin-top: 12px;
-            text-align: center;
-            display: none;
-        }
-        .login-link {
-            text-align: center;
-            margin-top: 20px;
-            font-size: 14px;
-            color: #666;
-        }
+        .spinner { display: none; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .success-msg { color: #28a745; font-size: 14px; margin-top: 12px; text-align: center; display: none; padding: 10px; background: #d4edda; border-radius: 6px; }
+        .login-link { text-align: center; margin-top: 20px; font-size: 14px; color: #666; }
         .login-link a { color: #007BFF; text-decoration: none; }
         .login-link a:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
-    <div class="auth-nav">
-        <a href="/">← Главная</a>
-    </div>
+    <div class="auth-nav"><a href="/">← Главная</a></div>
     <div class="auth-card">
         <h1>🏎️ Регистрация</h1>
-        <form id="register-form">
+        <form id="register-form" novalidate autocomplete="on">
+
             <div class="form-group">
-                <label for="username">Имя пользователя</label>
-                <input type="text" id="username" name="username" placeholder="От 3 до 30 символов" required>
+                <label for="display_name">Отображаемое имя</label>
+                <input type="text" id="display_name" name="display_name"
+                    placeholder="Ваше имя (2–100 символов)"
+                    autocomplete="name" minlength="2" maxlength="100"
+                    aria-describedby="display_name-err">
+                <div class="field-error" id="display_name-err" role="alert"></div>
             </div>
+
+            <div class="form-group">
+                <label for="username">Имя пользователя <span class="label-hint">(уникальный логин)</span></label>
+                <input type="text" id="username" name="username"
+                    placeholder="От 3 до 30 символов"
+                    autocomplete="username" minlength="3" maxlength="30"
+                    aria-describedby="username-err">
+                <div class="field-error" id="username-err" role="alert"></div>
+            </div>
+
             <div class="form-group">
                 <label for="email">Email</label>
-                <input type="email" id="email" name="email" placeholder="your@email.com" required>
+                <input type="email" id="email" name="email"
+                    placeholder="your@email.com"
+                    autocomplete="email" maxlength="254"
+                    aria-describedby="email-err">
+                <div class="field-error" id="email-err" role="alert"></div>
             </div>
+
             <div class="form-group">
                 <label for="password">Пароль</label>
-                <input type="password" id="password" name="password" placeholder="Не менее 6 символов" required>
+                <div class="input-wrap">
+                    <input type="password" id="password" name="password"
+                        placeholder="Минимум 8 символов"
+                        autocomplete="new-password" minlength="8" maxlength="128"
+                        aria-describedby="password-err">
+                    <button type="button" class="toggle-pw" aria-label="Показать/скрыть пароль" data-target="password">👁</button>
+                </div>
+                <div class="pw-strength"><div class="pw-strength-bar" id="pw-bar"></div></div>
+                <div class="pw-strength-label" id="pw-label"></div>
+                <div class="field-error" id="password-err" role="alert"></div>
             </div>
-            <button type="submit" class="submit-btn" id="submit-btn">Зарегистрироваться</button>
-            <div class="error-msg" id="error-msg"></div>
+
+            <div class="form-group">
+                <label for="confirm_password">Подтверждение пароля</label>
+                <div class="input-wrap">
+                    <input type="password" id="confirm_password" name="confirm_password"
+                        placeholder="Повторите пароль"
+                        autocomplete="new-password" maxlength="128"
+                        aria-describedby="confirm_password-err">
+                    <button type="button" class="toggle-pw" aria-label="Показать/скрыть пароль" data-target="confirm_password">👁</button>
+                </div>
+                <div class="field-error" id="confirm_password-err" role="alert"></div>
+            </div>
+
+            <button type="submit" class="submit-btn" id="submit-btn">
+                <span id="btn-text">Зарегистрироваться</span>
+                <span class="spinner" id="btn-spinner"></span>
+            </button>
             <div class="success-msg" id="success-msg"></div>
         </form>
-        <div class="login-link">
-            Уже есть аккаунт? <a href="/login">Войти</a>
-        </div>
+        <div class="login-link">Уже есть аккаунт? <a href="/login">Войти</a></div>
     </div>
 
     <script>
-        document.getElementById('register-form').addEventListener('submit', function (e) {
+        var csrfToken = '';
+        fetch('/api/csrf-token').then(function(r){return r.json();}).then(function(d){csrfToken=d.csrfToken||'';});
+
+        document.querySelectorAll('.toggle-pw').forEach(function(btn){
+            btn.addEventListener('click',function(){
+                var inp=document.getElementById(this.dataset.target);
+                inp.type=inp.type==='password'?'text':'password';
+            });
+        });
+
+        var WEAK_PW=new Set(['password','password1','password123','passw0rd','12345678','123456789','1234567890','87654321','11111111','00000000','qwerty123','iloveyou','admin123','letmein1','welcome1']);
+        function pwStrength(pw){
+            if(!pw)return 0;
+            var s=0;
+            if(pw.length>=8)s++;if(pw.length>=12)s++;
+            if(/[A-Z]/.test(pw))s++;if(/[a-z]/.test(pw))s++;
+            if(/[0-9]/.test(pw))s++;if(/[^A-Za-z0-9]/.test(pw))s++;
+            if(WEAK_PW.has(pw.toLowerCase()))return 1;
+            return s;
+        }
+        var pwInp=document.getElementById('password');
+        var pwBar=document.getElementById('pw-bar');
+        var pwLbl=document.getElementById('pw-label');
+        var dbTimer;
+        pwInp.addEventListener('input',function(){
+            clearTimeout(dbTimer);
+            dbTimer=setTimeout(function(){
+                var s=pwStrength(pwInp.value);
+                pwBar.style.width=Math.min(100,(s/6)*100)+'%';
+                var c=['#dc3545','#dc3545','#ff7043','#ffc107','#66bb6a','#28a745','#0a7c3e'];
+                var l=['','Очень слабый','Слабый','Средний','Хороший','Надёжный','Надёжный'];
+                pwBar.style.backgroundColor=c[s]||'#dc3545';
+                pwLbl.textContent=l[s]||'';
+            },300);
+        });
+
+        function setErr(id,msg){
+            var inp=document.getElementById(id);
+            var err=document.getElementById(id+'-err');
+            if(!err)return;
+            if(msg){err.textContent=msg;err.classList.add('visible');if(inp)inp.setAttribute('aria-invalid','true');}
+            else{err.textContent='';err.classList.remove('visible');if(inp)inp.setAttribute('aria-invalid','false');}
+        }
+
+        document.getElementById('display_name').focus();
+
+        document.getElementById('register-form').addEventListener('submit',function(e){
             e.preventDefault();
-            const btn = document.getElementById('submit-btn');
-            const errorEl = document.getElementById('error-msg');
-            const successEl = document.getElementById('success-msg');
-            errorEl.style.display = 'none';
-            successEl.style.display = 'none';
-            btn.disabled = true;
-            btn.textContent = 'Регистрация…';
+            var btn=document.getElementById('submit-btn');
+            var btnText=document.getElementById('btn-text');
+            var spinner=document.getElementById('btn-spinner');
+            var successEl=document.getElementById('success-msg');
+            successEl.style.display='none';
+            ['display_name','username','email','password','confirm_password'].forEach(function(f){setErr(f,'');});
 
-            const username = document.getElementById('username').value.trim();
-            const email = document.getElementById('email').value.trim();
-            const password = document.getElementById('password').value;
+            btn.disabled=true;btnText.textContent='Регистрация…';spinner.style.display='inline-block';
 
-            fetch('/api/auth/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, email, password }),
+            fetch('/api/auth/register',{
+                method:'POST',
+                headers:{'Content-Type':'application/json','x-csrf-token':csrfToken},
+                body:JSON.stringify({
+                    display_name:document.getElementById('display_name').value,
+                    username:document.getElementById('username').value,
+                    email:document.getElementById('email').value,
+                    password:document.getElementById('password').value,
+                    confirm_password:document.getElementById('confirm_password').value
+                })
             })
-            .then(function (res) { return res.json(); })
-            .then(function (data) {
-                if (data.success) {
-                    successEl.textContent = 'Аккаунт создан! Перенаправление…';
-                    successEl.style.display = 'block';
-                    setTimeout(function () { window.location.href = '/profile'; }, 1000);
-                } else {
-                    errorEl.textContent = data.error || 'Ошибка регистрации.';
-                    errorEl.style.display = 'block';
-                    btn.disabled = false;
-                    btn.textContent = 'Зарегистрироваться';
+            .then(function(r){return r.json();})
+            .then(function(data){
+                spinner.style.display='none';
+                if(data.success){
+                    if(data.csrfToken)csrfToken=data.csrfToken;
+                    successEl.textContent='✅ Аккаунт создан! Ссылка для подтверждения email выведена в консоль сервера. Перенаправление…';
+                    successEl.style.display='block';
+                    setTimeout(function(){window.location.href='/profile';},2500);
+                }else{
+                    if(data.errors){
+                        Object.keys(data.errors).forEach(function(f){setErr(f,data.errors[f]);});
+                        var first=Object.keys(data.errors)[0];
+                        var fi=document.getElementById(first);if(fi)fi.focus();
+                    }else if(data.error){setErr('email',data.error);}
+                    btn.disabled=false;btnText.textContent='Зарегистрироваться';
                 }
             })
-            .catch(function () {
-                errorEl.textContent = 'Ошибка соединения с сервером.';
-                errorEl.style.display = 'block';
-                btn.disabled = false;
-                btn.textContent = 'Зарегистрироваться';
+            .catch(function(){
+                spinner.style.display='none';
+                setErr('email','Ошибка соединения с сервером.');
+                btn.disabled=false;btnText.textContent='Зарегистрироваться';
             });
         });
     </script>
