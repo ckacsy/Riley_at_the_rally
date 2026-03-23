@@ -5,6 +5,13 @@ node_modules/
 package-lock.json
 .env
 
+# Database
+*.sqlite
+
+# Uploaded files
+backend/uploads/*
+!backend/uploads/.gitkeep
+
 # Python
 __pycache__/
 *.py[cod]
