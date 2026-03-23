@@ -250,6 +250,60 @@
         .session-inactive-msg a {
             color: #007BFF;
         }
+        /* Session timer badges */
+        .session-timers-bar {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin: 8px 0 4px;
+        }
+        .timer-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: #f0f4ff;
+            border: 1px solid #c8d8f0;
+            border-radius: 12px;
+            padding: 4px 12px;
+            font-size: 13px;
+            color: #334;
+            font-variant-numeric: tabular-nums;
+        }
+        .timer-badge.warning {
+            background: #fff3e0;
+            border-color: #ffb74d;
+            color: #e65100;
+            font-weight: bold;
+        }
+        .timer-badge .timer-label {
+            color: #666;
+            font-weight: normal;
+        }
+        .timer-badge.warning .timer-label {
+            color: #bf360c;
+        }
+        /* Warning banner */
+        .session-warning-banner {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ff9800;
+            color: #fff;
+            font-weight: bold;
+            padding: 12px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+            z-index: 1000;
+            font-size: 15px;
+            text-align: center;
+            max-width: 90vw;
+        }
+        .session-warning-banner.critical {
+            background: #d32f2f;
+        }
         .keyboard-hint {
             text-align: center;
             font-size: 13px;
@@ -411,6 +465,21 @@
         Машина: <span id="car-name">—</span> &nbsp;|&nbsp; Время сессии: <span id="session-timer">00:00</span>
     </div>
 
+    <!-- Session countdown timer badges -->
+    <div class="session-timers-bar" id="session-timers-bar" style="display:none">
+        <span class="timer-badge" id="max-timer-badge">
+            <span class="timer-label">⏱ Макс:</span>
+            <span id="max-timer-countdown">--:--</span>
+        </span>
+        <span class="timer-badge" id="inactivity-timer-badge">
+            <span class="timer-label">💤 Неактивность:</span>
+            <span id="inactivity-timer-countdown">--:--</span>
+        </span>
+    </div>
+
+    <!-- Warning banner (non-blocking toast) -->
+    <div class="session-warning-banner" id="session-warning-banner" role="alert" aria-live="polite"></div>
+
     <div class="camera-section">
         <h2>Прямая трансляция камеры (требуется Raspberry Pi)</h2>
         <img id="camera-feed" class="camera-feed" src="" alt="Прямая трансляция камеры — нет подключения" />
@@ -564,6 +633,126 @@
             document.getElementById('session-timer').textContent = `${minutes}:${seconds}`;
         }, 1000);
 
+        // ---------- Client-side countdown timers ----------
+        let maxCountdownInterval = null;
+        let inactivityCountdownInterval = null;
+        let inactivityRemainingMs = 0;
+        let sessionMaxRemainingMs = 0;
+        const WARNING_THRESHOLD_MS = 30 * 1000;
+        const CRITICAL_THRESHOLD_MS = 10 * 1000;
+        const COUNTDOWN_TICK_MS = 250;
+
+        function fmtCountdown(ms) {
+            const totalSec = Math.max(0, Math.ceil(ms / 1000));
+            const m = String(Math.floor(totalSec / 60)).padStart(2, '0');
+            const s = String(totalSec % 60).padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        function showWarningBanner(msg, critical) {
+            const banner = document.getElementById('session-warning-banner');
+            if (!banner) return;
+            banner.textContent = msg;
+            banner.style.display = 'block';
+            banner.classList.toggle('critical', !!critical);
+        }
+
+        function hideWarningBanner() {
+            const banner = document.getElementById('session-warning-banner');
+            if (banner) banner.style.display = 'none';
+        }
+
+        function stopCountdownTimers() {
+            clearInterval(maxCountdownInterval);
+            clearInterval(inactivityCountdownInterval);
+            maxCountdownInterval = null;
+            inactivityCountdownInterval = null;
+            hideWarningBanner();
+            const bar = document.getElementById('session-timers-bar');
+            if (bar) bar.style.display = 'none';
+        }
+
+        function startCountdownTimers(maxDurationMs, inactivityMs) {
+            if (!maxDurationMs || !inactivityMs) return;
+            sessionMaxRemainingMs = maxDurationMs;
+            inactivityRemainingMs = inactivityMs;
+
+            const bar = document.getElementById('session-timers-bar');
+            if (bar) bar.style.display = '';
+
+            maxCountdownInterval = setInterval(function () {
+                sessionMaxRemainingMs -= COUNTDOWN_TICK_MS;
+                if (sessionMaxRemainingMs < 0) sessionMaxRemainingMs = 0;
+
+                const maxEl = document.getElementById('max-timer-countdown');
+                const maxBadge = document.getElementById('max-timer-badge');
+                if (maxEl) maxEl.textContent = fmtCountdown(sessionMaxRemainingMs);
+
+                if (sessionMaxRemainingMs <= WARNING_THRESHOLD_MS) {
+                    if (maxBadge) maxBadge.classList.add('warning');
+                    showWarningBanner(
+                        `⏱ До конца сессии: ${fmtCountdown(sessionMaxRemainingMs)}`,
+                        sessionMaxRemainingMs <= CRITICAL_THRESHOLD_MS
+                    );
+                }
+
+                if (sessionMaxRemainingMs <= 0) {
+                    clearInterval(maxCountdownInterval);
+                    maxCountdownInterval = null;
+                    if (!sessionEnded) {
+                        sessionEnded = true;
+                        socket.emit('end_session', { carId: carId });
+                        disableControls();
+                    }
+                }
+            }, COUNTDOWN_TICK_MS);
+
+            inactivityCountdownInterval = setInterval(function () {
+                inactivityRemainingMs -= COUNTDOWN_TICK_MS;
+                if (inactivityRemainingMs < 0) inactivityRemainingMs = 0;
+
+                const inEl = document.getElementById('inactivity-timer-countdown');
+                const inBadge = document.getElementById('inactivity-timer-badge');
+                if (inEl) inEl.textContent = fmtCountdown(inactivityRemainingMs);
+
+                if (inactivityRemainingMs <= WARNING_THRESHOLD_MS) {
+                    if (inBadge) inBadge.classList.add('warning');
+                    // Only show inactivity warning if max timer is not already showing
+                    if (sessionMaxRemainingMs > WARNING_THRESHOLD_MS) {
+                        showWarningBanner(
+                            `💤 Бездействие: сессия завершится через ${fmtCountdown(inactivityRemainingMs)}`,
+                            inactivityRemainingMs <= CRITICAL_THRESHOLD_MS
+                        );
+                    }
+                }
+
+                if (inactivityRemainingMs <= 0) {
+                    clearInterval(inactivityCountdownInterval);
+                    inactivityCountdownInterval = null;
+                    if (!sessionEnded) {
+                        sessionEnded = true;
+                        socket.emit('end_session', { carId: carId });
+                        disableControls();
+                    }
+                }
+            }, COUNTDOWN_TICK_MS);
+        }
+
+        function resetInactivityCountdown() {
+            if (!inactivityTimeoutMsFromServer) return;
+            inactivityRemainingMs = inactivityTimeoutMsFromServer;
+            const inBadge = document.getElementById('inactivity-timer-badge');
+            if (inBadge) inBadge.classList.remove('warning');
+            // Hide warning if it was for inactivity and max timer is still safe
+            if (sessionMaxRemainingMs > WARNING_THRESHOLD_MS) {
+                hideWarningBanner();
+            }
+        }
+
+        // Holds the inactivityTimeoutMs received from server (for resets)
+        let inactivityTimeoutMsFromServer = 0;
+        // -------------------------------------------------
+
         // End session via HTTP beacon (reliable on page unload/back navigation)
         function sendEndSessionBeacon(socketId) {
             if (!socketId) return;
@@ -585,6 +774,7 @@
             if (sessionEnded) return;
             sessionEnded = true;
             clearInterval(timerInterval);
+            stopCountdownTimers();
             if (hasSession) {
                 const currentSocketId = socket && socket.id ? socket.id : null;
                 if (currentSocketId) {
@@ -607,6 +797,7 @@
         const speedValue = document.getElementById('speed-value');
 
         speedSlider.addEventListener('input', function () {
+            resetInactivityCountdown();
             speedValue.textContent = speedSlider.value;
         });
 
@@ -628,6 +819,12 @@
             // Update sessionStorage with new socket-based sessionId
             const updated = Object.assign({}, sessionData, { sessionId: data.sessionId });
             sessionStorage.setItem('activeSession', JSON.stringify(updated));
+            // Start client-side countdown timers if server provided values
+            if (data.sessionMaxDurationMs && data.inactivityTimeoutMs) {
+                inactivityTimeoutMsFromServer = data.inactivityTimeoutMs;
+                stopCountdownTimers();
+                startCountdownTimers(data.sessionMaxDurationMs, data.inactivityTimeoutMs);
+            }
         });
 
         socket.on('disconnect', function () {
@@ -639,6 +836,7 @@
         socket.on('session_ended', function (data) {
             sessionEnded = true;
             clearInterval(timerInterval);
+            stopCountdownTimers();
             sessionStorage.removeItem('activeSession');
             const durationSec = data.durationSeconds || 0;
             const cost = data.cost || 0;
@@ -653,6 +851,9 @@
             if (reasonEl) {
                 if (data.reason === 'time_limit') {
                     reasonEl.textContent = '⏱ Сессия завершена: превышен лимит времени.';
+                    reasonEl.style.display = '';
+                } else if (data.reason === 'inactivity') {
+                    reasonEl.textContent = '💤 Сессия завершена: превышен лимит бездействия.';
                     reasonEl.style.display = '';
                 } else {
                     reasonEl.style.display = 'none';
@@ -678,6 +879,7 @@
 
         socket.on('session_error', function (data) {
             clearInterval(timerInterval);
+            stopCountdownTimers();
             disableControls();
             const msg = document.getElementById('session-inactive-msg');
             msg.innerHTML = '';
@@ -704,20 +906,24 @@
         });
 
         document.getElementById('forward').addEventListener('click', function () {
+            resetInactivityCountdown();
             const speed = parseInt(speedSlider.value, 10);
             socket.emit('control_command', { direction: 'forward', speed: speed });
         });
 
         document.getElementById('backward').addEventListener('click', function () {
+            resetInactivityCountdown();
             const speed = parseInt(speedSlider.value, 10);
             socket.emit('control_command', { direction: 'backward', speed: -speed });
         });
 
         document.getElementById('left').addEventListener('click', function () {
+            resetInactivityCountdown();
             socket.emit('control_command', { steering_angle: -30 });
         });
 
         document.getElementById('right').addEventListener('click', function () {
+            resetInactivityCountdown();
             socket.emit('control_command', { steering_angle: 30 });
         });
 
@@ -735,6 +941,7 @@
         let keyControlInterval = null;
 
         function sendKeyCommand() {
+            resetInactivityCountdown();
             const speed = parseInt(speedSlider.value, 10);
             const cmd = {};
             if (pressedKeys.has('ArrowUp')) {

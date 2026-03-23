@@ -97,3 +97,15 @@ test.describe('API car-status', () => {
     expect(new Date(body.lastUpdated).getTime()).not.toBeNaN();
   });
 });
+
+test.describe('API config/session', () => {
+  test('/api/config/session returns sessionMaxDurationMs and inactivityTimeoutMs', async ({ request }) => {
+    const res = await request.get('/api/config/session');
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(typeof body.sessionMaxDurationMs).toBe('number');
+    expect(body.sessionMaxDurationMs).toBeGreaterThan(0);
+    expect(typeof body.inactivityTimeoutMs).toBe('number');
+    expect(body.inactivityTimeoutMs).toBeGreaterThan(0);
+  });
+});
