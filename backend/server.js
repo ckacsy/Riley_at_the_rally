@@ -662,9 +662,26 @@ app.get('/api/races', (req, res) => {
   res.json({ races });
 });
 
-// API: Get global leaderboard (top 10 best lap times)
-app.get('/api/leaderboard', (req, res) => {
-  res.json({ leaderboard: leaderboard.slice(0, 10) });
+// API: Get global leaderboard (top 10 best lap times) — sourced from SQLite for persistence across restarts
+app.get('/api/leaderboard', apiReadLimiter, (req, res) => {
+  try {
+    const rows = db
+      .prepare(
+        `SELECT lt.lap_time_ms AS lapTimeMs,
+                lt.car_name   AS carName,
+                lt.created_at AS date,
+                COALESCE(u.username, lt.user_id) AS userId
+           FROM lap_times lt
+      LEFT JOIN users u ON lt.user_id = u.id
+          ORDER BY lt.lap_time_ms ASC
+          LIMIT 10`
+      )
+      .all();
+    res.json({ leaderboard: rows });
+  } catch (e) {
+    console.error('Leaderboard query error:', e.message);
+    res.status(500).json({ error: 'Не удалось загрузить таблицу рекордов.' });
+  }
 });
 
 // End session via HTTP (used by navigator.sendBeacon on page unload)
