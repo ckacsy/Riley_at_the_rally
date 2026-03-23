@@ -12,6 +12,11 @@ package-lock.json
 backend/uploads/*
 !backend/uploads/.gitkeep
 
+# Playwright
+playwright-report/
+test-results/
+backend/.playwright/
+
 # Python
 __pycache__/
 *.py[cod]
