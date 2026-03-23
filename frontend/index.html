@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Аренда RC-машины — Выбор модели</title>
+    <!-- Open Graph meta (defaults; updated dynamically once leaderboard loads) -->
+    <meta property="og:title" content="Рекорды RC-гонок — Riley at the Rally" id="og-title">
+    <meta property="og:description" content="Лучшие круги гонщиков на RC-машинах. Присоединяйтесь!" id="og-description">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="" id="og-url">
     <style>
         * {
             box-sizing: border-box;
@@ -222,6 +227,57 @@
         .medal-1 { color: #FFD700; font-weight: bold; }
         .medal-2 { color: #C0C0C0; font-weight: bold; }
         .medal-3 { color: #CD7F32; font-weight: bold; }
+        .leaderboard-tabs {
+            display: flex;
+            gap: 6px;
+            justify-content: center;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+        }
+        .leaderboard-tab {
+            padding: 7px 20px;
+            border-radius: 20px;
+            border: 2px solid #007BFF;
+            background: white;
+            color: #007BFF;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .leaderboard-tab.active {
+            background: #007BFF;
+            color: white;
+        }
+        .leaderboard-tab:hover:not(.active) {
+            background: #e7f0ff;
+        }
+        .leaderboard-copy-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 16px;
+            border-radius: 20px;
+            border: 2px solid #28a745;
+            background: white;
+            color: #28a745;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .leaderboard-copy-btn:hover {
+            background: #28a745;
+            color: white;
+        }
+        .leaderboard-actions {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
         .selected-race-notice {
             text-align: center;
             background: #d4edda;
@@ -391,8 +447,18 @@
     </div>
 
     <!-- Global Leaderboard Section -->
-    <h2 class="section-title">🏆 Рекорды — лучшие круги</h2>
+    <h2 class="section-title" id="leaderboard-section">🏆 Рекорды — лучшие круги</h2>
     <div class="leaderboard-wrap">
+        <div class="leaderboard-actions">
+            <div class="leaderboard-tabs">
+                <button class="leaderboard-tab active" data-range="all">Все</button>
+                <button class="leaderboard-tab" data-range="week">Неделя</button>
+                <button class="leaderboard-tab" data-range="day">Сутки</button>
+            </div>
+            <button class="leaderboard-copy-btn" id="lb-copy-btn" title="Скопировать ссылку на рейтинг">
+                🔗 Скопировать ссылку
+            </button>
+        </div>
         <div id="leaderboard-container">
             <p class="no-data">Загрузка рекордов…</p>
         </div>
@@ -697,7 +763,7 @@
             loadRaces();
         }
 
-        function renderLeaderboard(entries) {
+        function renderLeaderboard(entries, range) {
             const container = document.getElementById('leaderboard-container');
             if (!entries || entries.length === 0) {
                 container.innerHTML = '<p class="no-data">Рекордов пока нет. Станьте первым!</p>';
@@ -722,6 +788,19 @@
                     </thead>
                     <tbody>${rows}</tbody>
                 </table>`;
+
+            // Update OG meta with top record info
+            if (entries.length > 0) {
+                const top = entries[0];
+                const ogTitle = document.getElementById('og-title');
+                const ogDesc = document.getElementById('og-description');
+                const safeUserId = String(top.userId || '').replace(/[<>"&]/g, function (c) { return {'<':'&lt;','>':'&gt;','"':'&quot;','&':'&amp;'}[c]; });
+                const safeCarName = String(top.carName || '').replace(/[<>"&]/g, function (c) { return {'<':'&lt;','>':'&gt;','"':'&quot;','&':'&amp;'}[c]; });
+                if (ogTitle) ogTitle.content = 'Рекорд круга: ' + formatLapTime(top.lapTimeMs) + ' — ' + safeUserId + ' на ' + safeCarName;
+                if (ogDesc) ogDesc.content = 'Лучший круг: ' + formatLapTime(top.lapTimeMs) + ' (' + safeUserId + ', ' + safeCarName + '). Присоединяйтесь и побейте!';
+                const ogUrl = document.getElementById('og-url');
+                if (ogUrl) ogUrl.content = window.location.origin + '/?leaderboard=' + encodeURIComponent(range || 'all') + '#leaderboard-section';
+            }
         }
 
         function loadRaces() {
@@ -734,15 +813,73 @@
                 });
         }
 
-        function loadLeaderboard() {
-            fetch('/api/leaderboard', { cache: 'no-store' })
+        var currentLbRange = 'all';
+
+        function loadLeaderboard(range) {
+            range = range || currentLbRange;
+            fetch('/api/leaderboard?range=' + encodeURIComponent(range), { cache: 'no-store' })
                 .then(function (res) { return res.json(); })
-                .then(function (data) { renderLeaderboard(data.leaderboard); })
+                .then(function (data) { renderLeaderboard(data.leaderboard, data.range || range); })
                 .catch(function () {
                     document.getElementById('leaderboard-container').innerHTML =
                         '<p class="no-data">Не удалось загрузить рекорды.</p>';
                 });
         }
+
+        // Leaderboard tabs
+        document.querySelectorAll('.leaderboard-tab').forEach(function (tab) {
+            tab.addEventListener('click', function () {
+                document.querySelectorAll('.leaderboard-tab').forEach(function (t) { t.classList.remove('active'); });
+                tab.classList.add('active');
+                currentLbRange = tab.getAttribute('data-range');
+                loadLeaderboard(currentLbRange);
+                // Update URL without reload
+                var url = new URL(window.location.href);
+                url.searchParams.set('leaderboard', currentLbRange);
+                url.hash = 'leaderboard-section';
+                window.history.replaceState(null, '', url.toString());
+            });
+        });
+
+        // Copy link button
+        document.getElementById('lb-copy-btn').addEventListener('click', function () {
+            var url = new URL(window.location.href);
+            url.searchParams.set('leaderboard', currentLbRange);
+            url.hash = 'leaderboard-section';
+            var shareUrl = url.toString();
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(shareUrl).then(function () {
+                    var btn = document.getElementById('lb-copy-btn');
+                    var orig = btn.textContent;
+                    btn.textContent = '✅ Скопировано!';
+                    setTimeout(function () { btn.textContent = orig; }, 2000);
+                }).catch(function () {
+                    prompt('Скопируйте ссылку:', shareUrl);
+                });
+            } else {
+                prompt('Скопируйте ссылку:', shareUrl);
+            }
+        });
+
+        // On load: check ?leaderboard= param and activate correct tab
+        (function () {
+            var params = new URLSearchParams(window.location.search);
+            var rangeParam = params.get('leaderboard');
+            var validRanges = ['all', 'week', 'day'];
+            if (rangeParam && validRanges.indexOf(rangeParam) !== -1) {
+                currentLbRange = rangeParam;
+                document.querySelectorAll('.leaderboard-tab').forEach(function (t) { t.classList.remove('active'); });
+                var targetTab = document.querySelector('.leaderboard-tab[data-range="' + rangeParam + '"]');
+                if (targetTab) targetTab.classList.add('active');
+                // Scroll to leaderboard if hash present
+                if (window.location.hash === '#leaderboard-section') {
+                    setTimeout(function () {
+                        var el = document.getElementById('leaderboard-section');
+                        if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    }, 300);
+                }
+            }
+        })();
 
         document.getElementById('create-race-btn').addEventListener('click', function () {
             if (currentUser && currentUser.status === 'pending') {
@@ -764,7 +901,7 @@
             loadRaces();
         });
         setInterval(loadRaces, 30000);
-        setInterval(loadLeaderboard, 10000);
+        setInterval(function () { loadLeaderboard(currentLbRange); }, 10000);
     </script>
 </body>
 </html>
