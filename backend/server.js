@@ -15,6 +15,7 @@ const multer = require('multer');
 require('dotenv').config();
 
 const metrics = require('./metrics');
+const mailer = require('./mailer');
 
 const {
   validateUsername,
@@ -122,6 +123,14 @@ db.exec(`
     cost REAL,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+  CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    token_hash TEXT UNIQUE NOT NULL,
+    expires_at TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 `);
 
@@ -271,16 +280,29 @@ function clearLoginFailures(ip) {
   loginFailures.delete(ip);
 }
 
-// --- Dev mailer (logs verification link to console) ---
-// NOTE: In production, replace with a real SMTP/transactional email sender (Epic D).
+// --- Mailer helpers ---
 function sendVerificationEmail(email, token, req) {
   const baseUrl = process.env.APP_BASE_URL ||
     (req ? `${req.protocol}://${req.get('host')}` : `http://localhost:${PORT}`);
   const verifyUrl = `${baseUrl}/verify-email?token=${token}`;
-  console.log('\n=== [DEV] Email Verification ===');
-  console.log(`To: ${email}`);
-  console.log(`Verification URL: ${verifyUrl}`);
-  console.log('================================\n');
+  const subject = 'Подтвердите email — Riley at the Rally';
+  const text = `Здравствуйте!\n\nДля подтверждения вашего email перейдите по ссылке:\n${verifyUrl}\n\nСсылка действительна 24 часа.\n\nЕсли вы не регистрировались на нашем сайте, просто проигнорируйте это письмо.`;
+  const html = `<p>Здравствуйте!</p><p>Для подтверждения вашего email перейдите по ссылке:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p><p>Ссылка действительна 24 часа.</p><p>Если вы не регистрировались на нашем сайте, просто проигнорируйте это письмо.</p>`;
+  mailer.sendMail({ to: email, subject, text, html }).catch((err) => {
+    console.error('[Mailer] Failed to send verification email:', err.message);
+  });
+}
+
+function sendPasswordResetEmail(email, token, req) {
+  const baseUrl = process.env.APP_BASE_URL ||
+    (req ? `${req.protocol}://${req.get('host')}` : `http://localhost:${PORT}`);
+  const resetUrl = `${baseUrl}/reset-password?token=${token}`;
+  const subject = 'Сброс пароля — Riley at the Rally';
+  const text = `Здравствуйте!\n\nДля сброса пароля перейдите по ссылке:\n${resetUrl}\n\nСсылка действительна 1 час.\n\nЕсли вы не запрашивали сброс пароля, просто проигнорируйте это письмо.`;
+  const html = `<p>Здравствуйте!</p><p>Для сброса пароля перейдите по ссылке:</p><p><a href="${resetUrl}">${resetUrl}</a></p><p>Ссылка действительна 1 час.</p><p>Если вы не запрашивали сброс пароля, просто проигнорируйте это письмо.</p>`;
+  mailer.sendMail({ to: email, subject, text, html }).catch((err) => {
+    console.error('[Mailer] Failed to send password reset email:', err.message);
+  });
 }
 
 function createVerificationToken(userId) {
@@ -290,6 +312,17 @@ function createVerificationToken(userId) {
   db.prepare('DELETE FROM email_verification_tokens WHERE user_id = ?').run(userId);
   db.prepare(
     'INSERT INTO email_verification_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)'
+  ).run(userId, tokenHash, expiresAt);
+  return rawToken;
+}
+
+function createPasswordResetToken(userId) {
+  const rawToken = crypto.randomBytes(32).toString('hex');
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
+  db.prepare('DELETE FROM password_reset_tokens WHERE user_id = ?').run(userId);
+  db.prepare(
+    'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)'
   ).run(userId, tokenHash, expiresAt);
   return rawToken;
 }
@@ -770,7 +803,82 @@ app.post('/api/auth/resend-verification', requireAuth, verifyResendLimiter, csrf
 
   const token = createVerificationToken(user.id);
   sendVerificationEmail(user.email_normalized || user.email, token, req);
-  res.json({ success: true, message: 'Письмо с подтверждением отправлено. Проверьте консоль сервера (dev-режим).' });
+  res.json({ success: true, message: 'Письмо с подтверждением отправлено.' });
+});
+
+// --- Password reset ---
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Слишком много запросов. Попробуйте через 15 минут.' },
+  keyGenerator: (req) => req.ip,
+  skip: () => process.env.NODE_ENV === 'test',
+});
+
+app.post('/api/auth/forgot-password', forgotPasswordLimiter, csrfMiddleware, (req, res) => {
+  const body = req.body || {};
+  const rawEmail = typeof body.email === 'string' ? body.email : '';
+
+  // Always respond with success to prevent email enumeration
+  const successResponse = () =>
+    res.json({ success: true, message: 'Если этот email зарегистрирован, вы получите письмо со ссылкой для сброса пароля.' });
+
+  if (!rawEmail) return successResponse();
+
+  const emailNorm = rawEmail.trim().toLowerCase();
+  const user = db
+    .prepare('SELECT id, email, email_normalized FROM users WHERE email_normalized = ?')
+    .get(emailNorm);
+
+  if (user) {
+    const token = createPasswordResetToken(user.id);
+    sendPasswordResetEmail(user.email_normalized || user.email, token, req);
+  }
+
+  successResponse();
+});
+
+const resetPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Слишком много запросов. Попробуйте через 15 минут.' },
+  keyGenerator: (req) => req.ip,
+  skip: () => process.env.NODE_ENV === 'test',
+});
+
+app.post('/api/auth/reset-password', resetPasswordLimiter, csrfMiddleware, (req, res) => {
+  const body = req.body || {};
+  const rawToken = typeof body.token === 'string' ? body.token : '';
+  const password = typeof body.password === 'string' ? body.password : '';
+  const confirmPassword = typeof body.confirm_password === 'string' ? body.confirm_password : undefined;
+
+  if (!rawToken) return res.status(400).json({ error: 'Токен отсутствует или недействителен' });
+
+  const passwordErr = validatePassword(password, confirmPassword);
+  if (passwordErr) return res.status(400).json({ error: passwordErr });
+
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const record = db
+    .prepare('SELECT * FROM password_reset_tokens WHERE token_hash = ?')
+    .get(tokenHash);
+
+  if (!record) return res.status(400).json({ error: 'Ссылка для сброса пароля недействительна или уже использована' });
+  if (new Date(record.expires_at) < new Date()) {
+    db.prepare('DELETE FROM password_reset_tokens WHERE id = ?').run(record.id);
+    return res.status(400).json({ error: 'Ссылка для сброса пароля истекла. Запросите новую.' });
+  }
+
+  const newHash = bcrypt.hashSync(password, 12);
+  db.transaction(() => {
+    db.prepare('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(newHash, record.user_id);
+    db.prepare('DELETE FROM password_reset_tokens WHERE id = ?').run(record.id);
+  })();
+
+  res.json({ success: true, message: 'Пароль успешно изменён. Теперь вы можете войти с новым паролем.' });
 });
 
 // --- Profile routes ---
@@ -954,6 +1062,14 @@ app.get('/profile', pageRateLimit, (req, res) => {
 
 app.get('/verify-email', pageRateLimit, (req, res) => {
   res.sendFile(path.join(frontendDir, 'verify-email.html'));
+});
+
+app.get('/forgot-password', pageRateLimit, (req, res) => {
+  res.sendFile(path.join(frontendDir, 'forgot-password.html'));
+});
+
+app.get('/reset-password', pageRateLimit, (req, res) => {
+  res.sendFile(path.join(frontendDir, 'reset-password.html'));
 });
 
 app.get('/garage', pageRateLimit, (req, res) => {
@@ -1254,11 +1370,12 @@ if (process.env.NODE_ENV !== 'production') {
     try {
       db.transaction(() => {
         db.exec('DELETE FROM email_verification_tokens');
+        db.exec('DELETE FROM password_reset_tokens');
         db.exec('DELETE FROM lap_times');
         db.exec('DELETE FROM rental_sessions');
         db.exec('DELETE FROM users');
         // Reset autoincrement counters
-        db.exec("DELETE FROM sqlite_sequence WHERE name IN ('users','lap_times','rental_sessions','email_verification_tokens')");
+        db.exec("DELETE FROM sqlite_sequence WHERE name IN ('users','lap_times','rental_sessions','email_verification_tokens','password_reset_tokens')");
       })();
       req.session.destroy((err) => { if (err) console.error('Session destroy error:', err); });
       console.log('[DEV] Database reset: all users and sessions deleted.');
