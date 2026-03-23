@@ -488,7 +488,7 @@
         </div>
 
         <!-- Top global leaderboard -->
-        <div id="lb-section" style="display:none">
+        <div id="lb-section">
             <div class="race-leaderboard-title">🏆 Топ рекорды</div>
             <table class="lb-table" id="lb-table">
                 <thead>
@@ -776,7 +776,6 @@
             document.getElementById('race-status-bar').style.display = inRace ? 'block' : 'none';
             document.getElementById('lap-timer-section').style.display = inRace ? 'flex' : 'none';
             document.getElementById('positions-section').style.display = inRace ? 'block' : 'none';
-            document.getElementById('lb-section').style.display = inRace ? 'block' : 'none';
         }
 
         function renderPositions(players) {
@@ -814,6 +813,16 @@
                     <td><strong>${formatLapTime(e.lapTimeMs)}</strong></td>
                 </tr>`;
             }).join('');
+        }
+
+        function loadLeaderboard() {
+            fetch('/api/leaderboard', { cache: 'no-store' })
+                .then(function (res) { return res.json(); })
+                .then(function (data) { renderLeaderboard(data.leaderboard || []); })
+                .catch(function () {
+                    var tbody = document.getElementById('lb-body');
+                    if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888">Пока нет рекордов</td></tr>';
+                });
         }
 
         function flashMessage(msg, isRecord) {
@@ -869,7 +878,7 @@
                 '🏎 ' + data.raceName + ' — вы в гонке!';
             showRaceUI(true);
             renderPositions(data.players);
-            renderLeaderboard(data.leaderboard);
+            loadLeaderboard();
         });
 
         socket.on('race_updated', function (data) {
@@ -919,7 +928,7 @@
             } else if (data.isGlobalRecord) {
                 flashMessage('🏆 ' + data.userId + ' побил рекорд трассы: ' + formatLapTime(data.lapTimeMs) + '!', true);
             }
-            if (data.leaderboard) renderLeaderboard(data.leaderboard);
+            loadLeaderboard();
         });
 
         document.getElementById('create-race-btn').addEventListener('click', function () {
@@ -957,6 +966,7 @@
 
         // Load races for the join dropdown initially
         loadActiveRaces();
+        loadLeaderboard();
         // Bug 4: Update race list instantly via socket instead of polling
         socket.on('races_updated', function () {
             if (!currentRaceId) loadActiveRaces();
