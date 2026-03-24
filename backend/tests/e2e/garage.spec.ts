@@ -151,7 +151,7 @@ test.describe('Garage CTA button gating', () => {
     await expect(fallbackBtn).toBeDisabled();
   });
 
-  test('CTA enabled and shows "Старт / Подключиться" when status=available (fallback mode)', async ({ page }) => {
+  test('CTA enabled and shows "НА ТРЕК" when status=available (fallback mode)', async ({ page }) => {
     await page.route('/api/car-status', (route) =>
       route.fulfill({ json: { status: 'available', lastUpdated: new Date().toISOString() } }),
     );
@@ -163,7 +163,7 @@ test.describe('Garage CTA button gating', () => {
 
     const fallbackBtn = page.locator('#fallback-cta-btn');
     await expect(fallbackBtn).toBeVisible({ timeout: BADGE_TIMEOUT });
-    await expect(fallbackBtn).toContainText('Старт / Подключиться', { timeout: BADGE_TIMEOUT });
+    await expect(fallbackBtn).toContainText('НА ТРЕК', { timeout: BADGE_TIMEOUT });
     await expect(fallbackBtn).toBeEnabled();
   });
 });
