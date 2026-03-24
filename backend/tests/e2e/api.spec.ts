@@ -24,6 +24,20 @@ test.describe('Static page routes', () => {
     const response = await page.goto('/garage');
     expect(response?.status()).toBe(200);
   });
+
+  test('GET /garage responds with Content-Type text/html', async ({ request }) => {
+    const res = await request.get('/garage');
+    expect(res.status()).toBe(200);
+    expect(res.headers()['content-type']).toMatch(/text\/html/);
+  });
+
+  test('GET /garage serves complete HTML document with garage-canvas', async ({ request }) => {
+    const res = await request.get('/garage');
+    expect(res.status()).toBe(200);
+    const body = await res.text();
+    expect(body).toMatch(/<!DOCTYPE html>/i);
+    expect(body).toContain('garage-canvas');
+  });
 });
 
 test.describe('API health & leaderboard', () => {
