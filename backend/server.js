@@ -11,6 +11,7 @@ const rateLimit = require('express-rate-limit');
 const Database = require('better-sqlite3');
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
+const SQLiteStore = require('connect-sqlite3')(session);
 const multer = require('multer');
 // Load environment variables from backend/.env (works regardless of cwd).
 // Falls back to repo-root .env if backend/.env does not exist.
@@ -60,12 +61,14 @@ const io = socketIo(server, {
 app.use(cors());
 app.use(express.json());
 
-// Session middleware
+// Session middleware — uses connect-sqlite3 to persist sessions across server
+// restarts, replacing the default in-memory store which lost sessions on restart.
 const SESSION_SECRET = process.env.SESSION_SECRET || 'riley-secret-change-in-production';
 app.use(session({
   secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
+  store: new SQLiteStore({ db: 'sessions.sqlite', dir: __dirname }),
   cookie: {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',

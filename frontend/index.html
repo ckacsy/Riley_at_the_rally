@@ -3,16 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Аренда RC-машины — Выбор модели</title>
+    <title>Рейтинги — Riley at the Rally</title>
     <!-- Open Graph meta (defaults; updated dynamically once leaderboard loads) -->
     <meta property="og:title" content="Рекорды RC-гонок — Riley at the Rally" id="og-title">
     <meta property="og:description" content="Лучшие круги гонщиков на RC-машинах. Присоединяйтесь!" id="og-description">
     <meta property="og:type" content="website">
     <meta property="og:url" content="" id="og-url">
     <style>
-        * {
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
         body {
             font-family: Arial, sans-serif;
             background-color: #f4f4f4;
@@ -30,167 +28,18 @@
             margin-bottom: 32px;
             font-size: 15px;
         }
-        .cars-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 24px;
-            justify-content: center;
-            max-width: 960px;
-            margin: 0 auto;
-        }
-        .car-card {
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.10);
-            padding: 28px 32px;
-            width: 280px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            transition: box-shadow 0.2s;
-        }
-        .car-card:hover {
-            box-shadow: 0 4px 20px rgba(0,0,0,0.18);
-        }
-        .car-icon {
-            font-size: 56px;
-            margin-bottom: 12px;
-        }
-        .car-name {
-            font-size: 18px;
-            font-weight: bold;
-            color: #222;
-            text-align: center;
-            margin-bottom: 6px;
-        }
-        .car-model {
-            font-size: 13px;
-            color: #888;
-            margin-bottom: 10px;
-        }
-        .car-status {
-            display: inline-block;
-            padding: 3px 12px;
-            border-radius: 12px;
-            font-size: 13px;
-            font-weight: bold;
-            margin-bottom: 18px;
-        }
-        .car-status.available {
-            background-color: #d4edda;
-            color: #155724;
-        }
-        .car-status.unavailable {
-            background-color: #f8d7da;
-            color: #721c24;
-        }
-        .activate-btn {
-            width: 100%;
-            padding: 12px 0;
-            background-color: #28a745;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        .activate-btn:hover {
-            background-color: #1e7e34;
-        }
-        .activate-btn:disabled {
-            background-color: #aaa;
-            cursor: not-allowed;
-        }
-        .rate-info {
-            font-size: 12px;
-            color: #888;
-            margin-top: 10px;
-        }
-        .loading {
-            text-align: center;
-            color: #888;
-            margin-top: 60px;
-            font-size: 16px;
-        }
-        .error-msg {
-            text-align: center;
-            color: #dc3545;
-            margin-top: 60px;
-            font-size: 16px;
-        }
-        /* Races & Leaderboard sections */
-        .section-title {
-            text-align: center;
-            color: #333;
-            margin: 40px 0 16px;
-            font-size: 20px;
-        }
-        .races-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 16px;
-            justify-content: center;
-            max-width: 960px;
-            margin: 0 auto 8px;
-        }
-        .race-card {
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.10);
-            padding: 18px 24px;
-            min-width: 220px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
-        }
-        .race-name {
-            font-weight: bold;
-            font-size: 16px;
-            color: #222;
-        }
-        .race-players {
-            font-size: 13px;
-            color: #666;
-        }
-        .race-join-btn {
-            padding: 8px 18px;
-            background-color: #007BFF;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: background-color 0.3s;
-        }
-        .race-join-btn:hover {
-            background-color: #0056b3;
-        }
-        .create-race-btn {
-            display: block;
-            margin: 0 auto 16px;
-            padding: 10px 28px;
-            background-color: #28a745;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 15px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        .create-race-btn:hover {
-            background-color: #1e7e34;
-        }
-        .create-race-btn:disabled {
-            background-color: #aaa;
-            cursor: not-allowed;
-        }
         .no-data {
             text-align: center;
             color: #888;
             font-size: 14px;
             margin: 8px 0;
+        }
+        /* Leaderboard */
+        .section-title {
+            text-align: center;
+            color: #333;
+            margin: 40px 0 16px;
+            font-size: 20px;
         }
         .leaderboard-wrap {
             max-width: 700px;
@@ -218,12 +67,8 @@
             color: #333;
             border-bottom: 1px solid #f0f0f0;
         }
-        .leaderboard-table tr:last-child td {
-            border-bottom: none;
-        }
-        .leaderboard-table tr:nth-child(odd) td {
-            background-color: #f9f9f9;
-        }
+        .leaderboard-table tr:last-child td { border-bottom: none; }
+        .leaderboard-table tr:nth-child(odd) td { background-color: #f9f9f9; }
         .medal-1 { color: #FFD700; font-weight: bold; }
         .medal-2 { color: #C0C0C0; font-weight: bold; }
         .medal-3 { color: #CD7F32; font-weight: bold; }
@@ -245,13 +90,8 @@
             cursor: pointer;
             transition: background-color 0.2s, color 0.2s;
         }
-        .leaderboard-tab.active {
-            background: #007BFF;
-            color: white;
-        }
-        .leaderboard-tab:hover:not(.active) {
-            background: #e7f0ff;
-        }
+        .leaderboard-tab.active { background: #007BFF; color: white; }
+        .leaderboard-tab:hover:not(.active) { background: #e7f0ff; }
         .leaderboard-copy-btn {
             display: inline-flex;
             align-items: center;
@@ -266,10 +106,7 @@
             cursor: pointer;
             transition: background-color 0.2s, color 0.2s;
         }
-        .leaderboard-copy-btn:hover {
-            background: #28a745;
-            color: white;
-        }
+        .leaderboard-copy-btn:hover { background: #28a745; color: white; }
         .leaderboard-actions {
             display: flex;
             justify-content: center;
@@ -277,18 +114,6 @@
             gap: 12px;
             margin-bottom: 12px;
             flex-wrap: wrap;
-        }
-        .selected-race-notice {
-            text-align: center;
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-            border-radius: 6px;
-            padding: 10px 18px;
-            max-width: 500px;
-            margin: 0 auto 12px;
-            font-size: 14px;
-            display: none;
         }
         /* Auth nav bar */
         .auth-nav {
@@ -300,15 +125,9 @@
             margin: 0 auto 16px;
             font-size: 14px;
         }
-        .auth-nav a {
-            color: #007BFF;
-            text-decoration: none;
-        }
+        .auth-nav a { color: #007BFF; text-decoration: none; }
         .auth-nav a:hover { text-decoration: underline; }
-        .auth-nav .user-greeting {
-            color: #555;
-            font-weight: bold;
-        }
+        .auth-nav .user-greeting { color: #555; font-weight: bold; }
         .auth-nav .logout-btn {
             background: none;
             border: 1px solid #dc3545;
@@ -321,90 +140,14 @@
         }
         .auth-nav .logout-btn:hover { background-color: #dc3545; color: white; }
         .auth-nav .user-avatar {
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 1px solid #ccc;
-            vertical-align: middle;
+            width: 28px; height: 28px; border-radius: 50%;
+            object-fit: cover; border: 1px solid #ccc; vertical-align: middle;
         }
         .auth-nav .avatar-placeholder {
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            background: #6c757d;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 13px;
-            color: white;
-            vertical-align: middle;
-            font-weight: bold;
-        }
-        /* Pending email verification banner */
-        .pending-banner {
-            background: #fff3cd;
-            border: 1px solid #ffc107;
-            border-radius: 6px;
-            padding: 12px 18px;
-            max-width: 960px;
-            margin: 0 auto 16px;
-            font-size: 14px;
-            color: #856404;
-            text-align: center;
-            display: none;
-        }
-        /* Stale session summary modal */
-        .stale-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.55);
-            z-index: 100;
-            justify-content: center;
-            align-items: center;
-        }
-        .stale-overlay.visible {
-            display: flex;
-        }
-        .stale-card {
-            background: white;
-            border-radius: 10px;
-            padding: 36px 48px;
-            text-align: center;
-            max-width: 380px;
-            width: 90%;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.25);
-        }
-        .stale-card h2 {
-            margin-top: 0;
-            color: #333;
-        }
-        .stale-card p {
-            font-size: 16px;
-            color: #555;
-            margin: 10px 0;
-        }
-        .stale-card .cost {
-            font-size: 28px;
-            font-weight: bold;
-            color: #007BFF;
-            margin: 16px 0;
-        }
-        .stale-card .close-btn {
-            display: inline-block;
-            margin-top: 20px;
-            padding: 12px 32px;
-            background-color: #007BFF;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        .stale-card .close-btn:hover {
-            background-color: #0056b3;
+            width: 28px; height: 28px; border-radius: 50%;
+            background: #6c757d; display: inline-flex;
+            align-items: center; justify-content: center;
+            font-size: 13px; color: white; vertical-align: middle; font-weight: bold;
         }
     </style>
 </head>
@@ -413,41 +156,11 @@
     <div class="auth-nav" id="auth-nav">
         <span id="auth-loading" style="color:#aaa">…</span>
     </div>
-    <!-- Pending email verification banner -->
-    <div class="pending-banner" id="pending-banner">
-        ⚠️ Подтвердите email — без подтверждения доступ к гонкам/аренде ограничен.
-    </div>
 
-    <h1>🏎️ Выберите модель RC-машины</h1>
-    <p class="subtitle">Выберите машину ниже и нажмите <strong>Активировать</strong>, чтобы начать аренду.</p>
-
-    <div class="cars-grid" id="cars-grid">
-        <p class="loading">Загрузка доступных машин…</p>
-    </div>
-
-    <!-- Stale session summary modal (shown when returning from /control) -->
-    <div class="stale-overlay" id="stale-overlay">
-        <div class="stale-card">
-            <h2>Сессия завершена</h2>
-            <p id="stale-car">Машина: —</p>
-            <p id="stale-duration">Длительность: —</p>
-            <p class="cost" id="stale-cost">$0.00</p>
-            <button class="close-btn" id="stale-close">Закрыть</button>
-        </div>
-    </div>
-
-    <!-- Active Races Section -->
-    <h2 class="section-title">🏁 Активные гонки</h2>
-    <div id="selected-race-notice" class="selected-race-notice"></div>
-    <div style="text-align:center">
-        <button class="create-race-btn" id="create-race-btn">➕ Создать новую гонку</button>
-    </div>
-    <div class="races-grid" id="races-grid">
-        <p class="no-data">Загрузка гонок…</p>
-    </div>
+    <h1 id="leaderboard-section">🏆 Рекорды — лучшие круги</h1>
+    <p class="subtitle"><a href="/garage" style="color:#007BFF;text-decoration:none;">← Вернуться в гараж</a></p>
 
     <!-- Global Leaderboard Section -->
-    <h2 class="section-title" id="leaderboard-section">🏆 Рекорды — лучшие круги</h2>
     <div class="leaderboard-wrap">
         <div class="leaderboard-actions">
             <div class="leaderboard-tabs">
@@ -464,14 +177,11 @@
         </div>
     </div>
 
-    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script>
-        let socket = io(window.location.origin);
-        let ratePerMinute = 0.50; // default; overridden by API response
-        let currentUser = null; // logged-in user from /api/auth/me
+        let currentUser = null;
         let csrfToken = '';
 
-        // Fetch CSRF token on page load so logout can include it
+        // Fetch CSRF token on page load
         fetch('/api/csrf-token')
             .then(function (r) { return r.json(); })
             .then(function (d) { csrfToken = d.csrfToken || ''; });
@@ -483,12 +193,9 @@
                 .then(function (data) {
                     currentUser = data.user || null;
                     const nav = document.getElementById('auth-nav');
-                    const banner = document.getElementById('pending-banner');
-                    const createBtn = document.getElementById('create-race-btn');
                     if (currentUser) {
                         nav.innerHTML = '';
 
-                        // Avatar: use DOM to safely set src/textContent
                         if (currentUser.avatar_path) {
                             const img = document.createElement('img');
                             img.className = 'user-avatar';
@@ -507,6 +214,11 @@
                         greeting.textContent = '👤 ' + currentUser.username;
                         nav.appendChild(greeting);
 
+                        const garageLink = document.createElement('a');
+                        garageLink.href = '/garage';
+                        garageLink.textContent = 'Гараж';
+                        nav.appendChild(garageLink);
+
                         const profileLink = document.createElement('a');
                         profileLink.href = '/profile';
                         profileLink.textContent = 'Профиль';
@@ -524,27 +236,16 @@
                                 .then(function () { currentUser = null; loadAuthNav(); });
                         });
                         nav.appendChild(logoutBtn);
-
-                        // Show pending banner and disable controls for unverified users
-                        if (currentUser.status === 'pending') {
-                            banner.style.display = 'block';
-                            createBtn.disabled = true;
-                            createBtn.title = 'Подтвердите email для создания гонки';
-                        } else {
-                            banner.style.display = 'none';
-                            createBtn.disabled = false;
-                            createBtn.title = '';
-                        }
                     } else {
                         nav.innerHTML =
+                            '<a href="/garage">Гараж</a>' +
                             '<a href="/login">Войти</a>' +
                             '<a href="/register" style="background:#28a745;color:white;padding:6px 14px;border-radius:5px">Регистрация</a>';
-                        banner.style.display = 'none';
-                        createBtn.disabled = false;
                     }
                 })
                 .catch(function () {
                     document.getElementById('auth-nav').innerHTML =
+                        '<a href="/garage">Гараж</a>' +
                         '<a href="/login">Войти</a>' +
                         '<a href="/register" style="background:#28a745;color:white;padding:6px 14px;border-radius:5px">Регистрация</a>';
                 });
@@ -552,215 +253,11 @@
 
         loadAuthNav();
 
-        // On load: if a stale activeSession exists, end it server-side and show summary
-        function checkStaleSession() {
-            let stale = null;
-            try {
-                stale = JSON.parse(sessionStorage.getItem('activeSession') || 'null');
-            } catch (e) {
-                stale = null;
-            }
-            if (!stale || !stale.sessionId) {
-                sessionStorage.removeItem('activeSession');
-                return;
-            }
-            sessionStorage.removeItem('activeSession');
-            fetch('/api/session/end', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sessionId: stale.sessionId })
-            })
-            .then(function (res) { return res.json(); })
-            .then(function (data) {
-                const carName = stale.carName || ('Машина #' + (stale.carId || '?'));
-                let durationText = '—';
-                let costText = '$0.00';
-                if (data.ended) {
-                    const durationSec = data.durationSeconds || 0;
-                    const minutes = Math.floor(durationSec / 60);
-                    const seconds = durationSec % 60;
-                    durationText = `${minutes}м ${seconds}с`;
-                    costText = '$' + (data.cost || 0).toFixed(2);
-                } else if (stale.startTime) {
-                    // Session already ended server-side; compute elapsed from saved startTime
-                    const elapsedSec = Math.max(0, Math.floor((Date.now() - new Date(stale.startTime).getTime()) / 1000));
-                    const minutes = Math.floor(elapsedSec / 60);
-                    const seconds = elapsedSec % 60;
-                    durationText = `${minutes}м ${seconds}с`;
-                    const sessionRate = stale.ratePerMinute || ratePerMinute;
-                    const cost = (elapsedSec / 60) * sessionRate;
-                    costText = '$' + cost.toFixed(2);
-                }
-                document.getElementById('stale-car').textContent = 'Машина: ' + carName;
-                document.getElementById('stale-duration').textContent = 'Длительность: ' + durationText;
-                document.getElementById('stale-cost').textContent = costText;
-                document.getElementById('stale-overlay').classList.add('visible');
-            })
-            .catch(function () {
-                // Silently ignore if server is unreachable
-            });
-        }
-
-        // Run on initial load
-        checkStaleSession();
-
-        // Run when page is restored from bfcache (browser back navigation)
-        window.addEventListener('pageshow', function (event) {
-            if (event.persisted) {
-                checkStaleSession();
-            }
-        });
-
-        document.getElementById('stale-close').addEventListener('click', function () {
-            document.getElementById('stale-overlay').classList.remove('visible');
-        });
-
-        // Render car cards from data
-        function renderCars(cars) {
-            const grid = document.getElementById('cars-grid');
-            if (!cars || cars.length === 0) {
-                grid.innerHTML = '<p class="error-msg">В данный момент машины недоступны.</p>';
-                return;
-            }
-            grid.innerHTML = '';
-            cars.forEach(function (car) {
-                const available = car.status === 'available';
-                const card = document.createElement('div');
-                card.className = 'car-card';
-                card.innerHTML = `
-                    <div class="car-icon">🚗</div>
-                    <div class="car-name">${car.name}</div>
-                    <div class="car-model">${car.model || ''}</div>
-                    <span class="car-status ${available ? 'available' : 'unavailable'}">
-                        ${available ? 'Доступна' : 'Недоступна'}
-                    </span>
-                    <button class="activate-btn" data-car-id="${car.id}" data-car-name="${car.name}" ${available ? '' : 'disabled'}>
-                        ${available ? 'Активировать' : 'Недоступна'}
-                    </button>
-                    <div class="rate-info">$${ratePerMinute.toFixed(2)} / мин</div>
-                `;
-                grid.appendChild(card);
-            });
-            document.querySelectorAll('.activate-btn:not([disabled])').forEach(function (btn) {
-                btn.addEventListener('click', function () {
-                    if (currentUser && currentUser.status === 'pending') {
-                        alert('Подтвердите email для аренды машины.');
-                        return;
-                    }
-                    const carId = parseInt(btn.getAttribute('data-car-id'), 10);
-                    const carName = btn.getAttribute('data-car-name');
-                    btn.disabled = true;
-                    btn.textContent = 'Запуск…';
-                    startSession(carId, carName);
-                });
-            });
-        }
-
-        // Fetch cars from API and render cards
-        function loadCars() {
-            fetch('/api/cars')
-                .then(function (res) { return res.json(); })
-                .then(function (data) {
-                    ratePerMinute = data.ratePerMinute || ratePerMinute;
-                    renderCars(data.cars || []);
-                })
-                .catch(function () {
-                    document.getElementById('cars-grid').innerHTML =
-                        '<p class="error-msg">Не удалось загрузить список машин. Попробуйте снова.</p>';
-                });
-        }
-
-        loadCars();
-
-        // Bug 2: Real-time car availability updates via socket
-        socket.on('cars_updated', function (data) {
-            renderCars(data.cars || []);
-        });
-
-        function startSession(carId, carName) {
-            const selectedRace = sessionStorage.getItem('selectedRaceId') || null;
-            if (!currentUser) {
-                alert('Войдите в аккаунт, чтобы арендовать машину и участвовать в гонке.');
-                window.location.href = '/login?redirect=/';
-                return;
-            }
-            if (currentUser.status === 'pending') {
-                alert('Подтвердите email, чтобы участвовать.');
-                return;
-            }
-            const userId = currentUser.username;
-            const dbUserId = currentUser.id;
-            socket.emit('start_session', { carId: carId, userId: userId, dbUserId: dbUserId });
-            socket.once('session_started', function (data) {
-                // Save session info so /control can read it
-                sessionStorage.setItem('activeSession', JSON.stringify({
-                    carId: carId,
-                    carName: carName,
-                    startTime: new Date().toISOString(),
-                    sessionId: data.sessionId,
-                    userId: userId,
-                    dbUserId: dbUserId,
-                    ratePerMinute: ratePerMinute,
-                    selectedRaceId: selectedRace
-                }));
-                window.location.href = '/control';
-            });
-            // Bug 5: Handle car already taken
-            socket.once('session_error', function (data) {
-                alert(data.message || 'Не удалось начать сессию.');
-                loadCars();
-            });
-        }
-
-        // --- Races & Leaderboard ---
-        let selectedRaceId = null;
-
         function formatLapTime(ms) {
             const mins = String(Math.floor(ms / 60000)).padStart(2, '0');
             const secs = String(Math.floor((ms % 60000) / 1000)).padStart(2, '0');
             const millis = String(ms % 1000).padStart(3, '0');
             return `${mins}:${secs}.${millis}`;
-        }
-
-        function renderRaces(races) {
-            const grid = document.getElementById('races-grid');
-            if (!races || races.length === 0) {
-                grid.innerHTML = '<p class="no-data">Нет активных гонок. Создайте первую!</p>';
-                return;
-            }
-            grid.innerHTML = '';
-            races.forEach(function (r) {
-                const card = document.createElement('div');
-                card.className = 'race-card';
-                const isSelected = r.id === selectedRaceId;
-                card.innerHTML = `
-                    <div class="race-name">${r.name}</div>
-                    <div class="race-players">👥 ${r.playerCount} участник(ов)</div>
-                    <button class="race-join-btn" data-race-id="${r.id}" style="${isSelected ? 'background:#28a745' : ''}">
-                        ${isSelected ? '✓ Выбрана' : 'Присоединиться'}
-                    </button>
-                `;
-                grid.appendChild(card);
-            });
-            grid.querySelectorAll('.race-join-btn').forEach(function (btn) {
-                btn.addEventListener('click', function () {
-                    selectRace(btn.getAttribute('data-race-id'));
-                });
-            });
-        }
-
-        function selectRace(raceId) {
-            if (currentUser && currentUser.status === 'pending') {
-                alert('Подтвердите email для участия в гонке.');
-                return;
-            }
-            selectedRaceId = raceId;
-            sessionStorage.setItem('selectedRaceId', raceId);
-            sessionStorage.removeItem('createNewRace');
-            const notice = document.getElementById('selected-race-notice');
-            notice.textContent = '✓ Гонка выбрана. Активируйте машину, чтобы присоединиться!';
-            notice.style.display = 'block';
-            loadRaces();
         }
 
         function renderLeaderboard(entries, range) {
@@ -789,7 +286,6 @@
                     <tbody>${rows}</tbody>
                 </table>`;
 
-            // Update OG meta with top record info
             if (entries.length > 0) {
                 const top = entries[0];
                 const ogTitle = document.getElementById('og-title');
@@ -801,16 +297,6 @@
                 const ogUrl = document.getElementById('og-url');
                 if (ogUrl) ogUrl.content = window.location.origin + '/?leaderboard=' + encodeURIComponent(range || 'all') + '#leaderboard-section';
             }
-        }
-
-        function loadRaces() {
-            fetch('/api/races')
-                .then(function (res) { return res.json(); })
-                .then(function (data) { renderRaces(data.races); })
-                .catch(function () {
-                    document.getElementById('races-grid').innerHTML =
-                        '<p class="no-data">Не удалось загрузить гонки.</p>';
-                });
         }
 
         var currentLbRange = 'all';
@@ -833,7 +319,6 @@
                 tab.classList.add('active');
                 currentLbRange = tab.getAttribute('data-range');
                 loadLeaderboard(currentLbRange);
-                // Update URL without reload
                 var url = new URL(window.location.href);
                 url.searchParams.set('leaderboard', currentLbRange);
                 url.hash = 'leaderboard-section';
@@ -871,7 +356,6 @@
                 document.querySelectorAll('.leaderboard-tab').forEach(function (t) { t.classList.remove('active'); });
                 var targetTab = document.querySelector('.leaderboard-tab[data-range="' + rangeParam + '"]');
                 if (targetTab) targetTab.classList.add('active');
-                // Scroll to leaderboard if hash present
                 if (window.location.hash === '#leaderboard-section') {
                     setTimeout(function () {
                         var el = document.getElementById('leaderboard-section');
@@ -881,26 +365,7 @@
             }
         })();
 
-        document.getElementById('create-race-btn').addEventListener('click', function () {
-            if (currentUser && currentUser.status === 'pending') {
-                alert('Подтвердите email для создания гонки.');
-                return;
-            }
-            selectedRaceId = null;
-            sessionStorage.removeItem('selectedRaceId');
-            sessionStorage.setItem('createNewRace', 'true');
-            const notice = document.getElementById('selected-race-notice');
-            notice.textContent = '✓ Будет создана новая гонка. Активируйте машину для участия!';
-            notice.style.display = 'block';
-        });
-
-        loadRaces();
         loadLeaderboard();
-        // Bug 4: Real-time race list updates via socket (instant, no polling delay)
-        socket.on('races_updated', function () {
-            loadRaces();
-        });
-        setInterval(loadRaces, 30000);
         setInterval(function () { loadLeaderboard(currentLbRange); }, 10000);
     </script>
 </body>
