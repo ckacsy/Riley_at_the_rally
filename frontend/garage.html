@@ -1039,7 +1039,8 @@
             if (sl) sl.textContent = v.name;
             // Update availability for the newly selected car
             const statusMap = window._carStatusMap || {};
-            const newSt = statusMap[v.id] || window._carAvailabilityStatus || 'available';
+            const mappedSt = statusMap[v.id];
+            const newSt = (mappedSt != null) ? mappedSt : (window._carAvailabilityStatus || 'available');
             if (newSt !== window._carAvailabilityStatus) {
                 window._carAvailabilityStatus = newSt;
                 if (typeof renderAvailabilityBadge === 'function') renderAvailabilityBadge();
@@ -1065,7 +1066,8 @@
             CAR_VARIANTS.forEach((v, i) => {
                 if (fc !== 'all' && v.cls  !== fc) return;
                 if (ft !== 'all' && v.type !== ft) return;
-                const vSt = carStatusMap[v.id] || (i === activeVariant ? globalSt : 'available');
+                const mappedSt = carStatusMap[v.id];
+                const vSt = (mappedSt != null) ? mappedSt : (i === activeVariant ? globalSt : 'available');
                 if (fa !== 'all') {
                     if (fa === 'available' && (vSt === 'busy' || vSt === 'offline')) return;
                     if (fa === 'busy'      && vSt !== 'busy')  return;
@@ -1083,7 +1085,7 @@
                 thumb.setAttribute('data-variant-index', i);
                 thumb.title = v.name;
                 thumb.innerHTML =
-                    '<div class="thumb-car-img" style="color:' + v.bodyHex + '">\uD83C\uDFCE\uFE0F</div>' +
+                    '<div class="thumb-car-img" style="color:' + v.bodyHex + '" aria-hidden="true">\uD83C\uDFCE\uFE0F</div>' +
                     '<div class="thumb-name">' + v.name + '</div>' +
                     '<div class="thumb-avail"></div>';
                 thumb.addEventListener('click', () => swapVariant(i));
@@ -1384,8 +1386,9 @@
             cars.forEach(function (c) { newMap[c.id] = c.status === 'unavailable' ? 'busy' : c.status; });
             window._carStatusMap = newMap;
             // Update global status for the selected car
-            var activeCarId = (window.CAR_VARIANTS_REF && window.CAR_VARIANTS_REF[window._activeVariant || 0]) ? window.CAR_VARIANTS_REF[window._activeVariant || 0].id : null;
-            if (activeCarId && newMap[activeCarId]) {
+            var activeVariantRef = window.CAR_VARIANTS_REF && window.CAR_VARIANTS_REF[window._activeVariant || 0];
+            var activeCarId = activeVariantRef ? activeVariantRef.id : null;
+            if (activeCarId != null && newMap[activeCarId] != null) {
                 carAvailabilityStatus = newMap[activeCarId];
             } else {
                 var anyBusy = cars.some(function (c) { return c.status === 'unavailable'; });
