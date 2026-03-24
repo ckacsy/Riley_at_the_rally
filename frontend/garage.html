@@ -15,17 +15,6 @@
             color: #fff;
         }
 
-<<<<<<< HEAD
-socket.on('cars_updated', function (data) {
-    var cars = data.cars || [];
-    availableCars = cars.filter(function (c) { return c.status === 'available'; });
-    var anyBusy = cars.some(function (c) { return c.status === 'unavailable'; });
-    carAvailabilityStatus = anyBusy ? 'busy' : 'available';
-    window._carAvailabilityStatus = carAvailabilityStatus;
-    renderAvailabilityBadge(); updateCTA();
-    if (typeof window._renderCarousel === 'function') { window._renderCarousel(); }
-});
-=======
         /* === 3D Canvas === */
         #garage-canvas {
             display: block; width: 100%; height: 100%;
@@ -311,7 +300,234 @@ socket.on('cars_updated', function (data) {
             .sb-center { display: none; }
             .filter-select, .search-input { font-size: 11px; padding: 3px 6px; }
             .fullscreen-btn { font-size: 11px; padding: 3px 8px; }
+            .right-panel { display: none; }
+            .center-cta-wrap { left: 50%; transform: translateX(-50%); right: auto; }
         }
+
+        /* =========================================
+           WOT-STYLE NEON ACCENTS & GLASS PANELS
+           ========================================= */
+        :root {
+            --neon-blue:   #00d4ff;
+            --neon-orange: #ff6d00;
+            --neon-green:  #00e676;
+            --glass-bg:    rgba(8, 14, 30, 0.82);
+            --glass-border:rgba(0, 212, 255, 0.18);
+            --panel-radius: 10px;
+        }
+
+        /* Neon border utility */
+        .glass-panel {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--panel-radius);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+        }
+
+        /* =========================================
+           PROFILE CARD (left panel top)
+           ========================================= */
+        .profile-card {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 12px; flex-shrink: 0;
+            background: rgba(0, 212, 255, 0.07);
+            border-bottom: 1px solid rgba(0, 212, 255, 0.14);
+        }
+        .left-panel.collapsed .profile-card { justify-content: center; padding: 10px 6px; }
+        .left-panel.collapsed .profile-info { display: none; }
+        .profile-avatar {
+            width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+            background: linear-gradient(135deg, #1565c0 0%, #00acc1 100%);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px;
+            border: 2px solid var(--neon-blue);
+            box-shadow: 0 0 8px rgba(0, 212, 255, 0.4);
+        }
+        .profile-info { min-width: 0; }
+        .profile-username {
+            font-size: 13px; font-weight: bold; color: #fff;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .profile-rank {
+            font-size: 10px; color: var(--neon-blue); margin-top: 2px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+
+        /* =========================================
+           NEWS PANEL (bottom of left panel)
+           ========================================= */
+        .news-panel {
+            flex-shrink: 0; max-height: 180px; display: flex; flex-direction: column;
+            border-top: 1px solid rgba(0, 212, 255, 0.12);
+            background: rgba(0, 212, 255, 0.03);
+        }
+        .left-panel.collapsed .news-panel { display: none; }
+        .news-header {
+            padding: 6px 12px; font-size: 10px; font-weight: bold;
+            text-transform: uppercase; letter-spacing: 1.5px; color: var(--neon-blue);
+            flex-shrink: 0;
+        }
+        .news-scroll {
+            overflow-y: auto; flex: 1;
+            scrollbar-width: thin; scrollbar-color: rgba(0,212,255,0.2) transparent;
+        }
+        .news-scroll::-webkit-scrollbar { width: 3px; }
+        .news-scroll::-webkit-scrollbar-thumb { background: rgba(0,212,255,0.2); border-radius: 2px; }
+        .news-item {
+            padding: 6px 12px; border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-size: 11px; color: rgba(255,255,255,0.7); line-height: 1.4;
+            cursor: pointer; transition: background 0.15s;
+        }
+        .news-item:hover { background: rgba(0, 212, 255, 0.06); }
+        .news-item-date { font-size: 10px; color: rgba(255,255,255,0.35); margin-top: 2px; }
+
+        /* =========================================
+           CENTER CTA OVERLAY
+           ========================================= */
+        .center-cta-wrap {
+            position: fixed; top: 52px; right: 240px; z-index: 25;
+            display: flex; justify-content: center; pointer-events: none;
+        }
+        .center-cta-wrap .cta-btn {
+            pointer-events: all;
+            min-width: 200px; font-size: 14px; padding: 10px 28px;
+            box-shadow: 0 0 20px rgba(229, 57, 53, 0.5), 0 3px 15px rgba(229,57,53,0.4);
+        }
+        .center-cta-wrap.hidden-panel { display: none; }
+
+        /* =========================================
+           RIGHT PANEL
+           ========================================= */
+        .right-panel {
+            position: fixed;
+            top: 38px; bottom: 130px; right: 0; z-index: 20;
+            width: 220px; display: flex; flex-direction: column; gap: 0;
+            background: rgba(5,8,20,0.84);
+            border-left: 1px solid rgba(0, 212, 255, 0.1);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            overflow-y: auto; overflow-x: hidden;
+            scrollbar-width: thin; scrollbar-color: rgba(0,212,255,0.15) transparent;
+        }
+        .right-panel::-webkit-scrollbar { width: 3px; }
+        .right-panel::-webkit-scrollbar-thumb { background: rgba(0,212,255,0.2); border-radius: 2px; }
+        .right-panel.hidden-panel { transform: translateX(100%); }
+
+        .rp-section {
+            padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05);
+            flex-shrink: 0;
+        }
+        .rp-title {
+            font-size: 10px; font-weight: bold; text-transform: uppercase;
+            letter-spacing: 1.4px; color: rgba(255,255,255,0.4); margin-bottom: 8px;
+        }
+
+        /* Balance */
+        .balance-credits {
+            font-size: 22px; font-weight: bold;
+            color: var(--neon-blue);
+            text-shadow: 0 0 12px rgba(0, 212, 255, 0.5);
+        }
+        .balance-label { font-size: 10px; color: rgba(255,255,255,0.38); margin-top: 2px; }
+
+        /* Bonuses */
+        .bonus-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 5px 0; font-size: 12px; color: rgba(255,255,255,0.75);
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .bonus-item:last-child { border-bottom: none; }
+        .bonus-icon { font-size: 14px; flex-shrink: 0; }
+        .bonus-badge {
+            margin-left: auto; font-size: 10px; font-weight: bold;
+            padding: 1px 6px; border-radius: 10px;
+            background: rgba(0, 230, 118, 0.15);
+            color: var(--neon-green);
+            border: 1px solid rgba(0, 230, 118, 0.3);
+        }
+
+        /* Characteristics */
+        .char-row {
+            display: flex; align-items: center; gap: 6px;
+            margin-bottom: 7px;
+        }
+        .char-icon { font-size: 14px; flex-shrink: 0; width: 18px; }
+        .char-label { font-size: 11px; color: rgba(255,255,255,0.6); width: 72px; flex-shrink: 0; }
+        .char-bar {
+            flex: 1; height: 6px; background: rgba(255,255,255,0.1);
+            border-radius: 3px; overflow: hidden;
+        }
+        .char-fill {
+            height: 100%; border-radius: 3px;
+            background: linear-gradient(90deg, var(--neon-blue) 0%, #0077ff 100%);
+            box-shadow: 0 0 6px rgba(0, 212, 255, 0.5);
+        }
+        .char-fill.speed {
+            background: linear-gradient(90deg, var(--neon-orange) 0%, #ff9800 100%);
+            box-shadow: 0 0 6px rgba(255, 109, 0, 0.5);
+        }
+        .char-fill.handling {
+            background: linear-gradient(90deg, var(--neon-green) 0%, #00c853 100%);
+            box-shadow: 0 0 6px rgba(0, 230, 118, 0.5);
+        }
+        .char-type {
+            font-size: 11px; margin-top: 6px;
+            color: var(--neon-orange);
+            text-transform: uppercase; letter-spacing: 1px;
+            font-weight: bold;
+        }
+
+        /* Upgrades Grid */
+        .upgrades-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+        }
+        .upgrade-item {
+            padding: 8px 6px; text-align: center; font-size: 11px;
+            border-radius: 7px; cursor: pointer;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.75);
+            transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+        }
+        .upgrade-item:hover {
+            background: rgba(0, 212, 255, 0.1);
+            border-color: rgba(0, 212, 255, 0.4);
+            box-shadow: 0 0 8px rgba(0, 212, 255, 0.2);
+            color: #fff;
+        }
+        .upgrade-icon { font-size: 16px; display: block; margin-bottom: 3px; }
+        .upgrade-level {
+            display: block; font-size: 9px;
+            color: var(--neon-blue); margin-top: 2px;
+        }
+
+        /* =========================================
+           CAROUSEL ARROWS
+           ========================================= */
+        .carousel-row {
+            display: flex; align-items: center; gap: 4px;
+        }
+        .carousel-arrow {
+            flex-shrink: 0; width: 32px; height: 32px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 50%; color: rgba(255,255,255,0.72);
+            font-size: 12px; cursor: pointer; display: flex;
+            align-items: center; justify-content: center;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .carousel-arrow:hover {
+            background: rgba(0, 212, 255, 0.18);
+            border-color: rgba(0, 212, 255, 0.5);
+            color: #fff;
+        }
+
+        /* Enhanced neon tab highlight */
+        .tab-btn.active { background: rgba(0, 212, 255, 0.08); color: #fff; border-left-color: var(--neon-blue); }
+        .car-thumb.active { border-color: var(--neon-blue); box-shadow: 0 0 10px rgba(0,212,255,0.3); }
+
+        /* Neon glow on status bar server dot online */
+        .sb-dot.green { background: var(--neon-green); box-shadow: 0 0 6px var(--neon-green); }
     </style>
 </head>
 <body>
@@ -361,7 +577,16 @@ socket.on('cars_updated', function (data) {
 
     <!-- LEFT PANEL -->
     <div class="left-panel" id="left-panel">
-        <button class="panel-toggle" id="panel-toggle" title="Свернуть / развернуть панель">&#9664;</button>
+        <button class="panel-toggle" id="panel-toggle" title="Свернуть / развернуть панель" aria-label="Свернуть панель">&#9664;</button>
+
+        <!-- Profile card -->
+        <div id="profile-card" class="profile-card">
+            <div class="profile-avatar" aria-hidden="true">&#x1F464;</div>
+            <div class="profile-info">
+                <div class="profile-username" id="profile-username">Гость</div>
+                <div class="profile-rank">&#x1F3C6;&nbsp;Новичок &middot; Сессий:&nbsp;<span id="profile-sessions">0</span></div>
+            </div>
+        </div>
 
         <div class="panel-tabs">
             <button class="tab-btn active" data-tab="my-cars">
@@ -453,9 +678,126 @@ socket.on('cars_updated', function (data) {
             </div>
 
         </div>
+
+        <!-- News panel at bottom of left panel -->
+        <div id="news-panel" class="news-panel">
+            <div class="news-header">&#x1F4F0; Новости</div>
+            <div class="news-scroll">
+                <div class="news-item">
+                    <div>Сезон 4 стартовал — новые трассы и ивенты!</div>
+                    <div class="news-item-date">24 марта 2026</div>
+                </div>
+                <div class="news-item">
+                    <div>Обновление 2.3: улучшена физика подвески</div>
+                    <div class="news-item-date">20 марта 2026</div>
+                </div>
+                <div class="news-item">
+                    <div>Клубный чемпионат — регистрация открыта</div>
+                    <div class="news-item-date">15 марта 2026</div>
+                </div>
+                <div class="news-item">
+                    <div>Новая машина Riley-X2 добавлена в систему</div>
+                    <div class="news-item-date">10 марта 2026</div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- BOTTOM CAROUSEL -->
+    <!-- CENTER CTA overlay (above 3D view) -->
+    <div class="center-cta-wrap" id="center-cta-wrap">
+        <button class="cta-btn" id="center-cta-btn" aria-label="Старт — управление машиной" disabled>Загрузка…</button>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel" id="right-panel">
+
+        <!-- Balance -->
+        <div id="balance-section" class="rp-section">
+            <div class="rp-title">Баланс</div>
+            <div class="balance-credits" id="rp-credits">0.00 RC</div>
+            <div class="balance-label">Кредиты</div>
+        </div>
+
+        <!-- Bonuses -->
+        <div id="bonuses-section" class="rp-section">
+            <div class="rp-title">Бонусы</div>
+            <div class="bonus-item">
+                <span class="bonus-icon">&#x1F4C5;</span>
+                <span>Ежедневный вход</span>
+                <span class="bonus-badge">&#x2713;</span>
+            </div>
+            <div class="bonus-item">
+                <span class="bonus-icon">&#x1F3C6;</span>
+                <span>Награды</span>
+                <span class="bonus-badge">3</span>
+            </div>
+        </div>
+
+        <!-- Characteristics -->
+        <div id="characteristics-section" class="rp-section">
+            <div class="rp-title">Характеристики</div>
+            <div class="char-row">
+                <span class="char-icon" aria-label="Заряд батареи">&#x1F50B;</span>
+                <span class="char-label">Батарея</span>
+                <div class="char-bar" role="progressbar" aria-valuenow="85" aria-valuemin="0" aria-valuemax="100" aria-label="Заряд батареи 85%">
+                    <div class="char-fill" style="width:85%"></div>
+                </div>
+            </div>
+            <div class="char-row">
+                <span class="char-icon" aria-hidden="true">&#x26A1;</span>
+                <span class="char-label">Скорость</span>
+                <div class="char-bar" role="progressbar" aria-valuenow="72" aria-valuemin="0" aria-valuemax="100" aria-label="Скорость 72%">
+                    <div class="char-fill speed" style="width:72%"></div>
+                </div>
+            </div>
+            <div class="char-row">
+                <span class="char-icon" aria-hidden="true">&#x1F3AF;</span>
+                <span class="char-label">Управление</span>
+                <div class="char-bar" role="progressbar" aria-valuenow="65" aria-valuemin="0" aria-valuemax="100" aria-label="Управляемость 65%">
+                    <div class="char-fill handling" style="width:65%"></div>
+                </div>
+            </div>
+            <div class="char-type">&#x1F30D;&nbsp;Тип: Ралли</div>
+        </div>
+
+        <!-- Upgrades -->
+        <div id="upgrades-section" class="rp-section">
+            <div class="rp-title">Улучшения</div>
+            <div class="upgrades-grid" id="upgrades-grid">
+                <div class="upgrade-item" data-upgrade="motor">
+                    <span class="upgrade-icon">&#x2699;</span>
+                    Мотор
+                    <span class="upgrade-level">Ур. 3</span>
+                </div>
+                <div class="upgrade-item" data-upgrade="battery">
+                    <span class="upgrade-icon">&#x1F50B;</span>
+                    Батарея
+                    <span class="upgrade-level">Ур. 4</span>
+                </div>
+                <div class="upgrade-item" data-upgrade="servo">
+                    <span class="upgrade-icon">&#x1F527;</span>
+                    Сервопривод
+                    <span class="upgrade-level">Ур. 2</span>
+                </div>
+                <div class="upgrade-item" data-upgrade="suspension">
+                    <span class="upgrade-icon">&#x1FA9D;</span>
+                    Подвеска
+                    <span class="upgrade-level">Ур. 3</span>
+                </div>
+                <div class="upgrade-item" data-upgrade="body">
+                    <span class="upgrade-icon">&#x1F697;</span>
+                    Кузов
+                    <span class="upgrade-level">Ур. 2</span>
+                </div>
+                <div class="upgrade-item" data-upgrade="tires">
+                    <span class="upgrade-icon">&#x26AB;</span>
+                    Шины
+                    <span class="upgrade-level">Ур. 3</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
     <div class="carousel-wrap" id="carousel-wrap">
         <div class="carousel-controls">
             <div class="carousel-filters">
@@ -482,7 +824,11 @@ socket.on('cars_updated', function (data) {
             </button>
         </div>
         <div class="carousel-label">Выберите ливрею</div>
-        <div class="carousel" id="car-carousel" role="listbox" aria-label="Выбор ливреи машины"></div>
+        <div class="carousel-row">
+            <button class="carousel-arrow" id="carousel-prev" aria-label="Предыдущая ливрея">&#9664;</button>
+            <div class="carousel" id="car-carousel" role="listbox" aria-label="Выбор ливреи машины"></div>
+            <button class="carousel-arrow" id="carousel-next" aria-label="Следующая ливрея">&#9654;</button>
+        </div>
     </div>
 
     <!-- STALE SESSION OVERLAY -->
@@ -805,6 +1151,10 @@ socket.on('cars_updated', function (data) {
             isFullscreen = (force !== undefined) ? !!force : !isFullscreen;
             document.getElementById('left-panel').classList.toggle('hidden-panel', isFullscreen);
             document.getElementById('carousel-wrap').classList.toggle('hidden-panel', isFullscreen);
+            var rp = document.getElementById('right-panel');
+            if (rp) rp.classList.toggle('hidden-panel', isFullscreen);
+            var ctaWrap = document.getElementById('center-cta-wrap');
+            if (ctaWrap) ctaWrap.classList.toggle('hidden-panel', isFullscreen);
             var btn = document.getElementById('fullscreen-btn');
             btn.classList.toggle('active', isFullscreen);
             btn.textContent = isFullscreen ? '\u26f6 \u041f\u0430\u043d\u0435\u043b\u0438' : '\u26f6 \u041f\u043e\u043b\u043d\u044b\u0439 \u044d\u043a\u0440\u0430\u043d';
@@ -884,46 +1234,61 @@ socket.on('cars_updated', function (data) {
 
         function renderAuthChip() {
             var el = document.getElementById('auth-chip');
+            var profileEl = document.getElementById('profile-username');
             if (currentUser) {
                 el.innerHTML = '';
                 el.appendChild(document.createTextNode('👤 ' + currentUser.username + ' \u00b7 '));
                 var a = document.createElement('a');
                 a.href = '/profile'; a.textContent = '\u041f\u0440\u043e\u0444\u0438\u043b\u044c'; a.className = 'sb-auth-link';
                 el.appendChild(a);
+                if (profileEl) profileEl.textContent = currentUser.username;
             } else {
                 el.innerHTML = '<a class="sb-auth-link" href="/login">\u0412\u043e\u0439\u0442\u0438</a> \u00b7 <a class="sb-auth-link" href="/register">\u0420\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u044f</a>';
+                if (profileEl) profileEl.textContent = '\u0413\u043e\u0441\u0442\u044c';
             }
         }
 
         function updateCTA() {
             var btn = document.getElementById('cta-btn');
             var fallbackBtn = document.getElementById('fallback-cta-btn');
+            var centerBtn = document.getElementById('center-cta-btn');
             function setFallback(text, disabled, fn) {
                 if (!fallbackBtn) return;
                 fallbackBtn.textContent = text; fallbackBtn.disabled = disabled; fallbackBtn.onclick = fn || null;
+            }
+            function setCenter(text, disabled, cls, fn) {
+                if (!centerBtn) return;
+                centerBtn.textContent = text; centerBtn.disabled = disabled;
+                centerBtn.className = 'cta-btn' + (cls ? ' ' + cls : '');
+                centerBtn.onclick = fn || null;
             }
             if (!currentUser) {
                 btn.textContent = '\u0422\u043e\u043b\u044c\u043a\u043e \u043f\u0440\u043e\u0441\u043c\u043e\u0442\u0440 / \u0412\u043e\u0439\u0442\u0438';
                 btn.className = 'cta-btn observer'; btn.disabled = false;
                 btn.onclick = function () { window.location.href = '/login?redirect=/garage'; };
                 setFallback('\u0412\u043e\u0439\u0442\u0438', false, function () { window.location.href = '/login?redirect=/garage'; });
+                setCenter('\u0412\u043e\u0439\u0442\u0438', false, 'observer', function () { window.location.href = '/login?redirect=/garage'; });
             } else if (currentUser.status === 'pending') {
                 btn.textContent = '\u041f\u043e\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u0435 email';
                 btn.className = 'cta-btn'; btn.disabled = false;
                 btn.onclick = function () { window.location.href = '/verify-email'; };
                 setFallback('\u041f\u043e\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u0435 email', false, function () { window.location.href = '/verify-email'; });
+                setCenter('\u041f\u043e\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u0435 email', false, '', function () { window.location.href = '/verify-email'; });
             } else if (carAvailabilityStatus === 'busy') {
                 btn.textContent = '\u041c\u0430\u0448\u0438\u043d\u0430 \u0437\u0430\u043d\u044f\u0442\u0430';
                 btn.className = 'cta-btn'; btn.disabled = true; btn.onclick = null;
                 setFallback('\u041c\u0430\u0448\u0438\u043d\u0430 \u0437\u0430\u043d\u044f\u0442\u0430', true, null);
+                setCenter('\u041c\u0430\u0448\u0438\u043d\u0430 \u0437\u0430\u043d\u044f\u0442\u0430', true, '', null);
             } else if (carAvailabilityStatus === 'offline') {
                 btn.textContent = '\u041c\u0430\u0448\u0438\u043d\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430';
                 btn.className = 'cta-btn'; btn.disabled = true; btn.onclick = null;
                 setFallback('\u041c\u0430\u0448\u0438\u043d\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430', true, null);
+                setCenter('\u041c\u0430\u0448\u0438\u043d\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430', true, '', null);
             } else {
                 btn.textContent = '\u0421\u0442\u0430\u0440\u0442 / \u041f\u043e\u0434\u043a\u043b\u044e\u0447\u0438\u0442\u044c\u0441\u044f';
                 btn.className = 'cta-btn'; btn.disabled = false; btn.onclick = startSession;
                 setFallback('\u0421\u0442\u0430\u0440\u0442 / \u041f\u043e\u0434\u043a\u043b\u044e\u0447\u0438\u0442\u044c\u0441\u044f', false, startSession);
+                setCenter('\u0421\u0442\u0430\u0440\u0442 / \u041f\u043e\u0434\u043a\u043b\u044e\u0447\u0438\u0442\u044c\u0441\u044f', false, '', startSession);
             }
         }
 
@@ -1068,6 +1433,32 @@ socket.on('cars_updated', function (data) {
         });
         window.addEventListener('pageshow', function (e) { if (e.persisted) checkStaleSession(); });
 
+        // Carousel prev/next arrows
+        (function () {
+            var prevBtn = document.getElementById('carousel-prev');
+            var nextBtn = document.getElementById('carousel-next');
+            if (prevBtn) prevBtn.addEventListener('click', function () {
+                if (typeof window._renderCarousel === 'function') {
+                    var thumbs = document.querySelectorAll('.car-thumb');
+                    if (!thumbs.length) return;
+                    var active = document.querySelector('.car-thumb.active');
+                    var idx = active ? parseInt(active.getAttribute('data-variant-index'), 10) : 0;
+                    var newIdx = (idx - 1 + thumbs.length) % thumbs.length;
+                    thumbs[newIdx].click();
+                }
+            });
+            if (nextBtn) nextBtn.addEventListener('click', function () {
+                if (typeof window._renderCarousel === 'function') {
+                    var thumbs = document.querySelectorAll('.car-thumb');
+                    if (!thumbs.length) return;
+                    var active = document.querySelector('.car-thumb.active');
+                    var idx = active ? parseInt(active.getAttribute('data-variant-index'), 10) : 0;
+                    var newIdx = (idx + 1) % thumbs.length;
+                    thumbs[newIdx].click();
+                }
+            });
+        }());
+
         // Init
         loadAuth();
         loadCars();
@@ -1078,4 +1469,3 @@ socket.on('cars_updated', function (data) {
     </script>
 </body>
 </html>
->>>>>>> 30a916ee268d155decdd0f7d7a47a549349e9fc2
