@@ -6,3 +6,14 @@ function updateCarStateLabel() {
     };
     sbCarState.textContent = map[carAvailabilityStatus] || carAvailabilityStatus;
 }
+
+socket.on('cars_updated', function (data) {
+    var cars = data.cars || [];
+    availableCars = cars.filter(function (c) { return c.status === 'available'; });
+    var anyBusy = cars.some(function (c) { return c.status === 'unavailable'; });
+    carAvailabilityStatus = anyBusy ? 'busy' : 'available';
+    window._carAvailabilityStatus = carAvailabilityStatus;
+    renderAvailabilityBadge();
+    updateCTA();
+    if (typeof window._renderCarousel === 'function') { window._renderCarousel(); }
+});
