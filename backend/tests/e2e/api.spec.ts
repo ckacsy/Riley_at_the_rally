@@ -123,3 +123,45 @@ test.describe('API config/session', () => {
     expect(body.inactivityTimeoutMs).toBeGreaterThan(0);
   });
 });
+
+test.describe('Leaderboard page (index.html)', () => {
+  test('GET / serves leaderboard page with section heading', async ({ request }) => {
+    const res = await request.get('/');
+    expect(res.status()).toBe(200);
+    const body = await res.text();
+    expect(body).toContain('leaderboard-section');
+    expect(body).toContain('Рекорды');
+  });
+
+  test('leaderboard page has no car rental section', async ({ request }) => {
+    const res = await request.get('/');
+    expect(res.status()).toBe(200);
+    const body = await res.text();
+    expect(body).not.toContain('cars-grid');
+    expect(body).not.toContain('activate-btn');
+  });
+
+  test('leaderboard page has no active races section', async ({ request }) => {
+    const res = await request.get('/');
+    expect(res.status()).toBe(200);
+    const body = await res.text();
+    expect(body).not.toContain('races-grid');
+    expect(body).not.toContain('create-race-btn');
+  });
+
+  test('leaderboard page has link back to /garage', async ({ request }) => {
+    const res = await request.get('/');
+    const body = await res.text();
+    expect(body).toContain('/garage');
+  });
+});
+
+test.describe('Profile page', () => {
+  test('profile page "home" link points to /garage', async ({ request }) => {
+    const res = await request.get('/profile');
+    const body = await res.text();
+    // The "back" link should point to /garage, not /
+    expect(body).toContain('href="/garage"');
+    expect(body).not.toContain('href="/"');
+  });
+});

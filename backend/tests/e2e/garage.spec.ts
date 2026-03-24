@@ -229,4 +229,44 @@ test.describe('Garage WoT-style UI blocks', () => {
     const bonuses = page.locator('#bonuses-section');
     await expect(bonuses).toBeVisible({ timeout: UI_TIMEOUT });
   });
+
+  test('upgrades section title is "Комплектующие"', async ({ page }) => {
+    await page.goto('/garage?forceFallback=1');
+    const title = page.locator('#upgrades-section .rp-title');
+    await expect(title).toHaveText('Комплектующие', { timeout: UI_TIMEOUT });
+  });
+
+  test('upgrade items have no level text (Ур.)', async ({ page }) => {
+    await page.goto('/garage?forceFallback=1');
+    const levelSpans = page.locator('.upgrade-level');
+    await expect(levelSpans).toHaveCount(0);
+  });
+
+  test('upgrade items have rarity classes', async ({ page }) => {
+    await page.goto('/garage?forceFallback=1');
+    await expect(page.locator('.upgrade-item.rarity-legendary')).toHaveCount(1);
+    await expect(page.locator('.upgrade-item.rarity-epic')).toHaveCount(1);
+    await expect(page.locator('.upgrade-item.rarity-rare')).toHaveCount(2);
+    await expect(page.locator('.upgrade-item.rarity-common')).toHaveCount(2);
+  });
+
+  test('status bar has no gold credits element', async ({ page }) => {
+    await page.goto('/garage?forceFallback=1');
+    const goldCredits = page.locator('.sb-credits');
+    await expect(goldCredits).toHaveCount(0);
+  });
+
+  test('carousel is centered (carousel-wrap has symmetric left/right)', async ({ page }) => {
+    await page.goto('/garage?forceFallback=1');
+    const wrap = page.locator('#carousel-wrap');
+    await expect(wrap).toBeVisible({ timeout: UI_TIMEOUT });
+    // Verify carousel-wrap has symmetric left/right (both 240px) for centered positioning
+    const leftPx = await wrap.evaluate((el) => window.getComputedStyle(el).left);
+    const rightPx = await wrap.evaluate((el) => window.getComputedStyle(el).right);
+    expect(leftPx).toBe(rightPx);
+    // Verify carousel-row has justify-content: center
+    const row = page.locator('.carousel-row');
+    const justifyContent = await row.evaluate((el) => window.getComputedStyle(el).justifyContent);
+    expect(justifyContent).toBe('center');
+  });
 });

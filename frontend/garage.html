@@ -210,7 +210,7 @@
            BOTTOM CAROUSEL
            ========================================= */
         .carousel-wrap {
-            position: fixed; bottom: 0; left: 240px; right: 220px; z-index: 20;
+            position: fixed; bottom: 0; left: 240px; right: 240px; z-index: 20;
             padding: 8px 16px 14px;
             background: linear-gradient(0deg, rgba(5,8,20,0.93) 0%, rgba(5,8,20,0) 100%);
             transition: transform 0.3s ease;
@@ -497,22 +497,29 @@
             transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
         }
         .upgrade-item:hover {
-            background: rgba(0, 212, 255, 0.1);
-            border-color: rgba(0, 212, 255, 0.4);
-            box-shadow: 0 0 8px rgba(0, 212, 255, 0.2);
+            background: rgba(255,255,255,0.1);
             color: #fff;
         }
         .upgrade-icon { font-size: 16px; display: block; margin-bottom: 3px; }
-        .upgrade-level {
-            display: block; font-size: 9px;
-            color: var(--neon-blue); margin-top: 2px;
-        }
+        /* Rarity colours */
+        .upgrade-item.rarity-common  { border-color: rgba(158,158,158,0.5); }
+        .upgrade-item.rarity-common  .upgrade-icon { color: #9e9e9e; }
+        .upgrade-item.rarity-common:hover { box-shadow: 0 0 8px rgba(158,158,158,0.3); border-color: #9e9e9e; }
+        .upgrade-item.rarity-rare    { border-color: rgba(76,175,80,0.5); }
+        .upgrade-item.rarity-rare    .upgrade-icon { color: #4caf50; }
+        .upgrade-item.rarity-rare:hover  { box-shadow: 0 0 8px rgba(76,175,80,0.3); border-color: #4caf50; }
+        .upgrade-item.rarity-epic    { border-color: rgba(156,39,176,0.5); }
+        .upgrade-item.rarity-epic    .upgrade-icon { color: #ce93d8; }
+        .upgrade-item.rarity-epic:hover  { box-shadow: 0 0 8px rgba(156,39,176,0.35); border-color: #ce93d8; }
+        .upgrade-item.rarity-legendary { border-color: rgba(255,179,0,0.5); }
+        .upgrade-item.rarity-legendary .upgrade-icon { color: #ffb300; }
+        .upgrade-item.rarity-legendary:hover { box-shadow: 0 0 8px rgba(255,179,0,0.4); border-color: #ffb300; }
 
         /* =========================================
            CAROUSEL ARROWS
            ========================================= */
         .carousel-row {
-            display: flex; align-items: center; gap: 4px;
+            display: flex; align-items: center; justify-content: center; gap: 4px;
         }
         .carousel-arrow {
             flex-shrink: 0; width: 32px; height: 32px;
@@ -576,8 +583,6 @@
         </div>
         <div class="sb-center">Riley at the Rally</div>
         <div class="sb-right">
-            <span class="sb-item sb-credits">&#x1F4B0;&nbsp;<span id="sb-credits">0.00</span></span>
-            <span class="sb-sep">|</span>
             <div id="auth-chip" class="sb-item">&#8230;</div>
         </div>
     </div>
@@ -751,39 +756,33 @@
             <div class="char-type">&#x1F30D;&nbsp;Тип: Ралли</div>
         </div>
 
-        <!-- Upgrades -->
+        <!-- Components (Комплектующие) -->
         <div id="upgrades-section" class="rp-section">
-            <div class="rp-title">Улучшения</div>
+            <div class="rp-title">Комплектующие</div>
             <div class="upgrades-grid" id="upgrades-grid">
-                <div class="upgrade-item" data-upgrade="motor">
+                <div class="upgrade-item rarity-legendary" data-upgrade="motor">
                     <span class="upgrade-icon">&#x2699;</span>
                     Мотор
-                    <span class="upgrade-level">Ур. 3</span>
                 </div>
-                <div class="upgrade-item" data-upgrade="battery">
+                <div class="upgrade-item rarity-epic" data-upgrade="battery">
                     <span class="upgrade-icon">&#x1F50B;</span>
                     Батарея
-                    <span class="upgrade-level">Ур. 4</span>
                 </div>
-                <div class="upgrade-item" data-upgrade="servo">
+                <div class="upgrade-item rarity-rare" data-upgrade="servo">
                     <span class="upgrade-icon">&#x1F527;</span>
                     Сервопривод
-                    <span class="upgrade-level">Ур. 2</span>
                 </div>
-                <div class="upgrade-item" data-upgrade="suspension">
+                <div class="upgrade-item rarity-rare" data-upgrade="suspension">
                     <span class="upgrade-icon">&#x1FA9D;</span>
                     Подвеска
-                    <span class="upgrade-level">Ур. 3</span>
                 </div>
-                <div class="upgrade-item" data-upgrade="body">
+                <div class="upgrade-item rarity-common" data-upgrade="body">
                     <span class="upgrade-icon">&#x1F697;</span>
                     Кузов
-                    <span class="upgrade-level">Ур. 2</span>
                 </div>
-                <div class="upgrade-item" data-upgrade="tires">
+                <div class="upgrade-item rarity-common" data-upgrade="tires">
                     <span class="upgrade-icon">&#x26AB;</span>
                     Шины
-                    <span class="upgrade-level">Ур. 3</span>
                 </div>
             </div>
         </div>

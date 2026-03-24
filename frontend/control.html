@@ -514,7 +514,7 @@
     </div>
 
     <p class="session-inactive-msg" id="session-inactive-msg" role="alert">
-        Нет активной сессии. Управление недоступно. <a href="/">Вернуться к выбору машины</a>.
+        Нет активной сессии. Управление недоступно. <a href="/garage">Вернуться в гараж</a>.
     </p>
 
     <button class="end-rental-btn" id="end-rental">Завершить аренду</button>
@@ -576,7 +576,7 @@
             <p id="summary-duration">Длительность: —</p>
             <p class="cost" id="summary-cost">$0.00</p>
             <p id="summary-reason" style="color:#e67e22;font-weight:bold;display:none;"></p>
-            <button class="back-btn" id="back-to-main">Вернуться к выбору машины</button>
+            <button class="back-btn" id="back-to-main">Вернуться в гараж</button>
         </div>
     </div>
 
@@ -887,8 +887,8 @@
                 (data.message || 'Ошибка сессии.') + ' Управление недоступно. '
             ));
             const link = document.createElement('a');
-            link.href = '/';
-            link.textContent = 'Вернуться к выбору машины';
+            link.href = '/garage';
+            link.textContent = 'Вернуться в гараж';
             msg.appendChild(link);
             msg.appendChild(document.createTextNode('.'));
             sessionStorage.removeItem('activeSession');
