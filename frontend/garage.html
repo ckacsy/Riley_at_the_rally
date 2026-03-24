@@ -13,7 +13,6 @@ socket.on('cars_updated', function (data) {
     var anyBusy = cars.some(function (c) { return c.status === 'unavailable'; });
     carAvailabilityStatus = anyBusy ? 'busy' : 'available';
     window._carAvailabilityStatus = carAvailabilityStatus;
-    renderAvailabilityBadge();
-    updateCTA();
+    renderAvailabilityBadge(); updateCTA();
     if (typeof window._renderCarousel === 'function') { window._renderCarousel(); }
 });
