@@ -1078,6 +1078,10 @@ app.post('/api/session/end', (req, res) => {
 const pageRateLimit = rateLimit({ windowMs: 60 * 1000, max: 60 });
 
 app.get('/', pageRateLimit, (req, res) => {
+  res.redirect(302, '/garage');
+});
+
+app.get('/leaderboard', pageRateLimit, (req, res) => {
   res.sendFile(path.join(frontendDir, 'index.html'));
 });
 

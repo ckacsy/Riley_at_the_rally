@@ -503,16 +503,17 @@
             color: #fff;
         }
         .upgrade-icon { font-size: 16px; display: block; margin-bottom: 3px; }
-        .upgrade-level {
-            display: block; font-size: 9px;
-            color: var(--neon-blue); margin-top: 2px;
-        }
+        /* Rarity colors */
+        .upgrade-item.rarity-common  { border-color: #757575; background: rgba(117,117,117,0.12); }
+        .upgrade-item.rarity-rare    { border-color: #43a047; background: rgba(67,160,71,0.14); }
+        .upgrade-item.rarity-epic    { border-color: #7b1fa2; background: rgba(123,31,162,0.18); }
+        .upgrade-item.rarity-legendary { border-color: #fdd835; background: rgba(253,216,53,0.14); }
 
         /* =========================================
            CAROUSEL ARROWS
            ========================================= */
         .carousel-row {
-            display: flex; align-items: center; gap: 4px;
+            display: flex; align-items: center; gap: 4px; justify-content: center;
         }
         .carousel-arrow {
             flex-shrink: 0; width: 32px; height: 32px;
@@ -576,8 +577,6 @@
         </div>
         <div class="sb-center">Riley at the Rally</div>
         <div class="sb-right">
-            <span class="sb-item sb-credits">&#x1F4B0;&nbsp;<span id="sb-credits">0.00</span></span>
-            <span class="sb-sep">|</span>
             <div id="auth-chip" class="sb-item">&#8230;</div>
         </div>
     </div>
@@ -753,37 +752,31 @@
 
         <!-- Upgrades -->
         <div id="upgrades-section" class="rp-section">
-            <div class="rp-title">Улучшения</div>
+            <div class="rp-title">Комплектующие</div>
             <div class="upgrades-grid" id="upgrades-grid">
-                <div class="upgrade-item" data-upgrade="motor">
+                <div class="upgrade-item rarity-legendary" data-upgrade="motor">
                     <span class="upgrade-icon">&#x2699;</span>
                     Мотор
-                    <span class="upgrade-level">Ур. 3</span>
                 </div>
-                <div class="upgrade-item" data-upgrade="battery">
+                <div class="upgrade-item rarity-epic" data-upgrade="battery">
                     <span class="upgrade-icon">&#x1F50B;</span>
                     Батарея
-                    <span class="upgrade-level">Ур. 4</span>
                 </div>
-                <div class="upgrade-item" data-upgrade="servo">
+                <div class="upgrade-item rarity-rare" data-upgrade="servo">
                     <span class="upgrade-icon">&#x1F527;</span>
                     Сервопривод
-                    <span class="upgrade-level">Ур. 2</span>
                 </div>
-                <div class="upgrade-item" data-upgrade="suspension">
+                <div class="upgrade-item rarity-rare" data-upgrade="suspension">
                     <span class="upgrade-icon">&#x1FA9D;</span>
                     Подвеска
-                    <span class="upgrade-level">Ур. 3</span>
                 </div>
-                <div class="upgrade-item" data-upgrade="body">
+                <div class="upgrade-item rarity-common" data-upgrade="body">
                     <span class="upgrade-icon">&#x1F697;</span>
                     Кузов
-                    <span class="upgrade-level">Ур. 2</span>
                 </div>
-                <div class="upgrade-item" data-upgrade="tires">
+                <div class="upgrade-item rarity-common" data-upgrade="tires">
                     <span class="upgrade-icon">&#x26AB;</span>
                     Шины
-                    <span class="upgrade-level">Ур. 3</span>
                 </div>
             </div>
         </div>
@@ -1186,7 +1179,7 @@
         if (searchEl) searchEl.addEventListener('input', function () { if (window._renderCarousel) window._renderCarousel(); });
 
         // Navigation buttons
-        document.getElementById('btn-leaderboard').addEventListener('click', function () { window.location.href = '/#leaderboard-section'; });
+        document.getElementById('btn-leaderboard').addEventListener('click', function () { window.location.href = '/leaderboard#leaderboard-section'; });
         document.getElementById('btn-profile').addEventListener('click', function () { window.location.href = '/profile'; });
         document.getElementById('btn-lobby').addEventListener('click', function () { window.location.href = '/'; });
         document.getElementById('btn-track').addEventListener('click', function () { window.location.href = '/control'; });
