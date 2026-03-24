@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Трансляция — Riley at the Rally</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #0d0d0d;
+      color: #e0e0e0;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Top bar ── */
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #1a1a2e;
+      padding: 8px 16px;
+      border-bottom: 1px solid #333;
+      flex-shrink: 0;
+    }
+    .top-bar .logo {
+      font-size: 16px;
+      font-weight: bold;
+      color: #e74c3c;
+      letter-spacing: 1px;
+    }
+    .top-bar .back-link {
+      color: #aaa;
+      text-decoration: none;
+      font-size: 13px;
+    }
+    .top-bar .back-link:hover { color: #fff; }
+
+    /* ── Main layout ── */
+    .broadcast-layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      gap: 0;
+    }
+
+    /* ── Left panel: drivers ── */
+    .drivers-panel {
+      width: 220px;
+      flex-shrink: 0;
+      background: #161625;
+      border-right: 1px solid #2a2a3e;
+      display: flex;
+      flex-direction: column;
+      padding: 12px 0;
+      overflow-y: auto;
+    }
+    .drivers-panel h3 {
+      padding: 0 14px 10px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #888;
+      border-bottom: 1px solid #2a2a3e;
+      margin-bottom: 8px;
+    }
+    #drivers-list {
+      list-style: none;
+      padding: 0 10px;
+    }
+    .driver-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 8px;
+      border-radius: 6px;
+      margin-bottom: 4px;
+      font-size: 13px;
+    }
+    .driver-item .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #2ecc71;
+      flex-shrink: 0;
+    }
+    .driver-item .driver-name { color: #e0e0e0; }
+    .driver-item .driver-car {
+      font-size: 11px;
+      color: #888;
+    }
+    .no-drivers {
+      padding: 10px 14px;
+      font-size: 12px;
+      color: #555;
+      font-style: italic;
+    }
+
+    /* ── Center: viewport ── */
+    .viewport-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #111;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .viewport-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      background: #000;
+    }
+
+    /* Fullscreen styles */
+    .viewport-container:fullscreen,
+    .viewport-container:-webkit-full-screen {
+      width: 100vw;
+      height: 100vh;
+    }
+    .viewport-container.is-fullscreen {
+      /* mirrors browser fullscreen state for DOM checks */
+    }
+
+    .viewport-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(ellipse at center, #1a0a0a 0%, #000 70%);
+    }
+    .viewport-label {
+      font-size: clamp(18px, 3vw, 32px);
+      font-weight: bold;
+      color: #e74c3c;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      text-shadow: 0 0 20px rgba(231, 76, 60, 0.5);
+    }
+    .viewport-sublabel {
+      font-size: 13px;
+      color: #555;
+    }
+    /* TODO: replace .viewport-placeholder with a <video> or WebRTC stream element */
+
+    .fullscreen-btn {
+      position: absolute;
+      bottom: 14px;
+      right: 14px;
+      background: rgba(0,0,0,0.6);
+      color: #e0e0e0;
+      border: 1px solid #444;
+      border-radius: 6px;
+      padding: 7px 14px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.2s;
+      z-index: 10;
+    }
+    .fullscreen-btn:hover { background: rgba(255,255,255,0.1); }
+
+    /* ── Right panel: chat ── */
+    .chat-panel {
+      width: 280px;
+      flex-shrink: 0;
+      background: #161625;
+      border-left: 1px solid #2a2a3e;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .chat-header {
+      padding: 12px 14px 8px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #888;
+      border-bottom: 1px solid #2a2a3e;
+      flex-shrink: 0;
+    }
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .chat-messages::-webkit-scrollbar { width: 4px; }
+    .chat-messages::-webkit-scrollbar-track { background: transparent; }
+    .chat-messages::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+    .chat-msg {
+      font-size: 13px;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+    .chat-msg .chat-username {
+      font-weight: bold;
+      color: #3498db;
+      margin-right: 4px;
+    }
+    .chat-msg .chat-text { color: #ccc; }
+    .chat-msg.system { color: #666; font-style: italic; }
+
+    .chat-input-row {
+      display: flex;
+      gap: 6px;
+      padding: 10px 12px;
+      border-top: 1px solid #2a2a3e;
+      flex-shrink: 0;
+    }
+    .chat-input-row input {
+      flex: 1;
+      background: #0d0d1a;
+      border: 1px solid #333;
+      border-radius: 6px;
+      color: #e0e0e0;
+      padding: 7px 10px;
+      font-size: 13px;
+      outline: none;
+    }
+    .chat-input-row input:focus { border-color: #3498db; }
+    .chat-input-row input::placeholder { color: #555; }
+    .chat-input-row button {
+      background: #3498db;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 7px 12px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.2s;
+    }
+    .chat-input-row button:hover { background: #2980b9; }
+    .chat-input-row button:disabled { background: #333; cursor: not-allowed; }
+
+    .chat-auth-notice {
+      padding: 10px 14px;
+      font-size: 12px;
+      color: #666;
+      text-align: center;
+      border-top: 1px solid #2a2a3e;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .broadcast-layout { flex-direction: column; }
+      .drivers-panel { width: 100%; height: 120px; border-right: none; border-bottom: 1px solid #2a2a3e; }
+      .chat-panel { width: 100%; height: 200px; border-left: none; border-top: 1px solid #2a2a3e; }
+      body { overflow: auto; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top bar -->
+  <div class="top-bar">
+    <span class="logo">🏁 Riley at the Rally</span>
+    <a href="/garage" class="back-link">← Гараж</a>
+  </div>
+
+  <div class="broadcast-layout">
+
+    <!-- Left: active drivers panel -->
+    <aside class="drivers-panel">
+      <h3>Водители</h3>
+      <ul id="drivers-list">
+        <li class="no-drivers">Нет активных водителей</li>
+      </ul>
+    </aside>
+
+    <!-- Center: broadcast viewport -->
+    <main class="viewport-section">
+      <div class="viewport-container" id="viewport-container">
+        <div class="viewport-placeholder">
+          <span class="viewport-label">ТРАНСЛЯЦИЯ (скоро)</span>
+          <span class="viewport-sublabel">Прямая трансляция трека появится здесь</span>
+          <!-- TODO: wire video / WebRTC stream here when camera is available -->
+        </div>
+        <button class="fullscreen-btn" id="fullscreen-btn" title="Полный экран">⛶ Полный экран</button>
+      </div>
+    </main>
+
+    <!-- Right: chat panel -->
+    <aside class="chat-panel">
+      <div class="chat-header">Общий чат</div>
+      <div class="chat-messages" id="chat-messages"></div>
+      <div class="chat-input-row" id="chat-input-row">
+        <input
+          type="text"
+          id="chat-input"
+          placeholder="Войдите для отправки…"
+          maxlength="300"
+          autocomplete="off"
+          disabled
+        />
+        <button id="chat-send-btn" title="Отправить" disabled>↩</button>
+      </div>
+    </aside>
+
+  </div><!-- .broadcast-layout -->
+
+  <script src="/vendor/events.js"></script>
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <script>
+    'use strict';
+
+    // ── Auth state ──────────────────────────────────────────────────
+    let currentUser = null; // { id, username, status }
+
+    async function fetchMe() {
+      try {
+        const res = await fetch('/api/auth/me');
+        if (!res.ok) return null;
+        const body = await res.json();
+        return body.user || null;
+      } catch (_) { return null; }
+    }
+
+    // ── Socket.io ───────────────────────────────────────────────────
+    const socket = io(window.location.origin);
+
+    socket.on('connect', function () {
+      socket.emit(RILEY_EVENTS.BROADCAST_JOIN);
+    });
+
+    // ── Presence ────────────────────────────────────────────────────
+    const driversList = document.getElementById('drivers-list');
+
+    function renderDrivers(drivers) {
+      driversList.innerHTML = '';
+      if (!drivers || drivers.length === 0) {
+        driversList.innerHTML = '<li class="no-drivers">Нет активных водителей</li>';
+        return;
+      }
+      drivers.forEach(function (d) {
+        const li = document.createElement('li');
+        li.className = 'driver-item';
+        li.innerHTML =
+          '<span class="dot"></span>' +
+          '<span>' +
+            '<span class="driver-name">' + escHtml(d.username) + '</span>' +
+            (d.carId ? '<br><span class="driver-car">Машина #' + escHtml(String(d.carId)) + '</span>' : '') +
+          '</span>';
+        driversList.appendChild(li);
+      });
+    }
+
+    socket.on(RILEY_EVENTS.PRESENCE_UPDATE, function (data) {
+      renderDrivers(data.drivers || []);
+    });
+
+    // ── Chat ────────────────────────────────────────────────────────
+    const chatMessagesEl = document.getElementById('chat-messages');
+
+    function escHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function appendChatMsg(msg) {
+      const div = document.createElement('div');
+      div.className = 'chat-msg';
+      div.innerHTML =
+        '<span class="chat-username">' + escHtml(msg.username) + ':</span>' +
+        '<span class="chat-text">' + escHtml(msg.message) + '</span>';
+      chatMessagesEl.appendChild(div);
+      chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+    }
+
+    function appendSystemMsg(text) {
+      const div = document.createElement('div');
+      div.className = 'chat-msg system';
+      div.textContent = text;
+      chatMessagesEl.appendChild(div);
+      chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+    }
+
+    socket.on(RILEY_EVENTS.CHAT_HISTORY, function (messages) {
+      chatMessagesEl.innerHTML = '';
+      (messages || []).forEach(appendChatMsg);
+    });
+
+    socket.on(RILEY_EVENTS.CHAT_MESSAGE, function (msg) {
+      appendChatMsg(msg);
+    });
+
+    socket.on('chat:error', function (err) {
+      appendSystemMsg('⚠ ' + (err.message || 'Ошибка чата'));
+    });
+
+    // ── Chat send ───────────────────────────────────────────────────
+    const chatInput = document.getElementById('chat-input');
+    const chatSendBtn = document.getElementById('chat-send-btn');
+
+    function sendChatMessage() {
+      if (!currentUser) {
+        appendSystemMsg('⚠ Войдите, чтобы писать в чат');
+        return;
+      }
+      const text = chatInput.value.trim();
+      if (!text) return;
+      socket.emit(RILEY_EVENTS.CHAT_SEND, { message: text, dbUserId: currentUser.id });
+      chatInput.value = '';
+    }
+
+    chatSendBtn.addEventListener('click', sendChatMessage);
+    chatInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') sendChatMessage();
+    });
+
+    // ── Fullscreen ──────────────────────────────────────────────────
+    const viewportContainer = document.getElementById('viewport-container');
+    const fullscreenBtn = document.getElementById('fullscreen-btn');
+
+    // Track whether we triggered fullscreen optimistically via button click
+    let optimisticFullscreen = false;
+
+    fullscreenBtn.addEventListener('click', function () {
+      if (!viewportContainer.classList.contains('is-fullscreen')) {
+        // Optimistically set the visual state immediately (works in headless)
+        optimisticFullscreen = true;
+        viewportContainer.classList.add('is-fullscreen');
+        fullscreenBtn.textContent = 'Свернуть';
+        // Also request real browser fullscreen (no-op in headless, nice-to-have in real browsers)
+        viewportContainer.requestFullscreen().catch(function (err) {
+          console.warn('Fullscreen API unavailable:', err.message);
+        });
+      } else {
+        optimisticFullscreen = false;
+        viewportContainer.classList.remove('is-fullscreen');
+        fullscreenBtn.textContent = '⛶ Полный экран';
+        document.exitFullscreen().catch(function () {});
+      }
+    });
+
+    // Sync with real browser fullscreen changes (e.g., user presses Escape)
+    document.addEventListener('fullscreenchange', function () {
+      const isFs = !!document.fullscreenElement;
+      if (isFs) {
+        // Browser successfully entered fullscreen
+        optimisticFullscreen = false;
+        viewportContainer.classList.add('is-fullscreen');
+        fullscreenBtn.textContent = 'Свернуть';
+      } else if (!optimisticFullscreen) {
+        // Browser exited fullscreen (Escape key or API)
+        viewportContainer.classList.remove('is-fullscreen');
+        fullscreenBtn.textContent = '⛶ Полный экран';
+      }
+      // If optimisticFullscreen, ignore the API-denied event and keep our class
+    });
+
+    // ── Init ────────────────────────────────────────────────────────
+    (async function init() {
+      currentUser = await fetchMe();
+      if (!currentUser) {
+        // Not authenticated — redirect to login
+        window.location.href = '/login?next=/broadcast';
+        return;
+      }
+      // Enable/disable chat input based on auth
+      chatInput.disabled = false;
+      chatSendBtn.disabled = false;
+      chatInput.placeholder = 'Сообщение…';
+    })();
+  </script>
+</body>
+</html>

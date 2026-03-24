@@ -456,6 +456,126 @@
             border-bottom: 1px solid #f5f5f5;
             color: #333;
         }
+
+        /* ── Chat overlay (floating, does not block controls when closed) ── */
+        .chat-toggle-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 200;
+            background: #3498db;
+            color: #fff;
+            border: none;
+            border-radius: 50px;
+            padding: 10px 18px;
+            font-size: 14px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+            transition: background 0.2s;
+        }
+        .chat-toggle-btn:hover { background: #2980b9; }
+        .chat-toggle-btn .chat-badge {
+            display: inline-block;
+            background: #e74c3c;
+            color: #fff;
+            font-size: 11px;
+            font-weight: bold;
+            border-radius: 50px;
+            padding: 1px 5px;
+            margin-left: 4px;
+            min-width: 16px;
+            text-align: center;
+        }
+        .chat-toggle-btn .chat-badge.hidden { display: none; }
+
+        .chat-overlay {
+            position: fixed;
+            bottom: 70px;
+            right: 20px;
+            width: 320px;
+            height: 380px;
+            background: rgba(20, 20, 40, 0.92);
+            border: 1px solid #444;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            z-index: 199;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+        }
+        .chat-overlay.hidden { display: none; }
+        .chat-overlay-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.05);
+            border-bottom: 1px solid #333;
+            font-size: 13px;
+            font-weight: bold;
+            color: #ccc;
+        }
+        .chat-overlay-close {
+            background: none;
+            border: none;
+            color: #888;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+            padding: 0 4px;
+        }
+        .chat-overlay-close:hover { color: #fff; }
+        .chat-overlay-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            color: #ccc;
+        }
+        .chat-overlay-messages::-webkit-scrollbar { width: 3px; }
+        .chat-overlay-messages::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
+        .chat-overlay-msg {
+            font-size: 13px;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+        .chat-overlay-msg .cmsg-user {
+            font-weight: bold;
+            color: #3498db;
+            margin-right: 4px;
+        }
+        .chat-overlay-msg.system { color: #666; font-style: italic; }
+        .chat-overlay-input-row {
+            display: flex;
+            gap: 6px;
+            padding: 8px 10px;
+            border-top: 1px solid #333;
+        }
+        .chat-overlay-input-row input {
+            flex: 1;
+            background: #0d0d1a;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: #e0e0e0;
+            padding: 6px 8px;
+            font-size: 13px;
+            outline: none;
+        }
+        .chat-overlay-input-row input:focus { border-color: #3498db; }
+        .chat-overlay-input-row input::placeholder { color: #555; }
+        .chat-overlay-input-row button {
+            background: #3498db;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .chat-overlay-input-row button:hover { background: #2980b9; }
     </style>
 </head>
 <body>
@@ -580,6 +700,31 @@
         </div>
     </div>
 
+    <!-- Chat toggle button (fixed, bottom-right) -->
+    <button class="chat-toggle-btn" id="chat-toggle-btn" title="Открыть/закрыть чат">
+        💬 Чат<span class="chat-badge hidden" id="chat-badge">0</span>
+    </button>
+
+    <!-- Chat overlay (initially hidden, does not block driving controls) -->
+    <div class="chat-overlay hidden" id="chat-overlay">
+        <div class="chat-overlay-header">
+            <span>💬 Общий чат</span>
+            <button class="chat-overlay-close" id="chat-overlay-close" title="Закрыть">✕</button>
+        </div>
+        <div class="chat-overlay-messages" id="chat-overlay-messages"></div>
+        <div class="chat-overlay-input-row">
+            <input
+                type="text"
+                id="chat-overlay-input"
+                placeholder="Сообщение…"
+                maxlength="300"
+                autocomplete="off"
+            />
+            <button id="chat-overlay-send">↩</button>
+        </div>
+    </div>
+
+    <script src="/vendor/events.js"></script>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script>
         // Read activeSession from sessionStorage, returning null if missing or invalid
@@ -789,7 +934,16 @@
 
         window.addEventListener('pagehide', endSessionOnLeave);
 
-        const socket = io(window.location.origin);
+        // Connect to Socket.io server. When served from port 5999 (control UI port),
+        // connect to the main server on port 5000 where Socket.io is attached.
+        (function () {
+            const loc = window.location;
+            const socketUrl = loc.port === '5999'
+                ? loc.protocol + '//' + loc.hostname + ':5000'
+                : loc.origin;
+            window._controlSocket = io(socketUrl);
+        })();
+        const socket = window._controlSocket;
 
         const statusDot = document.getElementById('status-dot');
         const statusText = document.getElementById('status-text');
@@ -805,6 +959,10 @@
             statusDot.classList.remove('disconnected');
             statusDot.classList.add('connected');
             statusText.textContent = 'Подключено';
+            // Mark as active driver in presence system
+            if (sessionData.dbUserId) {
+                socket.emit(RILEY_EVENTS.DRIVER_MARK, { dbUserId: sessionData.dbUserId });
+            }
             // Re-establish server-side session so car status is 'unavailable'
             if (hasSession && carId) {
                 if (!sessionData.dbUserId) {
@@ -1220,6 +1378,100 @@
         setInterval(function () {
             if (!currentRaceId) loadActiveRaces();
         }, 30000);
+
+        // ── Chat overlay ────────────────────────────────────────────────
+        const chatOverlay = document.getElementById('chat-overlay');
+        const chatToggleBtn = document.getElementById('chat-toggle-btn');
+        const chatOverlayClose = document.getElementById('chat-overlay-close');
+        const chatOverlayMessages = document.getElementById('chat-overlay-messages');
+        const chatOverlayInput = document.getElementById('chat-overlay-input');
+        const chatOverlaySend = document.getElementById('chat-overlay-send');
+        const chatBadge = document.getElementById('chat-badge');
+
+        let isChatOpen = false;
+        let unreadCount = 0;
+        const chatBuffer = [];
+
+        function escHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function appendChatMsgToOverlay(msg) {
+            const div = document.createElement('div');
+            div.className = 'chat-overlay-msg';
+            div.innerHTML =
+                '<span class="cmsg-user">' + escHtml(msg.username) + ':</span>' +
+                '<span class="cmsg-text">' + escHtml(msg.message) + '</span>';
+            chatOverlayMessages.appendChild(div);
+            chatOverlayMessages.scrollTop = chatOverlayMessages.scrollHeight;
+        }
+
+        function appendSystemMsgToOverlay(text) {
+            const div = document.createElement('div');
+            div.className = 'chat-overlay-msg system';
+            div.textContent = text;
+            chatOverlayMessages.appendChild(div);
+            chatOverlayMessages.scrollTop = chatOverlayMessages.scrollHeight;
+        }
+
+        function openChatOverlay() {
+            isChatOpen = true;
+            chatOverlay.classList.remove('hidden');
+            // Render buffered messages
+            chatOverlayMessages.innerHTML = '';
+            chatBuffer.forEach(appendChatMsgToOverlay);
+            chatOverlayMessages.scrollTop = chatOverlayMessages.scrollHeight;
+            // Clear badge
+            unreadCount = 0;
+            chatBadge.textContent = '0';
+            chatBadge.classList.add('hidden');
+        }
+
+        function closeChatOverlay() {
+            isChatOpen = false;
+            chatOverlay.classList.add('hidden');
+        }
+
+        chatToggleBtn.addEventListener('click', function () {
+            if (isChatOpen) { closeChatOverlay(); } else { openChatOverlay(); }
+        });
+        chatOverlayClose.addEventListener('click', closeChatOverlay);
+
+        // Receive chat messages
+        socket.on(RILEY_EVENTS.CHAT_MESSAGE, function (msg) {
+            chatBuffer.push(msg);
+            if (isChatOpen) {
+                appendChatMsgToOverlay(msg);
+            } else {
+                unreadCount++;
+                chatBadge.textContent = String(unreadCount);
+                chatBadge.classList.remove('hidden');
+            }
+        });
+
+        socket.on('chat:error', function (err) {
+            appendSystemMsgToOverlay('⚠ ' + (err.message || 'Ошибка чата'));
+        });
+
+        function sendChatFromOverlay() {
+            if (!sessionData.dbUserId) {
+                appendSystemMsgToOverlay('⚠ Требуется авторизация');
+                return;
+            }
+            const text = chatOverlayInput.value.trim();
+            if (!text) return;
+            socket.emit(RILEY_EVENTS.CHAT_SEND, { message: text, dbUserId: sessionData.dbUserId });
+            chatOverlayInput.value = '';
+        }
+
+        chatOverlaySend.addEventListener('click', sendChatFromOverlay);
+        chatOverlayInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') sendChatFromOverlay();
+        });
     </script>
 </body>
 </html>

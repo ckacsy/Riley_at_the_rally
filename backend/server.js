@@ -39,6 +39,7 @@ const multer = require('multer');
 
 const metrics = require('./metrics');
 const mailer = require('./mailer');
+const EVENTS = require('../frontend/vendor/events.js');
 
 const {
   validateUsername,
@@ -387,6 +388,77 @@ const sessionDurationTimeouts = new Map();
 // Control-command rate-limit counters (keyed by socket.id)
 const controlCommandCounters = new Map(); // socketId -> { count, windowStart }
 
+// --- Presence (active drivers) ---
+const driverPresence = new Map(); // userId (number) -> { userId, username, carId, socketId, lastSeen }
+const presenceGraceTimers = new Map(); // userId -> Timer
+
+function getDriversList() {
+  return [...driverPresence.values()].map((d) => ({
+    userId: d.userId,
+    username: d.username,
+    carId: d.carId || null,
+    lastSeen: d.lastSeen,
+  }));
+}
+
+function broadcastPresenceUpdate() {
+  const drivers = getDriversList();
+  io.to('broadcast').emit(EVENTS.PRESENCE_UPDATE, { drivers });
+  metrics.log('debug', 'presence_broadcast', { driverCount: drivers.length });
+}
+
+function markDriverActive(userId, username, carId, socketId) {
+  if (presenceGraceTimers.has(userId)) {
+    clearTimeout(presenceGraceTimers.get(userId));
+    presenceGraceTimers.delete(userId);
+  }
+  const wasAbsent = !driverPresence.has(userId);
+  driverPresence.set(userId, {
+    userId,
+    username,
+    carId: carId || null,
+    socketId,
+    lastSeen: new Date().toISOString(),
+  });
+  if (wasAbsent) {
+    metrics.log('info', 'presence_join', { userId, username, carId: carId || null });
+    broadcastPresenceUpdate();
+  }
+}
+
+function markDriverInactive(userId) {
+  if (!driverPresence.has(userId)) return;
+  if (presenceGraceTimers.has(userId)) return;
+  const GRACE_MS = 10 * 1000;
+  const timer = setTimeout(() => {
+    driverPresence.delete(userId);
+    presenceGraceTimers.delete(userId);
+    metrics.log('info', 'presence_leave', { userId });
+    broadcastPresenceUpdate();
+  }, GRACE_MS);
+  presenceGraceTimers.set(userId, timer);
+}
+
+// --- Global Chat (in-memory) ---
+const chatMessages = []; // last MAX_CHAT_MESSAGES messages
+const MAX_CHAT_MESSAGES = 200;
+const MAX_CHAT_MSG_LEN = 300;
+const chatRateLimits = new Map(); // userId -> { count, windowStart }
+
+function checkChatRateLimit(userId) {
+  const now = Date.now();
+  const WINDOW_MS = 1000;
+  const BURST = 3;
+  const entry = chatRateLimits.get(userId) || { count: 0, windowStart: now };
+  if (now - entry.windowStart >= WINDOW_MS) {
+    entry.count = 0;
+    entry.windowStart = now;
+  }
+  entry.count += 1;
+  chatRateLimits.set(userId, entry);
+  return entry.count <= BURST;
+}
+
 // Car availability status tracking
 let carStatusLastUpdated = new Date().toISOString();
 let prevCarStatus = null;
@@ -619,6 +691,11 @@ app.get('/api/health', healthLimiter, async (req, res) => {
     metrics.log('error', 'health_check_fail', health);
     return res.status(503).json(health);
   }
+
+  // Broadcast / chat counters
+  health.activeDrivers = driverPresence.size;
+  health.chatMessagesBuffered = chatMessages.length;
+  health.broadcastViewers = io.sockets.adapter.rooms.get('broadcast')?.size || 0;
 
   res.json(health);
 });
@@ -1116,6 +1193,11 @@ app.get('/garage', pageRateLimit, (req, res) => {
   res.sendFile(path.join(frontendDir, 'garage.html'));
 });
 
+// /broadcast — spectator page with client-side auth check
+app.get('/broadcast', pageRateLimit, (req, res) => {
+  res.sendFile(path.join(frontendDir, 'broadcast.html'));
+});
+
 // Socket.io events for real-time car control
 io.on('connection', (socket) => {
   metrics.log('debug', 'socket_connect', { socketId: socket.id });
@@ -1176,6 +1258,9 @@ io.on('connection', (socket) => {
     setInactivityTimeout(socket);
     setSessionDurationTimeout(socket);
     broadcastCarsUpdate();
+    // Also mark as active driver in presence map
+    socket._presenceUserId = dbUserId;
+    markDriverActive(dbUserId, user.username, carId, socket.id);
     metrics.log('info', 'session_start', { userId: user.username, dbUserId, carId, socketId: socket.id });
   });
 
@@ -1233,7 +1318,76 @@ io.on('connection', (socket) => {
     removeFromRace(socket);
     if (hadSession) broadcastCarsUpdate();
     broadcastRacesUpdate();
+    // Clean up driver presence with grace period
+    if (socket._presenceUserId) {
+      markDriverInactive(socket._presenceUserId);
+    }
     metrics.log('debug', 'socket_disconnect', { socketId: socket.id, hadSession });
+  });
+
+  // --- Presence: mark as active driver ---
+  socket.on(EVENTS.DRIVER_MARK, (data) => {
+    const { dbUserId } = data || {};
+    if (!Number.isInteger(dbUserId)) {
+      metrics.log('warn', 'auth_fail', { event: 'driver:mark', socketId: socket.id });
+      socket.emit('driver:error', { code: 'auth_required', message: 'Требуется авторизация.' });
+      return;
+    }
+    const user = db.prepare('SELECT username, status FROM users WHERE id = ?').get(dbUserId);
+    if (!user) {
+      socket.emit('driver:error', { code: 'auth_required', message: 'Пользователь не найден.' });
+      return;
+    }
+    if (user.status !== 'active') {
+      socket.emit('driver:error', { code: 'auth_required', message: 'Нет доступа.' });
+      return;
+    }
+    socket._presenceUserId = dbUserId;
+    const carId = activeSessions.get(socket.id)?.carId || null;
+    markDriverActive(dbUserId, user.username, carId, socket.id);
+    metrics.log('info', 'driver_mark', { userId: dbUserId, username: user.username, socketId: socket.id });
+  });
+
+  // --- Broadcast room join (spectators on /broadcast) ---
+  socket.on(EVENTS.BROADCAST_JOIN, () => {
+    socket.join('broadcast');
+    socket.emit(EVENTS.PRESENCE_UPDATE, { drivers: getDriversList() });
+    socket.emit(EVENTS.CHAT_HISTORY, chatMessages.slice());
+    metrics.log('debug', 'broadcast_join', { socketId: socket.id });
+  });
+
+  // --- Global chat ---
+  socket.on(EVENTS.CHAT_SEND, (data) => {
+    const { message, dbUserId } = data || {};
+    if (!Number.isInteger(dbUserId)) {
+      socket.emit('chat:error', { code: 'auth_required', message: 'Требуется авторизация.' });
+      return;
+    }
+    const user = db.prepare('SELECT username, status FROM users WHERE id = ?').get(dbUserId);
+    if (!user || user.status !== 'active') {
+      socket.emit('chat:error', { code: 'auth_required', message: 'Нет доступа.' });
+      return;
+    }
+    if (typeof message !== 'string' || !message.trim()) {
+      socket.emit('chat:error', { message: 'Сообщение не может быть пустым.' });
+      return;
+    }
+    if (!checkChatRateLimit(dbUserId)) {
+      socket.emit('chat:error', { code: 'rate_limited', message: 'Слишком часто. Подождите немного.' });
+      return;
+    }
+    const trimmed = message.trim().slice(0, MAX_CHAT_MSG_LEN);
+    const msg = {
+      id: crypto.randomUUID(),
+      userId: dbUserId,
+      username: user.username,
+      message: trimmed,
+      createdAt: new Date().toISOString(),
+    };
+    chatMessages.push(msg);
+    if (chatMessages.length > MAX_CHAT_MESSAGES) chatMessages.shift();
+    metrics.log('info', 'chat_send', { userId: dbUserId, username: user.username, msgLen: trimmed.length });
+    io.emit(EVENTS.CHAT_MESSAGE, msg);
   });
 
   // --- Race events ---
@@ -1500,3 +1654,20 @@ function startServer(port, attempt) {
 }
 
 startServer(BASE_PORT);
+
+// Control UI server on port 5999 — same express app, separate HTTP listener.
+// Socket.io connections are still served by the main server (port 5000).
+// The control.html script detects port 5999 and connects socket.io to port 5000.
+const CONTROL_UI_PORT = parseInt(process.env.CONTROL_PORT || '5999', 10);
+const controlHttpServer = http.createServer(app);
+controlHttpServer.listen(CONTROL_UI_PORT, () => {
+  metrics.log('info', 'control_server_start', { port: CONTROL_UI_PORT });
+  console.log(`[control] Control UI server listening on port ${CONTROL_UI_PORT}`);
+});
+controlHttpServer.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.warn(`[control] Port ${CONTROL_UI_PORT} is already in use; control UI server not started.`);
+  } else {
+    console.error('[control] Control server error:', err.message);
+  }
+});
