@@ -1116,6 +1116,11 @@ app.get('/garage', pageRateLimit, (req, res) => {
   res.sendFile(path.join(frontendDir, 'garage.html'));
 });
 
+app.get('/broadcast', pageRateLimit, (req, res) => {
+  if (!req.session.userId) return res.redirect('/login');
+  res.sendFile(path.join(frontendDir, 'broadcast.html'));
+});
+
 // Socket.io events for real-time car control
 io.on('connection', (socket) => {
   metrics.log('debug', 'socket_connect', { socketId: socket.id });
