@@ -111,7 +111,8 @@ test.describe('CTA button states by role', () => {
     await page.goto('/garage?forceFallback=1');
     await waitForCta(page, 'Только просмотр');
 
-    await page.locator('#cta-btn').click();
+    // The visible center CTA button ('Войти') redirects guests to /login
+    await page.locator('#center-cta-btn').click();
 
     await expect(page).toHaveURL(/\/login/, { timeout: 5_000 });
   });
@@ -126,7 +127,7 @@ test.describe('CTA button states by role', () => {
     await waitForCta(page, 'Подтвердите email');
   });
 
-  test('active user: CTA shows "Старт / Подключиться"', async ({ page }) => {
+  test('active user: CTA shows "НА ТРЕК"', async ({ page }) => {
     await resetDb(page);
 
     const user = await registerUser(
@@ -141,7 +142,7 @@ test.describe('CTA button states by role', () => {
 
     // Navigate to garage — /api/auth/me will now return status='active'
     await page.goto('/garage?forceFallback=1');
-    await waitForCta(page, 'Старт / Подключиться');
+    await waitForCta(page, 'НА ТРЕК');
     await expect(page.locator('#cta-btn')).not.toHaveClass(/observer/);
   });
 });

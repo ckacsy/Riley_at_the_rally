@@ -604,9 +604,9 @@
             document.getElementById('session-inactive-msg').style.display = 'block';
         }
 
-        // If no active session, redirect to main page
+        // If no active session, redirect to garage
         if (!hasSession) {
-            window.location.replace('/');
+            window.location.replace('/garage');
         }
 
         // Handle bfcache back navigation: re-check session on pageshow
@@ -614,7 +614,7 @@
             if (event.persisted) {
                 const session = getActiveSession();
                 if (!session || !session.carId) {
-                    window.location.replace('/');
+                    window.location.replace('/garage');
                 }
             }
         });
@@ -902,7 +902,7 @@
         document.getElementById('back-to-main').addEventListener('click', function () {
             sessionEnded = true;
             sessionStorage.removeItem('activeSession');
-            window.location.href = '/';
+            window.location.href = '/garage';
         });
 
         document.getElementById('forward').addEventListener('click', function () {

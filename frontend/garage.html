@@ -210,15 +210,15 @@
            BOTTOM CAROUSEL
            ========================================= */
         .carousel-wrap {
-            position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
+            position: fixed; bottom: 0; left: 240px; right: 220px; z-index: 20;
             padding: 8px 16px 14px;
             background: linear-gradient(0deg, rgba(5,8,20,0.93) 0%, rgba(5,8,20,0) 100%);
             transition: transform 0.3s ease;
         }
         .carousel-wrap.hidden-panel { transform: translateY(100%); }
 
-        .carousel-controls { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
-        .carousel-filters { display: flex; align-items: center; gap: 6px; flex: 1; flex-wrap: wrap; min-width: 0; }
+        .carousel-controls { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+        .carousel-filters { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: center; }
         .filter-select {
             background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14);
             color: #fff; padding: 4px 8px; border-radius: 6px; font-size: 12px; cursor: pointer; outline: none;
@@ -238,11 +238,6 @@
         }
         .fullscreen-btn:hover { background: rgba(255,255,255,0.16); color: #fff; }
         .fullscreen-btn.active { background: rgba(229,57,53,0.22); border-color: rgba(229,57,53,0.5); color: #fff; }
-
-        .carousel-label {
-            text-align: center; font-size: 10px; color: rgba(255,255,255,0.38);
-            margin-bottom: 6px; letter-spacing: 2px; text-transform: uppercase;
-        }
         .carousel {
             display: flex; gap: 10px; justify-content: center; align-items: center;
             overflow-x: auto; padding: 2px 0; scrollbar-width: none; -ms-overflow-style: none;
@@ -259,6 +254,11 @@
         .car-thumb:hover:not(.active) { border-color: rgba(255,255,255,0.45); transform: scale(1.04); }
         .thumb-dot { width: 28px; height: 28px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.28); }
         .thumb-name { font-size: 10px; color: rgba(255,255,255,0.75); }
+        .thumb-car-img { font-size: 22px; line-height: 1; }
+        .thumb-avail { width: 7px; height: 7px; border-radius: 50%; margin-top: 1px; background: #4caf50; }
+        .car-thumb.car-busy .thumb-avail { background: #ff9800; }
+        .car-thumb.car-offline .thumb-avail { background: #f44336; }
+        .car-thumb.car-busy { opacity: 0.65; }
         .carousel-empty { color: rgba(255,255,255,0.35); font-size: 12px; padding: 10px 0; }
 
         /* =========================================
@@ -293,15 +293,15 @@
             .left-panel.collapsed { width: 36px; }
             .tab-btn { font-size: 12px; padding: 8px 10px; }
             .cta-btn { font-size: 13px; padding: 10px 16px; }
-            .carousel-wrap { padding: 6px 10px 10px; }
+            .carousel-wrap { left: 0; right: 0; padding: 6px 10px 10px; }
             .car-thumb { width: 58px; height: 58px; }
-            .thumb-dot { width: 22px; height: 22px; }
+            .thumb-car-img { font-size: 18px; }
             .status-bar { font-size: 11px; padding: 0 8px; }
             .sb-center { display: none; }
             .filter-select, .search-input { font-size: 11px; padding: 3px 6px; }
             .fullscreen-btn { font-size: 11px; padding: 3px 8px; }
             .right-panel { display: none; }
-            .center-cta-wrap { left: 50%; transform: translateX(-50%); right: auto; }
+            .center-cta-wrap { left: 44px; right: 0; }
         }
 
         /* =========================================
@@ -386,8 +386,8 @@
            CENTER CTA OVERLAY
            ========================================= */
         .center-cta-wrap {
-            position: fixed; top: 52px; right: 240px; z-index: 25;
-            display: flex; justify-content: center; pointer-events: none;
+            position: fixed; top: 52px; left: 240px; right: 220px; z-index: 25;
+            display: flex; flex-direction: column; align-items: center; pointer-events: none;
         }
         .center-cta-wrap .cta-btn {
             pointer-events: all;
@@ -395,6 +395,13 @@
             box-shadow: 0 0 20px rgba(229, 57, 53, 0.5), 0 3px 15px rgba(229,57,53,0.4);
         }
         .center-cta-wrap.hidden-panel { display: none; }
+        .center-car-title {
+            font-size: 15px; font-weight: bold; color: #fff;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.9);
+            margin-bottom: 8px; pointer-events: none;
+            letter-spacing: 0.4px; text-align: center;
+            background: rgba(5,8,20,0.55); padding: 3px 12px; border-radius: 6px;
+        }
 
         /* =========================================
            RIGHT PANEL
@@ -589,11 +596,7 @@
         </div>
 
         <div class="panel-tabs">
-            <button class="tab-btn active" data-tab="my-cars">
-                <span class="tab-icon">&#x1F697;</span>
-                <span class="tab-label">Моя техника</span>
-            </button>
-            <button class="tab-btn" data-tab="sessions">
+            <button class="tab-btn active" data-tab="sessions">
                 <span class="tab-icon">&#x1F3C1;</span>
                 <span class="tab-label">Режимы/Сессии</span>
             </button>
@@ -609,27 +612,12 @@
 
         <div class="panel-content">
 
-            <!-- Моя техника -->
-            <div class="tab-content active" id="tab-my-cars">
-                <div class="car-title" id="car-title">Riley-X1</div>
-                <div class="car-availability-badge" id="car-availability-badge">
-                    <span class="badge-dot"></span>
-                    <span id="car-availability-text">&#8230;</span>
-                </div>
-                <div class="car-specs">
-                    <div class="spec-row"><span>Тип</span><span id="spec-type">Drift Car</span></div>
-                    <div class="spec-row"><span>Класс</span><span>Спорт</span></div>
-                    <div class="spec-row"><span>Ливрея</span><span id="spec-livery">Алый</span></div>
-                </div>
-                <button class="cta-btn" id="cta-btn" disabled>Загрузка…</button>
-            </div>
-
             <!-- Режимы/Сессии -->
-            <div class="tab-content" id="tab-sessions">
+            <div class="tab-content active" id="tab-sessions">
                 <div class="panel-section">
                     <h3>Режимы</h3>
-                    <button class="nav-btn" id="btn-control"><span>&#x1F3AE;</span>&nbsp;Управление</button>
                     <button class="nav-btn" id="btn-lobby"><span>&#x1F3E0;</span>&nbsp;Лобби</button>
+                    <button class="nav-btn" id="btn-track"><span>&#x1F3CE;</span>&nbsp;Трек</button>
                 </div>
             </div>
 
@@ -705,7 +693,10 @@
 
     <!-- CENTER CTA overlay (above 3D view) -->
     <div class="center-cta-wrap" id="center-cta-wrap">
-        <button class="cta-btn" id="center-cta-btn" aria-label="Старт — управление машиной" disabled>Загрузка…</button>
+        <div class="center-car-title" id="car-title">Riley-X1</div>
+        <button class="cta-btn" id="center-cta-btn" aria-label="НА ТРЕК — управление машиной" disabled>Загрузка…</button>
+        <!-- Hidden CTA for programmatic state tracking -->
+        <button class="cta-btn" id="cta-btn" style="display:none" disabled aria-hidden="true">Загрузка…</button>
     </div>
 
     <!-- RIGHT PANEL -->
@@ -823,7 +814,6 @@
                 &#x26F6; Полный экран
             </button>
         </div>
-        <div class="carousel-label">Выберите ливрею</div>
         <div class="carousel-row">
             <button class="carousel-arrow" id="carousel-prev" aria-label="Предыдущая ливрея">&#9664;</button>
             <div class="carousel" id="car-carousel" role="listbox" aria-label="Выбор ливреи машины"></div>
@@ -861,11 +851,11 @@
 
         // Car color variants (class/type used for carousel filters)
         const CAR_VARIANTS = [
-            { name: 'Алый',    bodyHex: '#e53935', trimHex: '#ffffff', body: 0xe53935, trim: 0xffffff, cls: 'sport', type: 'drift' },
-            { name: 'Синий',   bodyHex: '#1e88e5', trimHex: '#ffffff', body: 0x1e88e5, trim: 0xffffff, cls: 'sport', type: 'drift' },
-            { name: 'Зелёный', bodyHex: '#43a047', trimHex: '#ffffff', body: 0x43a047, trim: 0xffffff, cls: 'sport', type: 'drift' },
-            { name: 'Золотой', bodyHex: '#fdd835', trimHex: '#212121', body: 0xfdd835, trim: 0x212121, cls: 'sport', type: 'drift' },
-            { name: 'Чёрный',  bodyHex: '#1c1c1c', trimHex: '#e53935', body: 0x1c1c1c, trim: 0xe53935, cls: 'sport', type: 'drift' },
+            { id: 1, name: 'Алый',    bodyHex: '#e53935', trimHex: '#ffffff', body: 0xe53935, trim: 0xffffff, cls: 'sport', type: 'drift' },
+            { id: 2, name: 'Синий',   bodyHex: '#1e88e5', trimHex: '#ffffff', body: 0x1e88e5, trim: 0xffffff, cls: 'sport', type: 'drift' },
+            { id: 3, name: 'Зелёный', bodyHex: '#43a047', trimHex: '#ffffff', body: 0x43a047, trim: 0xffffff, cls: 'sport', type: 'drift' },
+            { id: 4, name: 'Золотой', bodyHex: '#fdd835', trimHex: '#212121', body: 0xfdd835, trim: 0x212121, cls: 'sport', type: 'drift' },
+            { id: 5, name: 'Чёрный',  bodyHex: '#1c1c1c', trimHex: '#e53935', body: 0x1c1c1c, trim: 0xe53935, cls: 'sport', type: 'drift' },
         ];
 
         let activeVariant = 0;
@@ -880,6 +870,8 @@
             setFog:        (v) => { if (scene) scene.fog = v ? new THREE.FogExp2(0x0d1525, 0.025) : null; },
             getFps:        ()  => currentFps,
         };
+        window.CAR_VARIANTS_REF = CAR_VARIANTS;
+        window._activeVariant = 0;
 
         function hasWebGL() {
             try {
@@ -1033,6 +1025,7 @@
 
         function swapVariant(index) {
             activeVariant = index;
+            window._activeVariant = index;
             const v = CAR_VARIANTS[index];
             document.querySelectorAll('.car-thumb').forEach((el) => {
                 const idx = parseInt(el.getAttribute('data-variant-index'), 10);
@@ -1040,9 +1033,18 @@
                 el.classList.toggle('active', active);
                 el.setAttribute('aria-selected', active ? 'true' : 'false');
             });
-            document.getElementById('car-title').textContent = 'Riley-X1 \u00b7 ' + v.name;
+            const titleEl = document.getElementById('car-title');
+            if (titleEl) titleEl.textContent = 'Riley-X1 \u00b7 ' + v.name;
             const sl = document.getElementById('spec-livery');
             if (sl) sl.textContent = v.name;
+            // Update availability for the newly selected car
+            const statusMap = window._carStatusMap || {};
+            const newSt = statusMap[v.id] || window._carAvailabilityStatus || 'available';
+            if (newSt !== window._carAvailabilityStatus) {
+                window._carAvailabilityStatus = newSt;
+                if (typeof renderAvailabilityBadge === 'function') renderAvailabilityBadge();
+                if (typeof updateCTA === 'function') updateCTA();
+            }
             if (!scene || !renderer) return;
             scene.remove(carGroup);
             carGroup = buildCar(v.body, v.trim);
@@ -1057,27 +1059,33 @@
             const ft  = (document.getElementById('filter-type')  || {}).value || 'all';
             const fa  = (document.getElementById('filter-avail') || {}).value || 'all';
             const srch= ((document.getElementById('carousel-search') || {}).value || '').toLowerCase().trim();
-            const carSt = window._carAvailabilityStatus || 'available';
+            const carStatusMap = window._carStatusMap || {};
+            const globalSt = window._carAvailabilityStatus || 'available';
             let any = false;
             CAR_VARIANTS.forEach((v, i) => {
                 if (fc !== 'all' && v.cls  !== fc) return;
                 if (ft !== 'all' && v.type !== ft) return;
+                const vSt = carStatusMap[v.id] || (i === activeVariant ? globalSt : 'available');
                 if (fa !== 'all') {
-                    if (fa === 'available' && (carSt === 'busy' || carSt === 'offline')) return;
-                    if (fa === 'busy'      && carSt !== 'busy')  return;
+                    if (fa === 'available' && (vSt === 'busy' || vSt === 'offline')) return;
+                    if (fa === 'busy'      && vSt !== 'busy')  return;
                 }
                 if (srch && !v.name.toLowerCase().includes(srch)) return;
                 any = true;
                 const thumb = document.createElement('div');
-                thumb.className = 'car-thumb' + (i === activeVariant ? ' active' : '');
+                let thumbCls = 'car-thumb' + (i === activeVariant ? ' active' : '');
+                if (vSt === 'busy')    thumbCls += ' car-busy';
+                if (vSt === 'offline') thumbCls += ' car-offline';
+                thumb.className = thumbCls;
                 thumb.setAttribute('role', 'option');
                 thumb.setAttribute('aria-label', v.name);
                 thumb.setAttribute('aria-selected', i === activeVariant ? 'true' : 'false');
                 thumb.setAttribute('data-variant-index', i);
                 thumb.title = v.name;
                 thumb.innerHTML =
-                    '<div class="thumb-dot" style="background:' + v.bodyHex + '"></div>' +
-                    '<div class="thumb-name">' + v.name + '</div>';
+                    '<div class="thumb-car-img" style="color:' + v.bodyHex + '">\uD83C\uDFCE\uFE0F</div>' +
+                    '<div class="thumb-name">' + v.name + '</div>' +
+                    '<div class="thumb-avail"></div>';
                 thumb.addEventListener('click', () => swapVariant(i));
                 el.appendChild(thumb);
             });
@@ -1120,6 +1128,7 @@
         var availableCars = [];
         var carAvailabilityStatus = 'available';
         window._carAvailabilityStatus = 'available';
+        window._carStatusMap = {};
         var isPanelCollapsed = false;
         var isFullscreen = false;
 
@@ -1178,7 +1187,7 @@
         document.getElementById('btn-leaderboard').addEventListener('click', function () { window.location.href = '/#leaderboard-section'; });
         document.getElementById('btn-profile').addEventListener('click', function () { window.location.href = '/profile'; });
         document.getElementById('btn-lobby').addEventListener('click', function () { window.location.href = '/'; });
-        document.getElementById('btn-control').addEventListener('click', function () { window.location.href = '/control'; });
+        document.getElementById('btn-track').addEventListener('click', function () { window.location.href = '/control'; });
 
         // Settings toggles
         document.getElementById('setting-shadows').addEventListener('change', function () { if (window._garageScene) window._garageScene.setShadows(this.checked); });
@@ -1262,33 +1271,31 @@
                 centerBtn.className = 'cta-btn' + (cls ? ' ' + cls : '');
                 centerBtn.onclick = fn || null;
             }
+            function setBtn(text, disabled, cls, fn) {
+                if (!btn) return;
+                btn.textContent = text; btn.className = 'cta-btn' + (cls ? ' ' + cls : '');
+                btn.disabled = disabled; btn.onclick = fn || null;
+            }
             if (!currentUser) {
-                btn.textContent = '\u0422\u043e\u043b\u044c\u043a\u043e \u043f\u0440\u043e\u0441\u043c\u043e\u0442\u0440 / \u0412\u043e\u0439\u0442\u0438';
-                btn.className = 'cta-btn observer'; btn.disabled = false;
-                btn.onclick = function () { window.location.href = '/login?redirect=/garage'; };
+                setBtn('\u0422\u043e\u043b\u044c\u043a\u043e \u043f\u0440\u043e\u0441\u043c\u043e\u0442\u0440 / \u0412\u043e\u0439\u0442\u0438', false, 'observer', function () { window.location.href = '/login?redirect=/garage'; });
                 setFallback('\u0412\u043e\u0439\u0442\u0438', false, function () { window.location.href = '/login?redirect=/garage'; });
                 setCenter('\u0412\u043e\u0439\u0442\u0438', false, 'observer', function () { window.location.href = '/login?redirect=/garage'; });
             } else if (currentUser.status === 'pending') {
-                btn.textContent = '\u041f\u043e\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u0435 email';
-                btn.className = 'cta-btn'; btn.disabled = false;
-                btn.onclick = function () { window.location.href = '/verify-email'; };
+                setBtn('\u041f\u043e\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u0435 email', false, '', function () { window.location.href = '/verify-email'; });
                 setFallback('\u041f\u043e\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u0435 email', false, function () { window.location.href = '/verify-email'; });
                 setCenter('\u041f\u043e\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u0435 email', false, '', function () { window.location.href = '/verify-email'; });
             } else if (carAvailabilityStatus === 'busy') {
-                btn.textContent = '\u041c\u0430\u0448\u0438\u043d\u0430 \u0437\u0430\u043d\u044f\u0442\u0430';
-                btn.className = 'cta-btn'; btn.disabled = true; btn.onclick = null;
+                setBtn('\u041c\u0430\u0448\u0438\u043d\u0430 \u0437\u0430\u043d\u044f\u0442\u0430', true, '', null);
                 setFallback('\u041c\u0430\u0448\u0438\u043d\u0430 \u0437\u0430\u043d\u044f\u0442\u0430', true, null);
                 setCenter('\u041c\u0430\u0448\u0438\u043d\u0430 \u0437\u0430\u043d\u044f\u0442\u0430', true, '', null);
             } else if (carAvailabilityStatus === 'offline') {
-                btn.textContent = '\u041c\u0430\u0448\u0438\u043d\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430';
-                btn.className = 'cta-btn'; btn.disabled = true; btn.onclick = null;
+                setBtn('\u041c\u0430\u0448\u0438\u043d\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430', true, '', null);
                 setFallback('\u041c\u0430\u0448\u0438\u043d\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430', true, null);
                 setCenter('\u041c\u0430\u0448\u0438\u043d\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430', true, '', null);
             } else {
-                btn.textContent = '\u0421\u0442\u0430\u0440\u0442 / \u041f\u043e\u0434\u043a\u043b\u044e\u0447\u0438\u0442\u044c\u0441\u044f';
-                btn.className = 'cta-btn'; btn.disabled = false; btn.onclick = startSession;
-                setFallback('\u0421\u0442\u0430\u0440\u0442 / \u041f\u043e\u0434\u043a\u043b\u044e\u0447\u0438\u0442\u044c\u0441\u044f', false, startSession);
-                setCenter('\u0421\u0442\u0430\u0440\u0442 / \u041f\u043e\u0434\u043a\u043b\u044e\u0447\u0438\u0442\u044c\u0441\u044f', false, '', startSession);
+                setBtn('\u041d\u0410 \u0422\u0420\u0415\u041a', false, '', startSession);
+                setFallback('\u041d\u0410 \u0422\u0420\u0415\u041a', false, startSession);
+                setCenter('\u041d\u0410 \u0422\u0420\u0415\u041a', false, '', startSession);
             }
         }
 
@@ -1297,9 +1304,13 @@
             var text = t[carAvailabilityStatus] || carAvailabilityStatus;
             var css  = 'car-availability-badge status-' + carAvailabilityStatus;
             var badge = document.getElementById('car-availability-badge');
-            if (badge) { badge.className = css; document.getElementById('car-availability-text').textContent = text; }
+            if (badge) {
+                badge.className = css;
+                var bavText = document.getElementById('car-availability-text');
+                if (bavText) bavText.textContent = text;
+            }
             var fb = document.getElementById('fallback-availability-badge');
-            if (fb)    { fb.className = css; document.getElementById('fallback-availability-text').textContent = text; }
+            if (fb) { fb.className = css; document.getElementById('fallback-availability-text').textContent = text; }
             updateCarStateLabel();
         }
 
@@ -1325,7 +1336,12 @@
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
                     ratePerMinute = data.ratePerMinute || ratePerMinute;
-                    availableCars = (data.cars || []).filter(function (c) { return c.status === 'available'; });
+                    var cars = data.cars || [];
+                    availableCars = cars.filter(function (c) { return c.status === 'available'; });
+                    var newMap = {};
+                    cars.forEach(function (c) { newMap[c.id] = c.status === 'unavailable' ? 'busy' : (c.status || 'available'); });
+                    window._carStatusMap = newMap;
+                    if (typeof window._renderCarousel === 'function') window._renderCarousel();
                 })
                 .catch(function () {});
         }
@@ -1363,8 +1379,18 @@
         socket.on('cars_updated', function (data) {
             var cars = data.cars || [];
             availableCars = cars.filter(function (c) { return c.status === 'available'; });
-            var anyBusy = cars.some(function (c) { return c.status === 'unavailable'; });
-            carAvailabilityStatus = anyBusy ? 'busy' : 'available';
+            // Build per-car status map
+            var newMap = {};
+            cars.forEach(function (c) { newMap[c.id] = c.status === 'unavailable' ? 'busy' : c.status; });
+            window._carStatusMap = newMap;
+            // Update global status for the selected car
+            var activeCarId = (window.CAR_VARIANTS_REF && window.CAR_VARIANTS_REF[window._activeVariant || 0]) ? window.CAR_VARIANTS_REF[window._activeVariant || 0].id : null;
+            if (activeCarId && newMap[activeCarId]) {
+                carAvailabilityStatus = newMap[activeCarId];
+            } else {
+                var anyBusy = cars.some(function (c) { return c.status === 'unavailable'; });
+                carAvailabilityStatus = anyBusy ? 'busy' : 'available';
+            }
             window._carAvailabilityStatus = carAvailabilityStatus;
             renderAvailabilityBadge();
             updateCTA();
@@ -1379,7 +1405,9 @@
                 loadCars(); return;
             }
             var btn = document.getElementById('cta-btn');
-            btn.disabled = true; btn.textContent = '\u0417\u0430\u043f\u0443\u0441\u043a\u2026';
+            var centerBtn = document.getElementById('center-cta-btn');
+            if (btn) { btn.disabled = true; btn.textContent = '\u0417\u0430\u043f\u0443\u0441\u043a\u2026'; }
+            if (centerBtn) { centerBtn.disabled = true; centerBtn.textContent = '\u0417\u0430\u043f\u0443\u0441\u043a\u2026'; }
             var car = availableCars[0];
             var selectedRace = sessionStorage.getItem('selectedRaceId') || null;
             socket.emit('start_session', { carId: car.id, userId: currentUser.username, dbUserId: currentUser.id });
@@ -1393,7 +1421,7 @@
             });
             socket.once('session_error', function (data) {
                 alert(data.message || '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043d\u0430\u0447\u0430\u0442\u044c \u0441\u0435\u0441\u0441\u0438\u044e.');
-                btn.disabled = false; updateCTA(); loadCars();
+                updateCTA(); loadCars();
             });
         }
 

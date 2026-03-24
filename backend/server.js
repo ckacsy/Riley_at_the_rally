@@ -92,8 +92,11 @@ const CONTROL_RATE_LIMIT_MAX = (!isNaN(_rawRateLimit) && _rawRateLimit > 0) ? _r
 const CONTROL_RATE_LIMIT_WINDOW_MS = 1000;
 
 const CARS = [
-  { id: 1, name: 'MJX Hyper Go 14302', model: 'Drift Car' },
-  { id: 2, name: 'WLtoys 144001', model: 'Buggy' },
+  { id: 1, name: 'Riley-X1 · Алый',    model: 'Drift Car' },
+  { id: 2, name: 'Riley-X1 · Синий',   model: 'Drift Car' },
+  { id: 3, name: 'Riley-X1 · Зелёный', model: 'Drift Car' },
+  { id: 4, name: 'Riley-X1 · Золотой', model: 'Drift Car' },
+  { id: 5, name: 'Riley-X1 · Чёрный',  model: 'Drift Car' },
 ];
 
 // Serve frontend static files
