@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Гараж — Riley at the Rally</title>
+    <style>
+        /* === Reset === */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            width: 100%; height: 100%;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background: #0a0e1a;
+            color: #fff;
+        }
+
+<<<<<<< HEAD
+socket.on('cars_updated', function (data) {
+    var cars = data.cars || [];
+    availableCars = cars.filter(function (c) { return c.status === 'available'; });
+    var anyBusy = cars.some(function (c) { return c.status === 'unavailable'; });
+    carAvailabilityStatus = anyBusy ? 'busy' : 'available';
+    window._carAvailabilityStatus = carAvailabilityStatus;
+    renderAvailabilityBadge(); updateCTA();
+    if (typeof window._renderCarousel === 'function') { window._renderCarousel(); }
+});
+=======
+        /* === 3D Canvas === */
+        #garage-canvas {
+            display: block; width: 100%; height: 100%;
+            position: fixed; inset: 0; z-index: 0;
+        }
+
+        /* === WebGL fallback === */
+        #webgl-fallback {
+            display: none; position: fixed; inset: 0; z-index: 1;
+            background: linear-gradient(180deg, #0a0e1a 0%, #1a2340 100%);
+            flex-direction: column; align-items: center; justify-content: center;
+            text-align: center; padding: 20px;
+        }
+        #webgl-fallback.active { display: flex; }
+        #webgl-fallback .fallback-car { font-size: 96px; margin-bottom: 16px; }
+        #webgl-fallback h2 { color: #fff; margin-bottom: 8px; }
+        #webgl-fallback p { color: #aaa; font-size: 16px; line-height: 1.5; }
+        #webgl-fallback .fallback-cta {
+            margin-top: 24px; padding: 14px 48px;
+            background: linear-gradient(135deg, #e53935 0%, #c62828 100%);
+            color: #fff; border: none; border-radius: 10px;
+            font-size: 18px; font-weight: bold; cursor: pointer;
+        }
+
+        /* === Loading spinner === */
+        .scene-loading {
+            position: fixed; inset: 0; z-index: 50;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 16px;
+            background: #0a0e1a; transition: opacity 0.5s;
+        }
+        .scene-loading.hidden { opacity: 0; pointer-events: none; }
+        .spinner {
+            width: 48px; height: 48px;
+            border: 4px solid rgba(255,255,255,0.1);
+            border-top-color: #e53935; border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        .loading-text { color: rgba(255,255,255,0.5); font-size: 14px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* =========================================
+           STATUS BAR (top)
+           ========================================= */
+        .status-bar {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 30;
+            height: 38px; display: flex; align-items: center;
+            background: rgba(5,8,20,0.90);
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            padding: 0 14px; font-size: 12px; color: rgba(255,255,255,0.72);
+            user-select: none;
+        }
+        .sb-left  { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+        .sb-center { flex: 0 0 auto; font-weight: bold; font-size: 13px; color: #fff; letter-spacing: 1.2px; white-space: nowrap; }
+        .sb-right { display: flex; align-items: center; gap: 8px; flex: 1; justify-content: flex-end; min-width: 0; }
+        .sb-sep   { color: rgba(255,255,255,0.18); flex-shrink: 0; }
+        .sb-item  { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+        .sb-dot   { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+        .sb-dot.green  { background: #4caf50; box-shadow: 0 0 5px #4caf50; }
+        .sb-dot.red    { background: #f44336; box-shadow: 0 0 5px #f44336; }
+        .sb-dot.orange { background: #ff9800; box-shadow: 0 0 5px #ff9800; }
+        .sb-credits { color: #fdd835; font-weight: bold; }
+        .sb-auth-link { color: #64b5f6; text-decoration: none; }
+        .sb-auth-link:hover { text-decoration: underline; }
+
+        /* =========================================
+           LEFT PANEL
+           ========================================= */
+        .left-panel {
+            position: fixed;
+            top: 38px; bottom: 130px; left: 0; z-index: 20;
+            width: 240px; display: flex; flex-direction: column;
+            background: rgba(5,8,20,0.84);
+            border-right: 1px solid rgba(255,255,255,0.07);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            transition: width 0.25s ease, transform 0.3s ease;
+            overflow: visible;
+        }
+        .left-panel.collapsed { width: 44px; }
+        .left-panel.hidden-panel { transform: translateX(-100%); }
+
+        .panel-toggle {
+            position: absolute; right: -14px; top: 50%; transform: translateY(-50%); z-index: 22;
+            width: 28px; height: 28px; background: rgba(10,14,26,0.95);
+            border: 1px solid rgba(255,255,255,0.15); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 11px; color: rgba(255,255,255,0.65);
+            transition: background 0.2s, color 0.2s;
+        }
+        .panel-toggle:hover { background: rgba(229,57,53,0.3); color: #fff; }
+
+        .panel-tabs { display: flex; flex-direction: column; padding: 8px 0; flex-shrink: 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .tab-btn {
+            display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+            background: none; border: none; border-left: 3px solid transparent;
+            color: rgba(255,255,255,0.55); font-size: 13px; cursor: pointer;
+            text-align: left; white-space: nowrap; overflow: hidden;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+        }
+        .tab-btn:hover { background: rgba(255,255,255,0.06); color: #fff; }
+        .tab-btn.active { background: rgba(229,57,53,0.11); color: #fff; border-left-color: #e53935; }
+        .tab-icon { font-size: 16px; flex-shrink: 0; width: 20px; text-align: center; }
+        .tab-label { overflow: hidden; white-space: nowrap; }
+        .left-panel.collapsed .tab-label { display: none; }
+        .left-panel.collapsed .tab-btn { padding: 10px; justify-content: center; }
+
+        .panel-content {
+            flex: 1; overflow-y: auto; overflow-x: hidden; padding: 14px 12px;
+            scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.12) transparent;
+        }
+        .panel-content::-webkit-scrollbar { width: 4px; }
+        .panel-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
+        .left-panel.collapsed .panel-content { display: none; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .car-title { font-size: 17px; font-weight: bold; margin-bottom: 8px; color: #fff; line-height: 1.3; }
+        .car-availability-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 3px 10px; border-radius: 20px;
+            font-size: 11px; font-weight: bold; letter-spacing: 0.5px; text-transform: uppercase;
+            background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15); margin-bottom: 12px;
+        }
+        .car-availability-badge .badge-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+        .car-availability-badge.status-available { border-color: rgba(76,175,80,0.6); color: #81c784; }
+        .car-availability-badge.status-available .badge-dot { background: #4caf50; box-shadow: 0 0 5px #4caf50; }
+        .car-availability-badge.status-busy    { border-color: rgba(255,152,0,0.6); color: #ffb74d; }
+        .car-availability-badge.status-busy .badge-dot    { background: #ff9800; box-shadow: 0 0 5px #ff9800; }
+        .car-availability-badge.status-offline { border-color: rgba(244,67,54,0.6); color: #e57373; }
+        .car-availability-badge.status-offline .badge-dot { background: #f44336; box-shadow: 0 0 5px #f44336; }
+
+        .car-specs { margin-bottom: 14px; }
+        .spec-row {
+            display: flex; justify-content: space-between;
+            padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.06);
+            font-size: 12px; color: rgba(255,255,255,0.6);
+        }
+        .spec-row span:last-child { color: rgba(255,255,255,0.9); font-weight: 500; }
+
+        .cta-btn {
+            width: 100%; padding: 12px 20px;
+            background: linear-gradient(135deg, #e53935 0%, #c62828 100%);
+            color: #fff; border: none; border-radius: 8px;
+            font-size: 15px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 3px 15px rgba(229,57,53,0.4);
+            transition: transform 0.15s, box-shadow 0.15s;
+            letter-spacing: 0.3px; margin-top: 6px;
+        }
+        .cta-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(229,57,53,0.6); }
+        .cta-btn:active:not(:disabled) { transform: translateY(0); }
+        .cta-btn:disabled { background: linear-gradient(135deg, #333 0%, #222 100%); box-shadow: none; cursor: not-allowed; }
+        .cta-btn.observer { background: linear-gradient(135deg, #1565c0 0%, #0d47a1 100%); box-shadow: 0 3px 15px rgba(21,101,192,0.4); }
+        .cta-btn.observer:hover:not(:disabled) { box-shadow: 0 5px 20px rgba(21,101,192,0.6); }
+
+        .panel-section h3 {
+            font-size: 11px; font-weight: bold; color: rgba(255,255,255,0.4);
+            text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 10px;
+        }
+        .nav-btn {
+            display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 10px;
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.8); font-size: 13px; border-radius: 7px; cursor: pointer;
+            margin-bottom: 6px; transition: background 0.15s; text-align: left;
+        }
+        .nav-btn:hover { background: rgba(255,255,255,0.13); color: #fff; }
+
+        .leaderboard-preview { margin-top: 4px; }
+        .lb-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 12px; }
+        .lb-rank  { color: rgba(255,255,255,0.35); width: 18px; flex-shrink: 0; }
+        .lb-name  { flex: 1; color: rgba(255,255,255,0.82); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+        .lb-time  { color: #64b5f6; font-weight: bold; white-space: nowrap; }
+
+        .settings-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.06);
+            font-size: 13px; color: rgba(255,255,255,0.8);
+        }
+        .toggle-switch { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+        .toggle-slider {
+            position: absolute; inset: 0; background: rgba(255,255,255,0.14);
+            border-radius: 20px; cursor: pointer; transition: background 0.2s;
+        }
+        .toggle-slider::before {
+            content: ''; position: absolute; width: 14px; height: 14px;
+            left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: transform 0.2s;
+        }
+        .toggle-switch input:checked + .toggle-slider { background: #e53935; }
+        .toggle-switch input:checked + .toggle-slider::before { transform: translateX(16px); }
+
+        /* =========================================
+           BOTTOM CAROUSEL
+           ========================================= */
+        .carousel-wrap {
+            position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
+            padding: 8px 16px 14px;
+            background: linear-gradient(0deg, rgba(5,8,20,0.93) 0%, rgba(5,8,20,0) 100%);
+            transition: transform 0.3s ease;
+        }
+        .carousel-wrap.hidden-panel { transform: translateY(100%); }
+
+        .carousel-controls { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+        .carousel-filters { display: flex; align-items: center; gap: 6px; flex: 1; flex-wrap: wrap; min-width: 0; }
+        .filter-select {
+            background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14);
+            color: #fff; padding: 4px 8px; border-radius: 6px; font-size: 12px; cursor: pointer; outline: none;
+        }
+        .filter-select:focus { border-color: rgba(229,57,53,0.5); }
+        .filter-select option { background: #0a0e1a; color: #fff; }
+        .search-input {
+            background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14);
+            color: #fff; padding: 4px 10px; border-radius: 6px; font-size: 12px; outline: none; width: 120px;
+        }
+        .search-input::placeholder { color: rgba(255,255,255,0.32); }
+        .search-input:focus { border-color: rgba(229,57,53,0.5); }
+        .fullscreen-btn {
+            background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14);
+            color: rgba(255,255,255,0.72); padding: 4px 12px; border-radius: 6px;
+            font-size: 12px; cursor: pointer; transition: background 0.15s; flex-shrink: 0; white-space: nowrap;
+        }
+        .fullscreen-btn:hover { background: rgba(255,255,255,0.16); color: #fff; }
+        .fullscreen-btn.active { background: rgba(229,57,53,0.22); border-color: rgba(229,57,53,0.5); color: #fff; }
+
+        .carousel-label {
+            text-align: center; font-size: 10px; color: rgba(255,255,255,0.38);
+            margin-bottom: 6px; letter-spacing: 2px; text-transform: uppercase;
+        }
+        .carousel {
+            display: flex; gap: 10px; justify-content: center; align-items: center;
+            overflow-x: auto; padding: 2px 0; scrollbar-width: none; -ms-overflow-style: none;
+        }
+        .carousel::-webkit-scrollbar { display: none; }
+        .car-thumb {
+            flex-shrink: 0; width: 70px; height: 70px; border-radius: 10px; cursor: pointer;
+            border: 3px solid transparent; transition: border-color 0.2s, transform 0.15s;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(255,255,255,0.07); backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px); gap: 5px;
+        }
+        .car-thumb.active { border-color: #fff; transform: scale(1.08); }
+        .car-thumb:hover:not(.active) { border-color: rgba(255,255,255,0.45); transform: scale(1.04); }
+        .thumb-dot { width: 28px; height: 28px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.28); }
+        .thumb-name { font-size: 10px; color: rgba(255,255,255,0.75); }
+        .carousel-empty { color: rgba(255,255,255,0.35); font-size: 12px; padding: 10px 0; }
+
+        /* =========================================
+           STALE SESSION OVERLAY
+           ========================================= */
+        .stale-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.65); z-index: 100;
+            justify-content: center; align-items: center;
+        }
+        .stale-overlay.visible { display: flex; }
+        .stale-card {
+            background: #141c30; border-radius: 12px; padding: 36px 44px; text-align: center;
+            max-width: 380px; width: 90%; box-shadow: 0 4px 40px rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .stale-card h2 { margin-top: 0; color: #fff; }
+        .stale-card p { font-size: 15px; color: #aaa; margin: 10px 0; }
+        .stale-card .cost { font-size: 28px; font-weight: bold; color: #42a5f5; margin: 16px 0; }
+        .stale-card .close-btn {
+            display: inline-block; margin-top: 18px; padding: 12px 32px;
+            background: #e53935; color: #fff; border: none; border-radius: 8px;
+            font-size: 16px; cursor: pointer; transition: background 0.2s;
+        }
+        .stale-card .close-btn:hover { background: #c62828; }
+
+        /* =========================================
+           MOBILE RESPONSIVE
+           ========================================= */
+        @media (max-width: 600px) {
+            .left-panel { width: 200px; bottom: 110px; }
+            .left-panel.collapsed { width: 36px; }
+            .tab-btn { font-size: 12px; padding: 8px 10px; }
+            .cta-btn { font-size: 13px; padding: 10px 16px; }
+            .carousel-wrap { padding: 6px 10px 10px; }
+            .car-thumb { width: 58px; height: 58px; }
+            .thumb-dot { width: 22px; height: 22px; }
+            .status-bar { font-size: 11px; padding: 0 8px; }
+            .sb-center { display: none; }
+            .filter-select, .search-input { font-size: 11px; padding: 3px 6px; }
+            .fullscreen-btn { font-size: 11px; padding: 3px 8px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Loading screen -->
+    <div class="scene-loading" id="scene-loading">
+        <div class="spinner"></div>
+        <div class="loading-text">Загрузка гаража…</div>
+    </div>
+
+    <!-- WebGL fallback (shown when WebGL unavailable) -->
+    <div id="webgl-fallback">
+        <div class="fallback-car">&#x1F697;</div>
+        <h2>3D-гараж недоступен</h2>
+        <p>Ваш браузер не поддерживает WebGL.<br>Обновите браузер для полного 3D-опыта.</p>
+        <div class="car-availability-badge" id="fallback-availability-badge" style="margin-top:16px;">
+            <span class="badge-dot"></span>
+            <span id="fallback-availability-text">&#8230;</span>
+        </div>
+        <button class="fallback-cta" id="fallback-cta-btn">Старт / Подключиться</button>
+    </div>
+
+    <!-- 3D Canvas -->
+    <canvas id="garage-canvas"></canvas>
+
+    <!-- STATUS BAR (top) -->
+    <div class="status-bar">
+        <div class="sb-left">
+            <div class="sb-item">
+                <div class="sb-dot" id="sb-server-dot"></div>
+                <span id="sb-server-text">Сервер</span>
+            </div>
+            <span class="sb-sep">|</span>
+            <span class="sb-item">Пинг:&nbsp;<span id="sb-ping">&#8212;</span></span>
+            <span class="sb-sep">|</span>
+            <span class="sb-item">FPS:&nbsp;<span id="sb-fps">&#8212;</span></span>
+            <span class="sb-sep">|</span>
+            <span class="sb-item" id="sb-car-state">&#8212;</span>
+        </div>
+        <div class="sb-center">Riley at the Rally</div>
+        <div class="sb-right">
+            <span class="sb-item sb-credits">&#x1F4B0;&nbsp;<span id="sb-credits">0.00</span></span>
+            <span class="sb-sep">|</span>
+            <div id="auth-chip" class="sb-item">&#8230;</div>
+        </div>
+    </div>
+
+    <!-- LEFT PANEL -->
+    <div class="left-panel" id="left-panel">
+        <button class="panel-toggle" id="panel-toggle" title="Свернуть / развернуть панель">&#9664;</button>
+
+        <div class="panel-tabs">
+            <button class="tab-btn active" data-tab="my-cars">
+                <span class="tab-icon">&#x1F697;</span>
+                <span class="tab-label">Моя техника</span>
+            </button>
+            <button class="tab-btn" data-tab="sessions">
+                <span class="tab-icon">&#x1F3C1;</span>
+                <span class="tab-label">Режимы/Сессии</span>
+            </button>
+            <button class="tab-btn" data-tab="ratings">
+                <span class="tab-icon">&#x1F3C6;</span>
+                <span class="tab-label">Рейтинги</span>
+            </button>
+            <button class="tab-btn" data-tab="settings">
+                <span class="tab-icon">&#x2699;&#xFE0F;</span>
+                <span class="tab-label">Настройки</span>
+            </button>
+        </div>
+
+        <div class="panel-content">
+
+            <!-- Моя техника -->
+            <div class="tab-content active" id="tab-my-cars">
+                <div class="car-title" id="car-title">Riley-X1</div>
+                <div class="car-availability-badge" id="car-availability-badge">
+                    <span class="badge-dot"></span>
+                    <span id="car-availability-text">&#8230;</span>
+                </div>
+                <div class="car-specs">
+                    <div class="spec-row"><span>Тип</span><span id="spec-type">Drift Car</span></div>
+                    <div class="spec-row"><span>Класс</span><span>Спорт</span></div>
+                    <div class="spec-row"><span>Ливрея</span><span id="spec-livery">Алый</span></div>
+                </div>
+                <button class="cta-btn" id="cta-btn" disabled>Загрузка…</button>
+            </div>
+
+            <!-- Режимы/Сессии -->
+            <div class="tab-content" id="tab-sessions">
+                <div class="panel-section">
+                    <h3>Режимы</h3>
+                    <button class="nav-btn" id="btn-control"><span>&#x1F3AE;</span>&nbsp;Управление</button>
+                    <button class="nav-btn" id="btn-lobby"><span>&#x1F3E0;</span>&nbsp;Лобби</button>
+                </div>
+            </div>
+
+            <!-- Рейтинги -->
+            <div class="tab-content" id="tab-ratings">
+                <div class="panel-section">
+                    <h3>Рейтинги</h3>
+                    <div class="leaderboard-preview" id="lb-preview">
+                        <div class="lb-row" style="color:rgba(255,255,255,0.38);font-size:12px;">Загрузка…</div>
+                    </div>
+                    <button class="nav-btn" style="margin-top:10px;" id="btn-leaderboard">
+                        <span>&#x1F4CA;</span>&nbsp;Полный рейтинг
+                    </button>
+                </div>
+            </div>
+
+            <!-- Настройки -->
+            <div class="tab-content" id="tab-settings">
+                <div class="panel-section">
+                    <h3>Настройки</h3>
+                    <div class="settings-row">
+                        <span>Тени</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="setting-shadows" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="settings-row">
+                        <span>Авт. вращение</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="setting-autorotate" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="settings-row">
+                        <span>Туман</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="setting-fog" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <button class="nav-btn" style="margin-top:10px;" id="btn-profile">
+                        <span>&#x1F464;</span>&nbsp;Профиль
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- BOTTOM CAROUSEL -->
+    <div class="carousel-wrap" id="carousel-wrap">
+        <div class="carousel-controls">
+            <div class="carousel-filters">
+                <select class="filter-select" id="filter-class" title="Класс">
+                    <option value="all">Все классы</option>
+                    <option value="sport">Спорт</option>
+                    <option value="buggy">Баги</option>
+                </select>
+                <select class="filter-select" id="filter-type" title="Тип">
+                    <option value="all">Все типы</option>
+                    <option value="drift">Дрифт</option>
+                    <option value="buggy">Багги</option>
+                </select>
+                <select class="filter-select" id="filter-avail" title="Доступность">
+                    <option value="all">Все</option>
+                    <option value="available">Доступные</option>
+                    <option value="busy">Занятые</option>
+                </select>
+                <input class="search-input" id="carousel-search" type="text"
+                       placeholder="Поиск ливреи…" aria-label="Поиск ливреи">
+            </div>
+            <button class="fullscreen-btn" id="fullscreen-btn" title="Полноэкранный вид (Space)">
+                &#x26F6; Полный экран
+            </button>
+        </div>
+        <div class="carousel-label">Выберите ливрею</div>
+        <div class="carousel" id="car-carousel" role="listbox" aria-label="Выбор ливреи машины"></div>
+    </div>
+
+    <!-- STALE SESSION OVERLAY -->
+    <div class="stale-overlay" id="stale-overlay">
+        <div class="stale-card">
+            <h2>Сессия завершена</h2>
+            <p id="stale-car">Машина: &#8212;</p>
+            <p id="stale-duration">Длительность: &#8212;</p>
+            <p class="cost" id="stale-cost">$0.00</p>
+            <button class="close-btn" id="stale-close">Закрыть</button>
+        </div>
+    </div>
+
+    <!-- Socket.io (served by backend) -->
+    <script src="/socket.io/socket.io.js"></script>
+
+    <!-- Three.js importmap (local vendor, no CDN) -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "/vendor/three.module.min.js"
+        }
+    }
+    </script>
+
+    <!-- 3D SCENE (ES module) -->
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from '/vendor/controls/OrbitControls.js';
+
+        // Car color variants (class/type used for carousel filters)
+        const CAR_VARIANTS = [
+            { name: 'Алый',    bodyHex: '#e53935', trimHex: '#ffffff', body: 0xe53935, trim: 0xffffff, cls: 'sport', type: 'drift' },
+            { name: 'Синий',   bodyHex: '#1e88e5', trimHex: '#ffffff', body: 0x1e88e5, trim: 0xffffff, cls: 'sport', type: 'drift' },
+            { name: 'Зелёный', bodyHex: '#43a047', trimHex: '#ffffff', body: 0x43a047, trim: 0xffffff, cls: 'sport', type: 'drift' },
+            { name: 'Золотой', bodyHex: '#fdd835', trimHex: '#212121', body: 0xfdd835, trim: 0x212121, cls: 'sport', type: 'drift' },
+            { name: 'Чёрный',  bodyHex: '#1c1c1c', trimHex: '#e53935', body: 0x1c1c1c, trim: 0xe53935, cls: 'sport', type: 'drift' },
+        ];
+
+        let activeVariant = 0;
+        let carGroup = null;
+        let scene, camera, renderer, controls;
+        let autoRotate = true;
+        let fpsCounter = 0, lastFpsTime = performance.now(), currentFps = 0;
+
+        window._garageScene = {
+            setShadows:    (v) => { if (renderer) renderer.shadowMap.enabled = v; },
+            setAutoRotate: (v) => { autoRotate = v; },
+            setFog:        (v) => { if (scene) scene.fog = v ? new THREE.FogExp2(0x0d1525, 0.025) : null; },
+            getFps:        ()  => currentFps,
+        };
+
+        function hasWebGL() {
+            try {
+                const c = document.createElement('canvas');
+                return !!(window.WebGLRenderingContext &&
+                    (c.getContext('webgl') || c.getContext('experimental-webgl')));
+            } catch (e) { return false; }
+        }
+
+        const forceFallback = new URLSearchParams(window.location.search).get('forceFallback') === '1';
+
+        if (!hasWebGL() || forceFallback) {
+            document.getElementById('webgl-fallback').classList.add('active');
+            document.getElementById('scene-loading').classList.add('hidden');
+            renderCarousel();
+            const v0 = CAR_VARIANTS[0];
+            document.getElementById('car-title').textContent = 'Riley-X1 \u00b7 ' + v0.name;
+        } else {
+            initScene();
+        }
+
+        function initScene() {
+            const canvas = document.getElementById('garage-canvas');
+            renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.1;
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0d1525);
+            scene.fog = new THREE.FogExp2(0x0d1525, 0.025);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(0, 2.8, 7);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.06;
+            controls.minDistance = 3;
+            controls.maxDistance = 14;
+            controls.maxPolarAngle = Math.PI / 2 - 0.04;
+            controls.target.set(0, 0.5, 0);
+            controls.update();
+
+            addLighting();
+            addEnvironment();
+            carGroup = buildCar(CAR_VARIANTS[0].body, CAR_VARIANTS[0].trim);
+            scene.add(carGroup);
+
+            renderCarousel();
+            window.addEventListener('resize', onResize);
+            animate();
+            setTimeout(() => { document.getElementById('scene-loading').classList.add('hidden'); }, 300);
+        }
+
+        function addLighting() {
+            scene.add(new THREE.AmbientLight(0x6688aa, 0.55));
+            const key = new THREE.DirectionalLight(0xffffff, 1.6);
+            key.position.set(4, 9, 5); key.castShadow = true;
+            key.shadow.mapSize.set(1024, 1024);
+            key.shadow.camera.near = 0.5; key.shadow.camera.far = 30;
+            key.shadow.camera.left = key.shadow.camera.bottom = -8;
+            key.shadow.camera.right = key.shadow.camera.top = 8;
+            scene.add(key);
+            const fill = new THREE.DirectionalLight(0x4466bb, 0.45);
+            fill.position.set(-4, 4, -3); scene.add(fill);
+            const rim = new THREE.DirectionalLight(0xaaccff, 0.3);
+            rim.position.set(0, 3, -7); scene.add(rim);
+            [-4, 0, 4].forEach(x => {
+                const spot = new THREE.SpotLight(0xffeedd, 0.7, 22, Math.PI / 7, 0.5);
+                spot.position.set(x, 9, 0); spot.castShadow = false;
+                const t = new THREE.Object3D(); t.position.set(x, 0, 0);
+                scene.add(t); spot.target = t; scene.add(spot); scene.add(t);
+            });
+        }
+
+        function addEnvironment() {
+            const floor = new THREE.Mesh(
+                new THREE.PlaneGeometry(60, 60),
+                new THREE.MeshStandardMaterial({ color: 0x080d1a, roughness: 0.85, metalness: 0.3 })
+            );
+            floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+            const grid = new THREE.GridHelper(60, 60, 0x1a2a4a, 0x141e30);
+            grid.material.opacity = 0.45; grid.material.transparent = true; scene.add(grid);
+            const ceil = new THREE.Mesh(
+                new THREE.PlaneGeometry(30, 30),
+                new THREE.MeshStandardMaterial({ color: 0x050810, roughness: 1, side: THREE.BackSide })
+            );
+            ceil.position.y = 12; ceil.rotation.x = Math.PI / 2; scene.add(ceil);
+            [[-12, 0], [12, Math.PI]].forEach(([x, ry]) => {
+                const wall = new THREE.Mesh(
+                    new THREE.PlaneGeometry(30, 14),
+                    new THREE.MeshStandardMaterial({ color: 0x09101f, roughness: 1, side: THREE.BackSide })
+                );
+                wall.position.set(x, 6, 0); wall.rotation.y = ry + Math.PI / 2; scene.add(wall);
+            });
+            const back = new THREE.Mesh(
+                new THREE.PlaneGeometry(30, 14),
+                new THREE.MeshStandardMaterial({ color: 0x09101f, roughness: 1, side: THREE.BackSide })
+            );
+            back.position.set(0, 6, -14); scene.add(back);
+            const lineMat = new THREE.MeshBasicMaterial({ color: 0xe53935, opacity: 0.25, transparent: true });
+            [-0.9, 0.9].forEach(x => {
+                const line = new THREE.Mesh(new THREE.PlaneGeometry(0.04, 8), lineMat);
+                line.rotation.x = -Math.PI / 2; line.position.set(x, 0.001, 0); scene.add(line);
+            });
+        }
+
+        function buildCar(bodyColor, trimColor) {
+            const group = new THREE.Group();
+            const mBody  = new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.25, metalness: 0.75 });
+            const mTrim  = new THREE.MeshStandardMaterial({ color: trimColor, roughness: 0.45, metalness: 0.4 });
+            const mBlack = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.85, metalness: 0.1 });
+            const mGlass = new THREE.MeshStandardMaterial({ color: 0x6699bb, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.65 });
+            const mChrome= new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.1, metalness: 0.95 });
+            const mLight = new THREE.MeshStandardMaterial({ color: 0xffffee, emissive: 0xffffcc, emissiveIntensity: 0.6 });
+            const mTail  = new THREE.MeshStandardMaterial({ color: 0xff2200, emissive: 0xff2200, emissiveIntensity: 0.7 });
+            function mesh(geo, mat, x, y, z, rx, ry, rz) {
+                const m = new THREE.Mesh(geo, mat);
+                m.position.set(x || 0, y || 0, z || 0);
+                if (rx) m.rotation.x = rx; if (ry) m.rotation.y = ry; if (rz) m.rotation.z = rz;
+                m.castShadow = true; group.add(m); return m;
+            }
+            mesh(new THREE.BoxGeometry(1.82, 0.44, 3.7),  mBody,  0, 0.5,  0);
+            mesh(new THREE.BoxGeometry(1.32, 0.42, 1.65), mBody,  0, 0.93,-0.08);
+            mesh(new THREE.BoxGeometry(1.14, 0.36, 0.06), mGlass, 0, 0.88, 0.75, 0.3);
+            mesh(new THREE.BoxGeometry(1.14, 0.3,  0.06), mGlass, 0, 0.86,-0.91,-0.3);
+            mesh(new THREE.BoxGeometry(1.72, 0.22, 0.14), mTrim,  0, 0.3,  1.88);
+            mesh(new THREE.BoxGeometry(1.72, 0.22, 0.14), mTrim,  0, 0.3, -1.88);
+            mesh(new THREE.BoxGeometry(1.62, 0.06, 0.26), mTrim,  0, 1.08,-1.82);
+            [-0.76, 0.76].forEach(x => mesh(new THREE.BoxGeometry(0.05, 0.3, 0.08), mTrim, x, 0.92,-1.77));
+            [-0.67, 0.67].forEach(x => mesh(new THREE.BoxGeometry(0.26, 0.13, 0.05), mLight, x, 0.6, 1.85));
+            [-0.67, 0.67].forEach(x => mesh(new THREE.BoxGeometry(0.32, 0.11, 0.05), mTail,  x, 0.5,-1.86));
+            [-0.92, 0.92].forEach(x => mesh(new THREE.BoxGeometry(0.08, 0.12, 3.2),  mTrim,  x, 0.28, 0));
+            const wheelGeo = new THREE.CylinderGeometry(0.33, 0.33, 0.22, 24);
+            const hubGeo   = new THREE.CylinderGeometry(0.15, 0.15, 0.24, 18);
+            [
+                { x: -1.02, z:  1.12 }, { x:  1.02, z:  1.12 },
+                { x: -1.02, z: -1.12 }, { x:  1.02, z: -1.12 },
+            ].forEach(({ x, z }) => {
+                const tire = new THREE.Mesh(wheelGeo, mBlack);
+                tire.rotation.z = Math.PI / 2; tire.position.set(x, 0.33, z); tire.castShadow = true; group.add(tire);
+                const hub = new THREE.Mesh(hubGeo, mChrome);
+                hub.rotation.z = Math.PI / 2; hub.position.set(x, 0.33, z); group.add(hub);
+            });
+            group.rotation.y = Math.PI; return group;
+        }
+
+        function swapVariant(index) {
+            activeVariant = index;
+            const v = CAR_VARIANTS[index];
+            document.querySelectorAll('.car-thumb').forEach((el) => {
+                const idx = parseInt(el.getAttribute('data-variant-index'), 10);
+                const active = idx === index;
+                el.classList.toggle('active', active);
+                el.setAttribute('aria-selected', active ? 'true' : 'false');
+            });
+            document.getElementById('car-title').textContent = 'Riley-X1 \u00b7 ' + v.name;
+            const sl = document.getElementById('spec-livery');
+            if (sl) sl.textContent = v.name;
+            if (!scene || !renderer) return;
+            scene.remove(carGroup);
+            carGroup = buildCar(v.body, v.trim);
+            scene.add(carGroup);
+        }
+
+        function renderCarousel() {
+            const el = document.getElementById('car-carousel');
+            if (!el) return;
+            el.innerHTML = '';
+            const fc  = (document.getElementById('filter-class') || {}).value || 'all';
+            const ft  = (document.getElementById('filter-type')  || {}).value || 'all';
+            const fa  = (document.getElementById('filter-avail') || {}).value || 'all';
+            const srch= ((document.getElementById('carousel-search') || {}).value || '').toLowerCase().trim();
+            const carSt = window._carAvailabilityStatus || 'available';
+            let any = false;
+            CAR_VARIANTS.forEach((v, i) => {
+                if (fc !== 'all' && v.cls  !== fc) return;
+                if (ft !== 'all' && v.type !== ft) return;
+                if (fa !== 'all') {
+                    if (fa === 'available' && (carSt === 'busy' || carSt === 'offline')) return;
+                    if (fa === 'busy'      && carSt !== 'busy')  return;
+                }
+                if (srch && !v.name.toLowerCase().includes(srch)) return;
+                any = true;
+                const thumb = document.createElement('div');
+                thumb.className = 'car-thumb' + (i === activeVariant ? ' active' : '');
+                thumb.setAttribute('role', 'option');
+                thumb.setAttribute('aria-label', v.name);
+                thumb.setAttribute('aria-selected', i === activeVariant ? 'true' : 'false');
+                thumb.setAttribute('data-variant-index', i);
+                thumb.title = v.name;
+                thumb.innerHTML =
+                    '<div class="thumb-dot" style="background:' + v.bodyHex + '"></div>' +
+                    '<div class="thumb-name">' + v.name + '</div>';
+                thumb.addEventListener('click', () => swapVariant(i));
+                el.appendChild(thumb);
+            });
+            if (!any) {
+                const empty = document.createElement('div');
+                empty.className = 'carousel-empty';
+                empty.textContent = '\u041d\u0435\u0442 \u043b\u0438\u0432\u0440\u0435\u0439 \u043f\u043e \u0444\u0438\u043b\u044c\u0442\u0440\u0443';
+                el.appendChild(empty);
+            }
+        }
+
+        window._renderCarousel = renderCarousel;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            if (carGroup && autoRotate) carGroup.rotation.y += 0.0015;
+            renderer.render(scene, camera);
+            fpsCounter++;
+            const now = performance.now();
+            if (now - lastFpsTime >= 1000) {
+                currentFps = fpsCounter; fpsCounter = 0; lastFpsTime = now;
+                const fpsEl = document.getElementById('sb-fps');
+                if (fpsEl) fpsEl.textContent = currentFps;
+            }
+        }
+
+        function onResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+    </script>
+
+    <!-- MAIN APP LOGIC (non-module) -->
+    <script>
+        var socket = io(window.location.origin);
+        var currentUser = null;
+        var ratePerMinute = 0.50;
+        var availableCars = [];
+        var carAvailabilityStatus = 'available';
+        window._carAvailabilityStatus = 'available';
+        var isPanelCollapsed = false;
+        var isFullscreen = false;
+
+        // Left panel collapse/expand
+        document.getElementById('panel-toggle').addEventListener('click', function () {
+            isPanelCollapsed = !isPanelCollapsed;
+            document.getElementById('left-panel').classList.toggle('collapsed', isPanelCollapsed);
+            this.textContent = isPanelCollapsed ? '\u25b6' : '\u25c4';
+        });
+
+        // Tab switching (auto-expands panel if collapsed)
+        document.querySelectorAll('.tab-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                if (isPanelCollapsed) {
+                    isPanelCollapsed = false;
+                    document.getElementById('left-panel').classList.remove('collapsed');
+                    document.getElementById('panel-toggle').textContent = '\u25c4';
+                }
+                document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.remove('active'); });
+                document.querySelectorAll('.tab-content').forEach(function (c) { c.classList.remove('active'); });
+                btn.classList.add('active');
+                var tc = document.getElementById('tab-' + btn.getAttribute('data-tab'));
+                if (tc) tc.classList.add('active');
+            });
+        });
+
+        // Fullscreen toggle
+        function toggleFullscreen(force) {
+            isFullscreen = (force !== undefined) ? !!force : !isFullscreen;
+            document.getElementById('left-panel').classList.toggle('hidden-panel', isFullscreen);
+            document.getElementById('carousel-wrap').classList.toggle('hidden-panel', isFullscreen);
+            var btn = document.getElementById('fullscreen-btn');
+            btn.classList.toggle('active', isFullscreen);
+            btn.textContent = isFullscreen ? '\u26f6 \u041f\u0430\u043d\u0435\u043b\u0438' : '\u26f6 \u041f\u043e\u043b\u043d\u044b\u0439 \u044d\u043a\u0440\u0430\u043d';
+        }
+        document.getElementById('fullscreen-btn').addEventListener('click', function () { toggleFullscreen(); });
+        document.addEventListener('keydown', function (e) {
+            if (e.code === 'Space' && !['INPUT','TEXTAREA','SELECT','BUTTON'].includes(document.activeElement.tagName)) {
+                e.preventDefault(); toggleFullscreen();
+            }
+        });
+
+        // Carousel filters
+        ['filter-class', 'filter-type', 'filter-avail'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.addEventListener('change', function () { if (window._renderCarousel) window._renderCarousel(); });
+        });
+        var searchEl = document.getElementById('carousel-search');
+        if (searchEl) searchEl.addEventListener('input', function () { if (window._renderCarousel) window._renderCarousel(); });
+
+        // Navigation buttons
+        document.getElementById('btn-leaderboard').addEventListener('click', function () { window.location.href = '/#leaderboard-section'; });
+        document.getElementById('btn-profile').addEventListener('click', function () { window.location.href = '/profile'; });
+        document.getElementById('btn-lobby').addEventListener('click', function () { window.location.href = '/'; });
+        document.getElementById('btn-control').addEventListener('click', function () { window.location.href = '/control'; });
+
+        // Settings toggles
+        document.getElementById('setting-shadows').addEventListener('change', function () { if (window._garageScene) window._garageScene.setShadows(this.checked); });
+        document.getElementById('setting-autorotate').addEventListener('change', function () { if (window._garageScene) window._garageScene.setAutoRotate(this.checked); });
+        document.getElementById('setting-fog').addEventListener('change', function () { if (window._garageScene) window._garageScene.setFog(this.checked); });
+
+        // Status bar polling
+        var sbServerDot  = document.getElementById('sb-server-dot');
+        var sbServerText = document.getElementById('sb-server-text');
+        var sbPing       = document.getElementById('sb-ping');
+        var sbCarState   = document.getElementById('sb-car-state');
+
+        function pollStatusBar() {
+            var t0 = Date.now();
+            fetch('/api/health')
+                .then(function (r) { return r.json().then(function (d) { return { ok: r.ok && d.ok, ping: Date.now() - t0 }; }); })
+                .then(function (res) {
+                    sbPing.textContent = res.ping + ' \u043c\u0441';
+                    if (res.ok) {
+                        sbServerDot.className = 'sb-dot green';
+                        sbServerText.textContent = '\u041e\u043d\u043b\u0430\u0439\u043d';
+                    } else {
+                        sbServerDot.className = 'sb-dot orange';
+                        sbServerText.textContent = '\u041f\u0440\u043e\u0431\u043b\u0435\u043c\u044b';
+                    }
+                })
+                .catch(function () {
+                    sbPing.textContent = '\u2014';
+                    sbServerDot.className = 'sb-dot red';
+                    sbServerText.textContent = '\u041e\u0444\u043b\u0430\u0439\u043d';
+                });
+        }
+
+        function updateCarStateLabel() {
+            var map = {
+                available: '🟢 Свободна',
+                busy:      '🟡 Занята',
+                offline:   '🔴 Недоступна'
+            };
+            sbCarState.textContent = map[carAvailabilityStatus] || carAvailabilityStatus;
+        }
+
+        pollStatusBar();
+        setInterval(pollStatusBar, 5000);
+
+        // Auth
+        function loadAuth() {
+            fetch('/api/auth/me')
+                .then(function (r) { return r.json(); })
+                .then(function (data) { currentUser = data.user || null; renderAuthChip(); updateCTA(); })
+                .catch(function () { currentUser = null; renderAuthChip(); updateCTA(); });
+        }
+
+        function renderAuthChip() {
+            var el = document.getElementById('auth-chip');
+            if (currentUser) {
+                el.innerHTML = '';
+                el.appendChild(document.createTextNode('👤 ' + currentUser.username + ' \u00b7 '));
+                var a = document.createElement('a');
+                a.href = '/profile'; a.textContent = '\u041f\u0440\u043e\u0444\u0438\u043b\u044c'; a.className = 'sb-auth-link';
+                el.appendChild(a);
+            } else {
+                el.innerHTML = '<a class="sb-auth-link" href="/login">\u0412\u043e\u0439\u0442\u0438</a> \u00b7 <a class="sb-auth-link" href="/register">\u0420\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u044f</a>';
+            }
+        }
+
+        function updateCTA() {
+            var btn = document.getElementById('cta-btn');
+            var fallbackBtn = document.getElementById('fallback-cta-btn');
+            function setFallback(text, disabled, fn) {
+                if (!fallbackBtn) return;
+                fallbackBtn.textContent = text; fallbackBtn.disabled = disabled; fallbackBtn.onclick = fn || null;
+            }
+            if (!currentUser) {
+                btn.textContent = '\u0422\u043e\u043b\u044c\u043a\u043e \u043f\u0440\u043e\u0441\u043c\u043e\u0442\u0440 / \u0412\u043e\u0439\u0442\u0438';
+                btn.className = 'cta-btn observer'; btn.disabled = false;
+                btn.onclick = function () { window.location.href = '/login?redirect=/garage'; };
+                setFallback('\u0412\u043e\u0439\u0442\u0438', false, function () { window.location.href = '/login?redirect=/garage'; });
+            } else if (currentUser.status === 'pending') {
+                btn.textContent = '\u041f\u043e\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u0435 email';
+                btn.className = 'cta-btn'; btn.disabled = false;
+                btn.onclick = function () { window.location.href = '/verify-email'; };
+                setFallback('\u041f\u043e\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u0435 email', false, function () { window.location.href = '/verify-email'; });
+            } else if (carAvailabilityStatus === 'busy') {
+                btn.textContent = '\u041c\u0430\u0448\u0438\u043d\u0430 \u0437\u0430\u043d\u044f\u0442\u0430';
+                btn.className = 'cta-btn'; btn.disabled = true; btn.onclick = null;
+                setFallback('\u041c\u0430\u0448\u0438\u043d\u0430 \u0437\u0430\u043d\u044f\u0442\u0430', true, null);
+            } else if (carAvailabilityStatus === 'offline') {
+                btn.textContent = '\u041c\u0430\u0448\u0438\u043d\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430';
+                btn.className = 'cta-btn'; btn.disabled = true; btn.onclick = null;
+                setFallback('\u041c\u0430\u0448\u0438\u043d\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430', true, null);
+            } else {
+                btn.textContent = '\u0421\u0442\u0430\u0440\u0442 / \u041f\u043e\u0434\u043a\u043b\u044e\u0447\u0438\u0442\u044c\u0441\u044f';
+                btn.className = 'cta-btn'; btn.disabled = false; btn.onclick = startSession;
+                setFallback('\u0421\u0442\u0430\u0440\u0442 / \u041f\u043e\u0434\u043a\u043b\u044e\u0447\u0438\u0442\u044c\u0441\u044f', false, startSession);
+            }
+        }
+
+        function renderAvailabilityBadge() {
+            var t = { available: '\u0414\u043e\u0441\u0442\u0443\u043f\u043d\u0430', busy: '\u0417\u0430\u043d\u044f\u0442\u0430', offline: '\u041d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430' };
+            var text = t[carAvailabilityStatus] || carAvailabilityStatus;
+            var css  = 'car-availability-badge status-' + carAvailabilityStatus;
+            var badge = document.getElementById('car-availability-badge');
+            if (badge) { badge.className = css; document.getElementById('car-availability-text').textContent = text; }
+            var fb = document.getElementById('fallback-availability-badge');
+            if (fb)    { fb.className = css; document.getElementById('fallback-availability-text').textContent = text; }
+            updateCarStateLabel();
+        }
+
+        function loadCarStatus() {
+            fetch('/api/car-status')
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    carAvailabilityStatus = data.status || 'available';
+                    window._carAvailabilityStatus = carAvailabilityStatus;
+                    renderAvailabilityBadge(); updateCTA();
+                    if (window._renderCarousel) window._renderCarousel();
+                })
+                .catch(function (err) {
+                    console.warn('car-status fetch failed:', err);
+                    carAvailabilityStatus = 'available';
+                    window._carAvailabilityStatus = 'available';
+                    renderAvailabilityBadge();
+                });
+        }
+
+        function loadCars() {
+            fetch('/api/cars')
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    ratePerMinute = data.ratePerMinute || ratePerMinute;
+                    availableCars = (data.cars || []).filter(function (c) { return c.status === 'available'; });
+                })
+                .catch(function () {});
+        }
+
+        function loadLeaderboard() {
+            fetch('/api/leaderboard?range=all')
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    var rows = data.leaderboard || [];
+                    var container = document.getElementById('lb-preview');
+                    if (!container) return;
+                    container.innerHTML = '';
+                    if (!rows.length) {
+                        container.innerHTML = '<div class="lb-row" style="color:rgba(255,255,255,0.38);font-size:12px;">\u041d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445</div>';
+                        return;
+                    }
+                    rows.slice(0, 5).forEach(function (row, i) {
+                        var ms  = row.lapTimeMs || 0;
+                        var lapTimeStr = (ms / 1000).toFixed(3);
+                        var el  = document.createElement('div');
+                        el.className = 'lb-row';
+                        el.innerHTML =
+                            '<span class="lb-rank">' + (i + 1) + '</span>' +
+                            '<span class="lb-name">' + (row.userId || '\u2014') + '</span>' +
+                            '<span class="lb-time">' + lapTimeStr + '\u0441</span>';
+                        container.appendChild(el);
+                    });
+                })
+                .catch(function () {
+                    var c = document.getElementById('lb-preview');
+                    if (c) c.innerHTML = '<div class="lb-row" style="color:rgba(255,255,255,0.38);font-size:12px;">\u041e\u0448\u0438\u0431\u043a\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043a\u0438</div>';
+                });
+        }
+
+        socket.on('cars_updated', function (data) {
+            var cars = data.cars || [];
+            availableCars = cars.filter(function (c) { return c.status === 'available'; });
+            var anyBusy = cars.some(function (c) { return c.status === 'unavailable'; });
+            carAvailabilityStatus = anyBusy ? 'busy' : 'available';
+            window._carAvailabilityStatus = carAvailabilityStatus;
+            renderAvailabilityBadge();
+            updateCTA();
+            if (typeof window._renderCarousel === 'function') { window._renderCarousel(); }
+        });
+
+        // Start session (existing flow unchanged)
+        function startSession() {
+            if (!currentUser) { window.location.href = '/login?redirect=/garage'; return; }
+            if (availableCars.length === 0) {
+                alert('\u041d\u0435\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u044b\u0445 \u043c\u0430\u0448\u0438\u043d. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u043f\u043e\u0437\u0436\u0435.');
+                loadCars(); return;
+            }
+            var btn = document.getElementById('cta-btn');
+            btn.disabled = true; btn.textContent = '\u0417\u0430\u043f\u0443\u0441\u043a\u2026';
+            var car = availableCars[0];
+            var selectedRace = sessionStorage.getItem('selectedRaceId') || null;
+            socket.emit('start_session', { carId: car.id, userId: currentUser.username, dbUserId: currentUser.id });
+            socket.once('session_started', function (data) {
+                sessionStorage.setItem('activeSession', JSON.stringify({
+                    carId: car.id, carName: car.name, startTime: new Date().toISOString(),
+                    sessionId: data.sessionId, userId: currentUser.username,
+                    dbUserId: currentUser.id, ratePerMinute: ratePerMinute, selectedRaceId: selectedRace
+                }));
+                window.location.href = '/control';
+            });
+            socket.once('session_error', function (data) {
+                alert(data.message || '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043d\u0430\u0447\u0430\u0442\u044c \u0441\u0435\u0441\u0441\u0438\u044e.');
+                btn.disabled = false; updateCTA(); loadCars();
+            });
+        }
+
+        // Stale session check
+        function checkStaleSession() {
+            var stale = null;
+            try { stale = JSON.parse(sessionStorage.getItem('activeSession') || 'null'); } catch (e) {}
+            if (!stale || !stale.sessionId) { sessionStorage.removeItem('activeSession'); return; }
+            sessionStorage.removeItem('activeSession');
+            fetch('/api/session/end', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionId: stale.sessionId })
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                var carName = stale.carName || ('\u041c\u0430\u0448\u0438\u043d\u0430 #' + (stale.carId || '?'));
+                var dur = '\u2014', cost = '$0.00';
+                if (data.ended) {
+                    var s = data.durationSeconds || 0;
+                    dur  = Math.floor(s / 60) + '\u043c ' + (s % 60) + '\u0441';
+                    cost = '$' + (data.cost || 0).toFixed(2);
+                } else if (stale.startTime) {
+                    var s2 = Math.max(0, Math.floor((Date.now() - new Date(stale.startTime).getTime()) / 1000));
+                    dur  = Math.floor(s2 / 60) + '\u043c ' + (s2 % 60) + '\u0441';
+                    cost = '$' + ((s2 / 60) * (stale.ratePerMinute || ratePerMinute)).toFixed(2);
+                }
+                document.getElementById('stale-car').textContent      = '\u041c\u0430\u0448\u0438\u043d\u0430: ' + carName;
+                document.getElementById('stale-duration').textContent  = '\u0414\u043b\u0438\u0442\u0435\u043b\u044c\u043d\u043e\u0441\u0442\u044c: ' + dur;
+                document.getElementById('stale-cost').textContent      = cost;
+                document.getElementById('stale-overlay').classList.add('visible');
+            })
+            .catch(function () {});
+        }
+
+        document.getElementById('stale-close').addEventListener('click', function () {
+            document.getElementById('stale-overlay').classList.remove('visible');
+        });
+        window.addEventListener('pageshow', function (e) { if (e.persisted) checkStaleSession(); });
+
+        // Init
+        loadAuth();
+        loadCars();
+        loadCarStatus();
+        checkStaleSession();
+        loadLeaderboard();
+        setInterval(loadCarStatus, 10000);
+    </script>
+</body>
+</html>
+>>>>>>> 30a916ee268d155decdd0f7d7a47a549349e9fc2
