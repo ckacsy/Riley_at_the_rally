@@ -580,7 +580,7 @@
         </div>
     </div>
 
-    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
     <script>
         // Read activeSession from sessionStorage, returning null if missing or invalid
         function getActiveSession() {
@@ -813,7 +813,22 @@
                 }
                 socket.emit('start_session', { carId: carId, userId: sessionData.userId, dbUserId: sessionData.dbUserId });
             }
+            // Announce presence as driver
+            if (sessionData && sessionData.dbUserId && sessionData.userId) {
+                socket.emit('presence:hello', {
+                    page: 'control',
+                    userId: sessionData.dbUserId,
+                    username: sessionData.userId,
+                });
+            }
         });
+
+        // Heartbeat to keep presence alive (every 15 seconds)
+        var presenceHeartbeatInterval = setInterval(function () {
+            if (socket && socket.connected) {
+                socket.emit('presence:heartbeat');
+            }
+        }, 15000);
 
         socket.on('session_started', function (data) {
             // Update sessionStorage with new socket-based sessionId

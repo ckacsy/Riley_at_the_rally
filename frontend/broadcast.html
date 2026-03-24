@@ -43,7 +43,80 @@
             letter-spacing: 1px;
         }
 
-        /* ── Main layout ── */
+        /* ── Main layout: sidebar + content ── */
+        .broadcast-body {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* ── Left sidebar: driver presence panel ── */
+        .drivers-panel {
+            width: 220px;
+            min-width: 180px;
+            background: #111;
+            border-right: 1px solid #222;
+            display: flex;
+            flex-direction: column;
+            padding: 16px 12px;
+            gap: 8px;
+            overflow-y: auto;
+        }
+
+        .drivers-panel h2 {
+            font-size: 13px;
+            font-weight: bold;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #222;
+            flex-shrink: 0;
+        }
+
+        #drivers-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex: 1;
+        }
+
+        .driver-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        .driver-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22c55e;
+            flex-shrink: 0;
+        }
+
+        .driver-name {
+            color: #e0e0e0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .drivers-empty {
+            color: #555;
+            font-size: 12px;
+            font-style: italic;
+            text-align: center;
+            padding-top: 12px;
+        }
+
+        /* ── Right content: viewport + controls ── */
         .broadcast-main {
             flex: 1;
             display: flex;
@@ -52,6 +125,7 @@
             justify-content: center;
             padding: 24px 16px;
             gap: 16px;
+            overflow: auto;
         }
 
         /* ── Viewport container ── */
@@ -158,20 +232,33 @@
         <a href="/">Главная</a>
     </nav>
 
-    <main class="broadcast-main">
-        <div id="broadcast-viewport">
-            <div class="viewport-overlay">
-                <span class="overlay-label">ТРАНСЛЯЦИЯ (скоро)</span>
-                <span class="overlay-sub">Трансляция трассы появится здесь</span>
+    <div class="broadcast-body">
+        <!-- Left panel: active drivers -->
+        <aside class="drivers-panel">
+            <h2>Активные водители</h2>
+            <ul id="drivers-list">
+                <li class="drivers-empty" id="drivers-empty">Нет активных водителей</li>
+            </ul>
+        </aside>
+
+        <!-- Main viewport + controls -->
+        <main class="broadcast-main">
+            <div id="broadcast-viewport">
+                <div class="viewport-overlay">
+                    <span class="overlay-label">ТРАНСЛЯЦИЯ (скоро)</span>
+                    <span class="overlay-sub">Трансляция трассы появится здесь</span>
+                </div>
+                <button id="exit-fullscreen-btn" aria-label="Свернуть">Свернуть</button>
             </div>
-            <button id="exit-fullscreen-btn" aria-label="Свернуть">Свернуть</button>
-        </div>
 
-        <button id="fullscreen-btn" aria-label="Развернуть на весь экран">Развернуть</button>
-    </main>
+            <button id="fullscreen-btn" aria-label="Развернуть на весь экран">Развернуть</button>
+        </main>
+    </div>
 
+    <script src="/socket.io/socket.io.js"></script>
     <script>
       (function () {
+        // ── Fullscreen toggle ──
         const viewport = document.getElementById('broadcast-viewport');
         const fullscreenBtn = document.getElementById('fullscreen-btn');
         const exitBtn = document.getElementById('exit-fullscreen-btn');
@@ -180,7 +267,6 @@
           viewport.classList.add('is-fullscreen');
           if (viewport.requestFullscreen) {
             viewport.requestFullscreen().catch(function (err) {
-              // Headless / sandboxed environments may reject — CSS class stays.
               console.error('requestFullscreen failed:', err);
             });
           }
@@ -198,13 +284,56 @@
         fullscreenBtn.addEventListener('click', enterFullscreen);
         exitBtn.addEventListener('click', exitFullscreen);
 
-        // Sync class when the browser's native fullscreen exits (e.g. Esc key)
         document.addEventListener('fullscreenchange', function () {
           if (!document.fullscreenElement) {
             viewport.classList.remove('is-fullscreen');
           }
         });
+
+        // ── Driver presence ──
+        const driversList = document.getElementById('drivers-list');
+        const driversEmpty = document.getElementById('drivers-empty');
+
+        function renderDrivers(drivers) {
+          // Remove all existing driver items (keep the empty placeholder)
+          var items = driversList.querySelectorAll('.driver-item');
+          items.forEach(function (el) { el.remove(); });
+
+          if (!drivers || drivers.length === 0) {
+            driversEmpty.style.display = '';
+            return;
+          }
+
+          driversEmpty.style.display = 'none';
+          drivers.forEach(function (driver) {
+            var li = document.createElement('li');
+            li.className = 'driver-item';
+            li.setAttribute('data-user-id', driver.userId);
+
+            var dot = document.createElement('span');
+            dot.className = 'driver-dot';
+
+            var name = document.createElement('span');
+            name.className = 'driver-name';
+            name.textContent = driver.username;
+
+            li.appendChild(dot);
+            li.appendChild(name);
+            driversList.appendChild(li);
+          });
+        }
+
+        var socket = io(window.location.origin);
+
+        socket.on('connect', function () {
+          socket.emit('presence:hello', { page: 'broadcast' });
+        });
+
+        socket.on('presence:update', function (data) {
+          renderDrivers(data && data.drivers ? data.drivers : []);
+        });
       })();
     </script>
 </body>
 </html>
+
