@@ -9,11 +9,15 @@ import { test, expect } from '@playwright/test';
  *
  * Also covers car availability guard: status badge display and CTA button
  * gating when car status is busy or offline.
+ *
+ * WoT-style UI blocks: profile card, news panel, characteristics, upgrades grid,
+ * center CTA button, and 5 carousel cards.
  */
 
 const CAROUSEL_TIMEOUT = 20_000;
 const TITLE_TIMEOUT = 20_000;
 const BADGE_TIMEOUT = 10_000;
+const UI_TIMEOUT = 15_000;
 
 test.describe('Garage UI', () => {
   test('page loads and shows initial car title', async ({ page }) => {
@@ -161,5 +165,68 @@ test.describe('Garage CTA button gating', () => {
     await expect(fallbackBtn).toBeVisible({ timeout: BADGE_TIMEOUT });
     await expect(fallbackBtn).toContainText('Старт / Подключиться', { timeout: BADGE_TIMEOUT });
     await expect(fallbackBtn).toBeEnabled();
+  });
+});
+
+test.describe('Garage WoT-style UI blocks', () => {
+  test('profile card is visible', async ({ page }) => {
+    await page.goto('/garage?forceFallback=1');
+    const profileCard = page.locator('#profile-card');
+    await expect(profileCard).toBeVisible({ timeout: UI_TIMEOUT });
+  });
+
+  test('news panel is visible', async ({ page }) => {
+    await page.goto('/garage?forceFallback=1');
+    const newsPanel = page.locator('#news-panel');
+    await expect(newsPanel).toBeVisible({ timeout: UI_TIMEOUT });
+  });
+
+  test('characteristics section is visible', async ({ page }) => {
+    await page.goto('/garage?forceFallback=1');
+    const chars = page.locator('#characteristics-section');
+    await expect(chars).toBeVisible({ timeout: UI_TIMEOUT });
+  });
+
+  test('upgrades grid is visible and has 6 items', async ({ page }) => {
+    await page.goto('/garage?forceFallback=1');
+    const grid = page.locator('#upgrades-grid');
+    await expect(grid).toBeVisible({ timeout: UI_TIMEOUT });
+    const items = grid.locator('.upgrade-item');
+    await expect(items).toHaveCount(6);
+  });
+
+  test('center CTA button is visible in fallback mode', async ({ page }) => {
+    await page.goto('/garage?forceFallback=1');
+    const centerCta = page.locator('#center-cta-btn');
+    await expect(centerCta).toBeVisible({ timeout: UI_TIMEOUT });
+  });
+
+  test('carousel shows five livery cards (duplicate guard)', async ({ page }) => {
+    await page.goto('/garage?forceFallback=1');
+    await page.waitForSelector('.car-thumb', { timeout: CAROUSEL_TIMEOUT });
+    const thumbs = page.locator('.car-thumb');
+    await expect(thumbs).toHaveCount(5);
+  });
+
+  test('carousel prev/next arrows are present with aria-labels', async ({ page }) => {
+    await page.goto('/garage?forceFallback=1');
+    const prev = page.locator('#carousel-prev');
+    const next = page.locator('#carousel-next');
+    await expect(prev).toBeVisible({ timeout: UI_TIMEOUT });
+    await expect(next).toBeVisible({ timeout: UI_TIMEOUT });
+    await expect(prev).toHaveAttribute('aria-label', /[Пп]редыдущ/);
+    await expect(next).toHaveAttribute('aria-label', /[Сс]ледующ/);
+  });
+
+  test('balance section is visible in right panel', async ({ page }) => {
+    await page.goto('/garage?forceFallback=1');
+    const balance = page.locator('#balance-section');
+    await expect(balance).toBeVisible({ timeout: UI_TIMEOUT });
+  });
+
+  test('bonuses section is visible in right panel', async ({ page }) => {
+    await page.goto('/garage?forceFallback=1');
+    const bonuses = page.locator('#bonuses-section');
+    await expect(bonuses).toBeVisible({ timeout: UI_TIMEOUT });
   });
 });
