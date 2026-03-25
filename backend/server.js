@@ -1678,7 +1678,7 @@ if (process.env.NODE_ENV !== 'production') {
 
   // Dev helper: activate a user by username (bypasses email verification).
   // Only available in non-production environments.
-  app.post('/api/dev/activate-user', (req, res) => {
+  app.post('/api/dev/activate-user', devLimiter, (req, res) => {
     const { username } = req.body || {};
     if (!username) return res.status(400).json({ error: 'username required' });
     const result = db
@@ -1690,7 +1690,7 @@ if (process.env.NODE_ENV !== 'production') {
 
   // Dev helper: insert a password reset token directly (bypasses email flow).
   // Accepts { email, expiresAt } and returns { token: rawToken }.
-  app.post('/api/dev/insert-reset-token', (req, res) => {
+  app.post('/api/dev/insert-reset-token', devLimiter, (req, res) => {
     const { email, expiresAt } = req.body || {};
     if (!email) return res.status(400).json({ error: 'email required' });
     const emailNorm = email.trim().toLowerCase();
