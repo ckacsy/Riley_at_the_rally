@@ -95,6 +95,34 @@ async function injectControlSession(
 test.describe('Global chat', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
+  test('history is loaded on connect', async ({ browser }) => {
+    const ctxA = await browser.newContext();
+    try {
+      const pageA = await ctxA.newPage();
+
+      // Reset DB and create a user who will send a seed message
+      await resetDb(pageA);
+      const userA = await registerUser(pageA, 'chat_hist_a', 'chatHist@example.com', 'Secure#Pass1');
+      await activateUser(pageA, userA.username);
+      await loginUser(pageA, userA.username, 'Secure#Pass1');
+
+      // Send a message via broadcast page
+      await pageA.goto('/broadcast');
+      await pageA.waitForSelector('[data-socket-ready="true"]', { timeout: 10_000 });
+      const seedMsg = 'History seed ' + Date.now();
+      await pageA.locator('#chat-input').fill(seedMsg);
+      await pageA.locator('#chat-send-btn').click();
+      await expect(pageA.locator('#chat-messages .chat-msg', { hasText: seedMsg })).toBeVisible({ timeout: 5_000 });
+
+      // Reload the page — history should come from DB on reconnect
+      await pageA.reload();
+      await pageA.waitForSelector('[data-socket-ready="true"]', { timeout: 10_000 });
+      await expect(pageA.locator('#chat-messages .chat-msg', { hasText: seedMsg })).toBeVisible({ timeout: 5_000 });
+    } finally {
+      await ctxA.close();
+    }
+  });
+
   test('B sends message on /broadcast → A sees it in /control chat drawer', async ({ browser }) => {
     const ctxA = await browser.newContext();
     const ctxB = await browser.newContext();
@@ -211,6 +239,70 @@ test.describe('Global chat', () => {
       await expect(msgOnBroadcast).toBeVisible({ timeout: 10_000 });
     } finally {
       await ctxA.close();
+      await ctxB.close();
+    }
+  });
+
+  test('admin deletes message → both clients see it as deleted', async ({ browser }) => {
+    const ctxAdmin = await browser.newContext();
+    const ctxB = await browser.newContext();
+
+    try {
+      const pageAdmin = await ctxAdmin.newPage();
+      const pageB = await ctxB.newPage();
+
+      // Reset DB
+      await resetDb(pageAdmin);
+
+      // Create admin user (name must match ADMIN_USERNAMES env)
+      const adminUser = await registerUser(pageAdmin, 'testadmin', 'testadmin@example.com', 'Secure#Pass1');
+      await activateUser(pageAdmin, adminUser.username);
+
+      const userB = await registerUser(pageAdmin, 'chat_del_b', 'chatDelB@example.com', 'Secure#Pass1');
+      await activateUser(pageAdmin, userB.username);
+
+      // Login both
+      await loginUser(pageAdmin, adminUser.username, 'Secure#Pass1');
+      await loginUser(pageB, userB.username, 'Secure#Pass1');
+
+      // Both open /broadcast
+      await pageAdmin.goto('/broadcast');
+      await pageAdmin.waitForSelector('[data-socket-ready="true"]', { timeout: 10_000 });
+
+      await pageB.goto('/broadcast');
+      await pageB.waitForSelector('[data-socket-ready="true"]', { timeout: 10_000 });
+
+      // B sends a message
+      const delMsg = 'Delete me ' + Date.now();
+      await pageB.locator('#chat-input').fill(delMsg);
+      await pageB.locator('#chat-send-btn').click();
+
+      // Both see the message
+      await expect(pageB.locator('#chat-messages .chat-msg', { hasText: delMsg })).toBeVisible({ timeout: 5_000 });
+      await expect(pageAdmin.locator('#chat-messages .chat-msg', { hasText: delMsg })).toBeVisible({ timeout: 5_000 });
+
+      // Get the message id from DOM
+      const msgEl = pageAdmin.locator('#chat-messages .chat-msg', { hasText: delMsg });
+      const msgId = await msgEl.getAttribute('data-msg-id');
+
+      // Admin deletes via socket
+      const socketResult = await pageAdmin.evaluate((id) => {
+        const sock = (window as any).__testSocket;
+        if (!sock) return { error: 'no socket' };
+        sock.emit('chat:delete', { id: parseInt(id as string, 10) });
+        return { emitted: true, connected: sock.connected };
+      }, msgId);
+
+      // Fail fast if socket wasn't available
+      if ((socketResult as any).error) {
+        throw new Error('Admin socket not available: ' + (socketResult as any).error);
+      }
+
+      // Both should see "Сообщение удалено" within the message element
+      await expect(pageB.locator(`[data-msg-id="${msgId}"] .chat-msg-deleted-text`)).toBeVisible({ timeout: 5_000 });
+      await expect(pageAdmin.locator(`[data-msg-id="${msgId}"] .chat-msg-deleted-text`)).toBeVisible({ timeout: 5_000 });
+    } finally {
+      await ctxAdmin.close();
       await ctxB.close();
     }
   });

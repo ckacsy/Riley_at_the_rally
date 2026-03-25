@@ -7,6 +7,13 @@ This document describes how to run the Playwright end-to-end test suite for the 
 - Node.js 18 or later
 - No special environment variables are needed (all defaults work)
 
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ADMIN_USERNAMES` | *(empty)* | Comma-separated list of usernames with chat moderation rights (e.g. `admin,mod`). Set in `playwright.config.ts` `webServer.env` for tests. |
+| `CHAT_HISTORY_LIMIT` | `500` | Maximum number of chat messages to keep in the database. Older messages are pruned on insert. |
+
 ## Running the tests
 
 ```bash
