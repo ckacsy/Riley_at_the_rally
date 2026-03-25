@@ -456,9 +456,199 @@
             border-bottom: 1px solid #f5f5f5;
             color: #333;
         }
+
+        /* ── Chat toggle button ── */
+        #chat-toggle-btn {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            background: #007BFF;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            z-index: 200;
+            transition: background 0.2s, right 0.3s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        #chat-toggle-btn:hover { background: #0056b3; }
+
+        /* Shift button left when drawer is open */
+        body[data-chat-open="true"] #chat-toggle-btn {
+            right: 396px;
+        }
+
+        /* ── Chat right drawer ── */
+        #chat-drawer {
+            position: fixed;
+            top: 0;
+            right: -400px;
+            width: 380px;
+            height: 100vh;
+            background: #1a1a2e;
+            border-left: 1px solid #2a2a4a;
+            display: flex;
+            flex-direction: column;
+            z-index: 150;
+            transition: right 0.3s ease;
+            box-shadow: -4px 0 16px rgba(0,0,0,0.2);
+        }
+
+        body[data-chat-open="true"] #chat-drawer {
+            right: 0;
+        }
+
+        .chat-drawer-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px;
+            background: #12122a;
+            border-bottom: 1px solid #2a2a4a;
+            flex-shrink: 0;
+        }
+
+        .chat-drawer-title {
+            font-size: 15px;
+            font-weight: bold;
+            color: #e0e0f0;
+            letter-spacing: 0.5px;
+        }
+
+        .chat-drawer-close {
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 20px;
+            cursor: pointer;
+            line-height: 1;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: color 0.2s, background 0.2s;
+        }
+
+        .chat-drawer-close:hover { color: #fff; background: #333; }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            scroll-behavior: smooth;
+        }
+
+        .chat-msg {
+            font-size: 13px;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+
+        .chat-msg .chat-msg-user {
+            font-weight: bold;
+            color: #60a5fa;
+            margin-right: 4px;
+        }
+
+        .chat-msg .chat-msg-text {
+            color: #d0d0e0;
+        }
+
+        .chat-empty {
+            color: #555;
+            font-size: 12px;
+            font-style: italic;
+            text-align: center;
+            padding-top: 16px;
+        }
+
+        .chat-jump-btn {
+            display: none;
+            position: absolute;
+            bottom: 66px;
+            right: 14px;
+            background: #333;
+            color: #e0e0e0;
+            border: 1px solid #555;
+            border-radius: 12px;
+            padding: 4px 12px;
+            font-size: 12px;
+            cursor: pointer;
+            z-index: 5;
+        }
+
+        .chat-jump-btn.visible { display: block; }
+
+        .chat-input-row {
+            display: flex;
+            gap: 6px;
+            padding: 10px 14px;
+            border-top: 1px solid #2a2a4a;
+            flex-shrink: 0;
+        }
+
+        .chat-input {
+            flex: 1;
+            background: #0d0d1f;
+            border: 1px solid #3a3a5a;
+            border-radius: 6px;
+            color: #e0e0f0;
+            font-size: 13px;
+            padding: 7px 10px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .chat-input:focus { border-color: #5a5a8a; }
+        .chat-input:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .chat-send-btn {
+            background: #2563eb;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 7px 14px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.2s;
+            flex-shrink: 0;
+        }
+
+        .chat-send-btn:hover { background: #1d4ed8; }
+        .chat-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
     </style>
 </head>
 <body>
+    <!-- Chat toggle button -->
+    <button id="chat-toggle-btn" aria-label="Открыть чат">💬 Чат</button>
+
+    <!-- Chat right drawer -->
+    <div id="chat-drawer" role="dialog" aria-label="Чат" aria-hidden="true">
+        <div class="chat-drawer-header">
+            <span class="chat-drawer-title">💬 Чат</span>
+            <button class="chat-drawer-close" id="chat-drawer-close" aria-label="Закрыть чат">×</button>
+        </div>
+        <div class="chat-messages" id="chat-messages">
+            <div class="chat-empty" id="chat-empty">Нет сообщений</div>
+        </div>
+        <button class="chat-jump-btn" id="chat-jump-btn" aria-label="К последнему сообщению">↓ Вниз</button>
+        <div class="chat-input-row">
+            <input
+                type="text"
+                id="chat-input"
+                class="chat-input"
+                placeholder="Сообщение…"
+                maxlength="300"
+                autocomplete="off"
+            />
+            <button id="chat-send-btn" class="chat-send-btn">→</button>
+        </div>
+    </div>
+
     <h1>Управление RC-машиной</h1>
 
     <div class="session-info">
@@ -1235,6 +1425,131 @@
         setInterval(function () {
             if (!currentRaceId) loadActiveRaces();
         }, 30000);
+
+        // ── Chat drawer ──
+        (function () {
+            var toggleBtn = document.getElementById('chat-toggle-btn');
+            var drawer = document.getElementById('chat-drawer');
+            var closeBtn = document.getElementById('chat-drawer-close');
+            var chatMessagesEl = document.getElementById('chat-messages');
+            var chatEmptyEl = document.getElementById('chat-empty');
+            var chatInputEl = document.getElementById('chat-input');
+            var chatSendBtnEl = document.getElementById('chat-send-btn');
+            var chatJumpBtnEl = document.getElementById('chat-jump-btn');
+
+            function openDrawer() {
+                document.body.setAttribute('data-chat-open', 'true');
+                drawer.setAttribute('aria-hidden', 'false');
+                chatInputEl.focus();
+            }
+
+            function closeDrawer() {
+                document.body.setAttribute('data-chat-open', 'false');
+                drawer.setAttribute('aria-hidden', 'true');
+            }
+
+            toggleBtn.addEventListener('click', function () {
+                var isOpen = document.body.getAttribute('data-chat-open') === 'true';
+                if (isOpen) closeDrawer(); else openDrawer();
+            });
+
+            closeBtn.addEventListener('click', closeDrawer);
+
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && document.body.getAttribute('data-chat-open') === 'true') {
+                    closeDrawer();
+                }
+            });
+
+            function isScrolledToBottom() {
+                return chatMessagesEl.scrollHeight - chatMessagesEl.scrollTop - chatMessagesEl.clientHeight < 40;
+            }
+
+            function scrollToBottom() {
+                chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+            }
+
+            function appendMessage(msg) {
+                var wasAtBottom = isScrolledToBottom();
+                chatEmptyEl.style.display = 'none';
+
+                var div = document.createElement('div');
+                div.className = 'chat-msg';
+                div.setAttribute('data-msg-id', msg.id);
+
+                var userSpan = document.createElement('span');
+                userSpan.className = 'chat-msg-user';
+                userSpan.textContent = msg.username + ':';
+
+                var textSpan = document.createElement('span');
+                textSpan.className = 'chat-msg-text';
+                textSpan.textContent = ' ' + msg.message;
+
+                div.appendChild(userSpan);
+                div.appendChild(textSpan);
+                chatMessagesEl.appendChild(div);
+
+                if (wasAtBottom) {
+                    scrollToBottom();
+                    chatJumpBtnEl.classList.remove('visible');
+                } else {
+                    chatJumpBtnEl.classList.add('visible');
+                }
+            }
+
+            chatMessagesEl.addEventListener('scroll', function () {
+                if (isScrolledToBottom()) chatJumpBtnEl.classList.remove('visible');
+            });
+
+            chatJumpBtnEl.addEventListener('click', function () {
+                scrollToBottom();
+                chatJumpBtnEl.classList.remove('visible');
+            });
+
+            function sendChatMessage() {
+                var text = chatInputEl.value.trim();
+                if (!text) return;
+                socket.emit('chat:send', {
+                    message: text,
+                    userId: sessionData.dbUserId || null,
+                    username: sessionData.userId || null,
+                });
+                chatInputEl.value = '';
+            }
+
+            chatSendBtnEl.addEventListener('click', sendChatMessage);
+            chatInputEl.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') sendChatMessage();
+            });
+
+            socket.on('chat:history', function (history) {
+                var msgs = chatMessagesEl.querySelectorAll('.chat-msg');
+                msgs.forEach(function (el) { el.remove(); });
+                if (!history || history.length === 0) {
+                    chatEmptyEl.style.display = '';
+                    return;
+                }
+                chatEmptyEl.style.display = 'none';
+                history.forEach(function (msg) { appendMessage(msg); });
+                scrollToBottom();
+            });
+
+            socket.on('chat:message', function (msg) {
+                appendMessage(msg);
+            });
+
+            socket.on('chat:error', function (err) {
+                if (err && err.code === 'rate_limited') {
+                    chatInputEl.disabled = true;
+                    chatSendBtnEl.disabled = true;
+                    setTimeout(function () {
+                        chatInputEl.disabled = false;
+                        chatSendBtnEl.disabled = false;
+                        chatInputEl.focus();
+                    }, 1500);
+                }
+            });
+        })();
     </script>
 </body>
 </html>
