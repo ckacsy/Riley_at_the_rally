@@ -387,6 +387,62 @@ const sessionDurationTimeouts = new Map();
 // Control-command rate-limit counters (keyed by socket.id)
 const controlCommandCounters = new Map(); // socketId -> { count, windowStart }
 
+// --- Driver Presence ---
+// presenceMap keyed by userId (dbUserId integer) -> presence entry
+const presenceMap = new Map();
+// Grace-period timers: userId -> setTimeout handle
+const presenceGraceTimers = new Map();
+// Grace period before removing a driver after disconnect (ms)
+const PRESENCE_GRACE_MS = (() => {
+  const v = parseInt(process.env.PRESENCE_GRACE_MS || '', 10);
+  return (!isNaN(v) && v >= 0) ? v : 10_000;
+})();
+// Stale-entry threshold: remove if no heartbeat within this duration
+const PRESENCE_STALE_MS = 60_000;
+
+function broadcastPresenceUpdate() {
+  const drivers = [...presenceMap.values()].map((e) => ({
+    userId: e.userId,
+    username: e.username,
+    status: e.status,
+    connectedAt: e.connectedAt,
+    lastSeen: e.lastSeen,
+    carId: e.carId || null,
+  }));
+  io.emit('presence:update', { drivers });
+}
+
+function schedulePresenceRemoval(userId) {
+  if (presenceGraceTimers.has(userId)) {
+    clearTimeout(presenceGraceTimers.get(userId));
+  }
+  const timer = setTimeout(() => {
+    presenceMap.delete(userId);
+    presenceGraceTimers.delete(userId);
+    broadcastPresenceUpdate();
+    metrics.log('debug', 'presence_removed', { userId });
+  }, PRESENCE_GRACE_MS);
+  presenceGraceTimers.set(userId, timer);
+}
+
+// Periodic stale-entry cleanup
+setInterval(() => {
+  const cutoff = Date.now() - PRESENCE_STALE_MS;
+  let changed = false;
+  for (const [userId, entry] of presenceMap.entries()) {
+    if (entry.lastSeen < cutoff) {
+      presenceMap.delete(userId);
+      if (presenceGraceTimers.has(userId)) {
+        clearTimeout(presenceGraceTimers.get(userId));
+        presenceGraceTimers.delete(userId);
+      }
+      changed = true;
+      metrics.log('debug', 'presence_stale_removed', { userId });
+    }
+  }
+  if (changed) broadcastPresenceUpdate();
+}, PRESENCE_STALE_MS);
+
 // Car availability status tracking
 let carStatusLastUpdated = new Date().toISOString();
 let prevCarStatus = null;
@@ -584,6 +640,9 @@ app.get('/api/health', healthLimiter, async (req, res) => {
     health.ok = false;
     health.details.socket = { ok: false, error: e.message };
   }
+
+  // Active driver presence count
+  health.details.activeDrivers = presenceMap.size;
 
   // Camera stream check (optional — only if CAMERA_STREAM_URL is configured)
   const cameraUrl = process.env.CAMERA_STREAM_URL;
@@ -1125,6 +1184,57 @@ app.get('/broadcast', pageRateLimit, (req, res) => {
 io.on('connection', (socket) => {
   metrics.log('debug', 'socket_connect', { socketId: socket.id });
 
+  // --- Presence events ---
+
+  socket.on('presence:hello', (data) => {
+    const { page, userId, username } = data || {};
+    if (page !== 'control') {
+      // Non-control pages: send current presence snapshot without registering
+      socket.emit('presence:update', {
+        drivers: [...presenceMap.values()].map((e) => ({
+          userId: e.userId,
+          username: e.username,
+          status: e.status,
+          connectedAt: e.connectedAt,
+          lastSeen: e.lastSeen,
+          carId: e.carId || null,
+        })),
+      });
+      return;
+    }
+    if (!Number.isInteger(userId) || !username) return;
+
+    // Cancel any pending grace-period removal for this user
+    if (presenceGraceTimers.has(userId)) {
+      clearTimeout(presenceGraceTimers.get(userId));
+      presenceGraceTimers.delete(userId);
+    }
+
+    const now = Date.now();
+    const existing = presenceMap.get(userId);
+    presenceMap.set(userId, {
+      userId,
+      username,
+      status: 'driving',
+      connectedAt: existing ? existing.connectedAt : now,
+      lastSeen: now,
+      socketId: socket.id,
+      carId: existing ? existing.carId : null,
+    });
+
+    broadcastPresenceUpdate();
+    metrics.log('debug', 'presence_hello', { userId, username });
+  });
+
+  socket.on('presence:heartbeat', () => {
+    for (const entry of presenceMap.values()) {
+      if (entry.socketId === socket.id) {
+        entry.lastSeen = Date.now();
+        break;
+      }
+    }
+  });
+
   socket.on('start_session', (data) => {
     const { carId, dbUserId } = data;
 
@@ -1238,6 +1348,13 @@ io.on('connection', (socket) => {
     removeFromRace(socket);
     if (hadSession) broadcastCarsUpdate();
     broadcastRacesUpdate();
+    // Schedule grace-period removal from presence
+    for (const [userId, entry] of presenceMap.entries()) {
+      if (entry.socketId === socket.id) {
+        schedulePresenceRemoval(userId);
+        break;
+      }
+    }
     metrics.log('debug', 'socket_disconnect', { socketId: socket.id, hadSession });
   });
 
@@ -1459,6 +1576,11 @@ if (process.env.NODE_ENV !== 'production') {
       })();
       req.session.destroy((err) => { if (err) console.error('Session destroy error:', err); });
       if (_devVerificationLinks) _devVerificationLinks.clear();
+      // Clear in-memory driver presence
+      for (const timer of presenceGraceTimers.values()) clearTimeout(timer);
+      presenceGraceTimers.clear();
+      presenceMap.clear();
+      broadcastPresenceUpdate();
       console.log('[DEV] Database reset: all users and sessions deleted.');
       res.json({ success: true, message: 'Database reset: all users, sessions and tokens deleted.' });
     } catch (e) {
