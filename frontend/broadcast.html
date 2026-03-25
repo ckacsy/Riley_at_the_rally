@@ -179,6 +179,23 @@
             letter-spacing: 1px;
         }
 
+        /* ── Video / MJPEG player ── */
+        #stream-video,
+        #stream-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+
+        .stream-error {
+            text-align: center;
+            color: #e05555;
+            font-size: 13px;
+            padding: 12px;
+            user-select: none;
+        }
+
         /* Fullscreen exit button — shown only when is-fullscreen */
         #exit-fullscreen-btn {
             display: none;
@@ -360,7 +377,7 @@
         <!-- Main viewport + controls -->
         <main class="broadcast-main">
             <div id="broadcast-viewport">
-                <div class="viewport-overlay">
+                <div class="viewport-overlay" id="stream-placeholder">
                     <span class="overlay-label">ТРАНСЛЯЦИЯ (скоро)</span>
                     <span class="overlay-sub">Трансляция трассы появится здесь</span>
                 </div>
@@ -588,6 +605,66 @@
             }, 1500);
           }
         });
+
+        // ── Video stream player ──
+        (function initVideoPlayer() {
+          var vp = document.getElementById('broadcast-viewport');
+          var placeholder = document.getElementById('stream-placeholder');
+
+          fetch('/api/config/video').then(function (r) {
+            return r.ok ? r.json() : null;
+          }).then(function (cfg) {
+            if (!cfg || !cfg.streamUrl) return; // No stream configured — keep placeholder
+
+            // Hide placeholder
+            placeholder.style.display = 'none';
+
+            if (cfg.type === 'mjpeg') {
+              var img = document.createElement('img');
+              img.id = 'stream-img';
+              img.src = cfg.streamUrl;
+              img.alt = 'Трансляция';
+              vp.insertBefore(img, vp.firstChild);
+            } else {
+              // HLS (or any other type defaults to HLS)
+              var video = document.createElement('video');
+              video.id = 'stream-video';
+              video.autoplay = true;
+              video.muted = true;
+              video.controls = true;
+              video.playsInline = true;
+
+              if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                // Native HLS (Safari / iOS)
+                video.src = cfg.streamUrl;
+                vp.insertBefore(video, vp.firstChild);
+              } else {
+                // Load hls.js from CDN then initialise
+                var script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js';
+                script.onload = function () {
+                  if (window.Hls && window.Hls.isSupported()) {
+                    var hls = new window.Hls();
+                    hls.loadSource(cfg.streamUrl);
+                    hls.attachMedia(video);
+                  } else {
+                    // Fallback: try setting src directly
+                    video.src = cfg.streamUrl;
+                  }
+                  vp.insertBefore(video, vp.firstChild);
+                };
+                script.onerror = function () {
+                  // CDN unavailable — try native src as last resort
+                  video.src = cfg.streamUrl;
+                  vp.insertBefore(video, vp.firstChild);
+                };
+                document.head.appendChild(script);
+              }
+            }
+          }).catch(function () {
+            // Network error fetching config — keep placeholder
+          });
+        })();
       })();
     </script>
 

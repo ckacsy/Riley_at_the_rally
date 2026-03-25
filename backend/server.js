@@ -1116,6 +1116,24 @@ app.get('/api/config/session', (req, res) => {
   });
 });
 
+// Video stream config — derived from VIDEO_STREAM_URL env var.
+// Returns { streamUrl, type } where type is 'hls' or 'mjpeg'.
+// streamUrl is null when the env var is not set.
+app.get('/api/config/video', (req, res) => {
+  const raw = (process.env.VIDEO_STREAM_URL || '').trim();
+  if (!raw) {
+    return res.json({ streamUrl: null, type: null });
+  }
+  const lower = raw.toLowerCase();
+  let type;
+  if (lower.endsWith('.mjpeg') || lower.endsWith('.jpg')) {
+    type = 'mjpeg';
+  } else {
+    type = 'hls';
+  }
+  res.json({ streamUrl: raw, type });
+});
+
 // End session via HTTP (used by navigator.sendBeacon on page unload)
 app.post('/api/session/end', (req, res) => {
   const { sessionId, dbUserId } = req.body || {};
