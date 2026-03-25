@@ -1681,10 +1681,16 @@ if (process.env.NODE_ENV !== 'production') {
   app.post('/api/dev/activate-user', devLimiter, (req, res) => {
     const { username } = req.body || {};
     if (!username) return res.status(400).json({ error: 'username required' });
+    const usernameNorm = normalizeUsername(username);
     const result = db
-      .prepare("UPDATE users SET status = 'active', updated_at = CURRENT_TIMESTAMP WHERE username = ?")
-      .run(username);
-    if (result.changes === 0) return res.status(404).json({ error: 'User not found' });
+      .prepare("UPDATE users SET status = 'active', updated_at = CURRENT_TIMESTAMP WHERE username_normalized = ?")
+      .run(usernameNorm);
+    if (result.changes === 0) {
+      if (process.env.NODE_ENV === 'test') {
+        console.log(`[DEV] activate-user: not found for username_normalized='${usernameNorm}', DB_PATH=${DB_PATH}`);
+      }
+      return res.status(404).json({ error: 'User not found' });
+    }
     res.json({ success: true });
   });
 
