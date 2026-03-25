@@ -4,6 +4,7 @@ export default defineConfig({
   testDir: './tests/e2e',
   timeout: 30_000,
   retries: process.env.CI ? 2 : 0,
+  workers: 1,
   reporter: 'list',
 
   use: {
@@ -25,6 +26,7 @@ export default defineConfig({
     timeout: 120_000,
     env: {
       NODE_ENV: 'test',
+      DB_PATH: 'riley.sqlite',
     },
   },
 });
