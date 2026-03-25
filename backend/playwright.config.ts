@@ -27,6 +27,7 @@ export default defineConfig({
     env: {
       NODE_ENV: 'test',
       DB_PATH: 'riley.sqlite',
+      ADMIN_USERNAMES: 'testadmin',
     },
   },
 });

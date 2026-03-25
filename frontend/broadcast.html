@@ -289,6 +289,17 @@
             color: #d0d0d0;
         }
 
+        .chat-msg-deleted-text {
+            color: #666;
+            font-style: italic;
+        }
+
+        .chat-msg .chat-msg-time {
+            color: #555;
+            font-size: 11px;
+            margin-left: 4px;
+        }
+
         .chat-empty {
             color: #444;
             font-size: 12px;
@@ -498,16 +509,34 @@
           div.className = 'chat-msg';
           div.setAttribute('data-msg-id', msg.id);
 
-          var userSpan = document.createElement('span');
-          userSpan.className = 'chat-msg-user';
-          userSpan.textContent = msg.username + ':';
+          if (msg.deleted) {
+            div.classList.add('chat-msg-deleted');
+            var deletedSpan = document.createElement('span');
+            deletedSpan.className = 'chat-msg-text chat-msg-deleted-text';
+            deletedSpan.textContent = 'Сообщение удалено';
+            div.appendChild(deletedSpan);
+          } else {
+            var userSpan = document.createElement('span');
+            userSpan.className = 'chat-msg-user';
+            userSpan.textContent = msg.username + ':';
 
-          var textSpan = document.createElement('span');
-          textSpan.className = 'chat-msg-text';
-          textSpan.textContent = ' ' + msg.message;
+            var textSpan = document.createElement('span');
+            textSpan.className = 'chat-msg-text';
+            textSpan.textContent = ' ' + msg.message;
 
-          div.appendChild(userSpan);
-          div.appendChild(textSpan);
+            var timeSpan = document.createElement('span');
+            timeSpan.className = 'chat-msg-time';
+            if (msg.createdAt) {
+              var d = new Date(msg.createdAt);
+              if (!isNaN(d.getTime())) {
+                timeSpan.textContent = ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              }
+            }
+
+            div.appendChild(userSpan);
+            div.appendChild(textSpan);
+            div.appendChild(timeSpan);
+          }
           chatMessages.appendChild(div);
 
           if (wasAtBottom) {
@@ -516,6 +545,17 @@
           } else {
             chatJumpBtn.classList.add('visible');
           }
+        }
+
+        function markDeleted(id) {
+          var el = chatMessages.querySelector('[data-msg-id="' + id + '"]');
+          if (!el) return;
+          el.innerHTML = '';
+          el.classList.add('chat-msg-deleted');
+          var span = document.createElement('span');
+          span.className = 'chat-msg-text chat-msg-deleted-text';
+          span.textContent = 'Сообщение удалено';
+          el.appendChild(span);
         }
 
         chatMessages.addEventListener('scroll', function () {
@@ -562,6 +602,7 @@
 
         // ── Socket ──
         var socket = io(window.location.origin);
+        window.__testSocket = socket;
 
         socket.on('connect', function () {
           socket.emit('presence:hello', { page: 'broadcast' });
@@ -571,7 +612,7 @@
           renderDrivers(data && data.drivers ? data.drivers : []);
         });
 
-        socket.on('chat:history', function (history) {
+        socket.on('chat:history', function (data) {
           // Clear existing messages
           var msgs = chatMessages.querySelectorAll('.chat-msg');
           msgs.forEach(function (el) { el.remove(); });
@@ -581,6 +622,7 @@
           if (_chatUserReady) {
             document.body.setAttribute('data-socket-ready', 'true');
           }
+          var history = Array.isArray(data) ? data : (data && data.messages ? data.messages : []);
           if (!history || history.length === 0) {
             chatEmpty.style.display = '';
             return;
@@ -592,6 +634,10 @@
 
         socket.on('chat:message', function (msg) {
           appendMessage(msg);
+        });
+
+        socket.on('chat:deleted', function (data) {
+          if (data && data.id != null) markDeleted(data.id);
         });
 
         socket.on('chat:error', function (err) {

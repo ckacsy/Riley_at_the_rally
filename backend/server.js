@@ -161,6 +161,16 @@ db.exec(`
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
+  CREATE TABLE IF NOT EXISTS chat_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    username TEXT NOT NULL,
+    text TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    deleted INTEGER DEFAULT 0,
+    deleted_by TEXT,
+    deleted_at TEXT
+  );
 `);
 
 // --- DB Migrations (add new columns to existing databases) ---
@@ -444,15 +454,38 @@ setInterval(() => {
   if (changed) broadcastPresenceUpdate();
 }, PRESENCE_STALE_MS);
 
-// --- Global Chat (in-memory) ---
-const CHAT_HISTORY_MAX = 200;
-const CHAT_COOLDOWN_MS = 1000; // min ms between messages per user
-const CHAT_BURST_MAX = 3;      // max burst before enforcing cooldown
+// --- Global Chat (DB-backed) ---
+const CHAT_HISTORY_LIMIT = parseInt(process.env.CHAT_HISTORY_LIMIT, 10) || 500;
+const ADMIN_USERNAMES = new Set(
+  (process.env.ADMIN_USERNAMES || '').split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+);
+const CHAT_COOLDOWN_MS = 700; // min ms between messages per user
+const CHAT_BURST_MAX = 5;     // max burst before enforcing cooldown
 const CHAT_MSG_MAX_LEN = 300;
-const chatHistory = []; // Array of { id, userId, username, message, createdAt }
-let chatMsgCounter = 0;
 // Per-user chat rate-limit state: userId -> { lastSent: timestamp, burst: number }
 const chatRateLimits = new Map();
+
+function getChatHistory(limit, offset) {
+  const lim = (typeof limit === 'number' && limit > 0) ? limit : CHAT_HISTORY_LIMIT;
+  const off = (typeof offset === 'number' && offset > 0) ? offset : 0;
+  const rows = db.prepare(
+    `SELECT id, user_id AS userId, username, text AS message, created_at AS createdAt,
+            deleted, deleted_by AS deletedBy, deleted_at AS deletedAt
+     FROM chat_messages ORDER BY id DESC LIMIT ? OFFSET ?`
+  ).all(lim + 1, off);
+  const hasMore = rows.length > lim;
+  const messages = rows.slice(0, lim).reverse().map((m) => ({
+    id: m.id,
+    userId: m.userId,
+    username: m.username,
+    message: m.deleted === 1 ? null : m.message,
+    createdAt: m.createdAt,
+    deleted: m.deleted === 1,
+  }));
+  return { messages, hasMore };
+}
 
 // Car availability status tracking
 let carStatusLastUpdated = new Date().toISOString();
@@ -1209,12 +1242,17 @@ app.get('/broadcast', pageRateLimit, (req, res) => {
   res.sendFile(path.join(frontendDir, 'broadcast.html'));
 });
 
+// Share Express session with Socket.io connections
+io.use((socket, next) => {
+  sessionMiddleware(socket.request, socket.request.res || {}, next);
+});
+
 // Socket.io events for real-time car control
 io.on('connection', (socket) => {
   metrics.log('debug', 'socket_connect', { socketId: socket.id });
 
   // Send chat history to newly connected clients
-  socket.emit('chat:history', chatHistory.slice());
+  socket.emit('chat:history', getChatHistory());
 
   // --- Chat events ---
 
@@ -1270,19 +1308,54 @@ io.on('connection', (socket) => {
       return;
     }
 
+    const result = db.prepare(
+      'INSERT INTO chat_messages (user_id, username, text) VALUES (?, ?, ?)'
+    ).run(authUserId, authUsername, trimmed);
+
+    // Prune oldest messages beyond the retention limit
+    db.prepare(
+      'DELETE FROM chat_messages WHERE id NOT IN (SELECT id FROM chat_messages ORDER BY id DESC LIMIT ?)'
+    ).run(CHAT_HISTORY_LIMIT);
+
     const msg = {
-      id: ++chatMsgCounter,
+      id: result.lastInsertRowid,
       userId: authUserId,
       username: authUsername,
       message: trimmed,
       createdAt: new Date().toISOString(),
+      deleted: false,
     };
-
-    chatHistory.push(msg);
-    if (chatHistory.length > CHAT_HISTORY_MAX) chatHistory.shift();
 
     io.emit('chat:message', msg);
     metrics.log('debug', 'chat_message', { userId: authUserId, username: authUsername });
+  });
+
+  // --- Chat moderation ---
+
+  socket.on('chat:delete', (data) => {
+    const { id } = data || {};
+    if (!Number.isInteger(id)) return;
+
+    const sess = socket.request.session;
+    if (!sess || !sess.userId) {
+      socket.emit('chat:error', { code: 'auth_required', message: 'Требуется авторизация' });
+      return;
+    }
+    const adminUser = db.prepare('SELECT username, status FROM users WHERE id = ?').get(sess.userId);
+    if (!adminUser || adminUser.status !== 'active' || !ADMIN_USERNAMES.has(adminUser.username.toLowerCase())) {
+      socket.emit('chat:error', { code: 'forbidden', message: 'Недостаточно прав' });
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const result = db.prepare(
+      'UPDATE chat_messages SET deleted = 1, deleted_by = ?, deleted_at = ? WHERE id = ? AND deleted = 0'
+    ).run(adminUser.username, now, id);
+
+    if (result.changes > 0) {
+      io.emit('chat:deleted', { id });
+      metrics.log('debug', 'chat_delete', { adminUsername: adminUser.username, msgId: id });
+    }
   });
 
   // --- Presence events ---
@@ -1671,9 +1744,10 @@ if (process.env.NODE_ENV !== 'production') {
         db.exec('DELETE FROM password_reset_tokens');
         db.exec('DELETE FROM lap_times');
         db.exec('DELETE FROM rental_sessions');
+        db.exec('DELETE FROM chat_messages');
         db.exec('DELETE FROM users');
         // Reset autoincrement counters
-        db.exec("DELETE FROM sqlite_sequence WHERE name IN ('users','lap_times','rental_sessions','email_verification_tokens','password_reset_tokens')");
+        db.exec("DELETE FROM sqlite_sequence WHERE name IN ('users','lap_times','rental_sessions','email_verification_tokens','password_reset_tokens','chat_messages')");
       })();
       req.session.destroy((err) => { if (err) console.error('Session destroy error:', err); });
       if (_devVerificationLinks) _devVerificationLinks.clear();
@@ -1682,9 +1756,7 @@ if (process.env.NODE_ENV !== 'production') {
       presenceGraceTimers.clear();
       presenceMap.clear();
       broadcastPresenceUpdate();
-      // Clear chat history and rate limits
-      chatHistory.length = 0;
-      chatMsgCounter = 0;
+      // Clear chat rate limits (messages already removed from DB above)
       chatRateLimits.clear();
       console.log('[DEV] Database reset: all users and sessions deleted.');
       res.json({ success: true, message: 'Database reset: all users, sessions and tokens deleted.' });
