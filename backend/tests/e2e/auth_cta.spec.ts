@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-import path from 'path';
 
 /**
  * CTA button role-state tests.
@@ -11,11 +10,8 @@ import path from 'path';
  *  - Active user  (email verified / status forced to 'active')
  *
  * Each test resets the database via /api/dev/reset-db so it starts clean.
- * User activation is performed directly against the SQLite file using
- * better-sqlite3 running inside the test process (separate DB connection).
+ * User activation is performed via the /api/dev/activate-user endpoint.
  */
-
-const DB_PATH = path.join(__dirname, '../../riley.sqlite');
 
 /** Milliseconds to wait for the CTA button to settle after /api/auth/me. */
 const CTA_TIMEOUT = 20_000;
@@ -62,22 +58,18 @@ async function registerUser(
 }
 
 /**
- * Flip a user's status to 'active' directly in the SQLite database.
- * This bypasses the email-verification flow, matching what the problem
- * statement specifies ("open backend/riley.sqlite via better-sqlite3").
- *
- * better-sqlite3 is a native CommonJS module; require() is intentional here
- * because dynamic import() does not work reliably with native add-ons.
+ * Flip a user's status to 'active' via the dev API endpoint.
+ * This bypasses the email-verification flow without requiring a direct DB
+ * connection from the test process (avoids SQLite write-ahead log issues).
  */
-function activateUser(username: string): void {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const BetterSqlite3 = require('better-sqlite3') as typeof import('better-sqlite3');
-  const db = new BetterSqlite3(DB_PATH);
-  try {
-    db.prepare("UPDATE users SET status = 'active' WHERE username = ?").run(username);
-  } finally {
-    db.close();
-  }
+async function activateUser(
+  page: import('@playwright/test').Page,
+  username: string,
+): Promise<void> {
+  const res = await page.request.post('/api/dev/activate-user', {
+    data: { username },
+  });
+  expect(res.status(), `activateUser failed: ${await res.text()}`).toBe(200);
 }
 
 /**
@@ -138,7 +130,7 @@ test.describe('CTA button states by role', () => {
     );
 
     // Directly set status to 'active' in the database (bypasses email flow)
-    activateUser(user.username);
+    await activateUser(page, user.username);
 
     // Navigate to garage — /api/auth/me will now return status='active'
     await page.goto('/garage?forceFallback=1');

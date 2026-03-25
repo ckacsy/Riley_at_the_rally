@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-import path from 'path';
 
 /**
  * Password reset flow e2e tests.
@@ -12,14 +11,6 @@ import path from 'path';
  *  - reset-password with an expired/invalid token returns an error
  *  - reset-password page shows error when no token in URL
  */
-
-const DB_PATH = path.join(__dirname, '../../riley.sqlite');
-
-// ---------------------------------------------------------------------------
-// Shared DB helper (better-sqlite3 is a native CJS module; require() is intentional)
-// ---------------------------------------------------------------------------
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const BetterSqlite3 = require('better-sqlite3') as typeof import('better-sqlite3');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -51,29 +42,31 @@ async function registerUser(
   return body.user;
 }
 
+async function activateUser(
+  page: import('@playwright/test').Page,
+  username: string,
+): Promise<void> {
+  const res = await page.request.post('/api/dev/activate-user', {
+    data: { username },
+  });
+  expect(res.status(), `activateUser failed: ${await res.text()}`).toBe(200);
+}
+
 /**
- * Insert a raw token directly into the DB (for use in tests).
+ * Insert a password reset token via the dev API endpoint.
  * Returns the raw token.
  */
-function insertPasswordResetToken(userEmail: string, expiresAt: string): string {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const crypto = require('crypto') as typeof import('crypto');
-  const db = new BetterSqlite3(DB_PATH);
-  try {
-    const user = db
-      .prepare('SELECT id FROM users WHERE email_normalized = ?')
-      .get(userEmail.trim().toLowerCase()) as { id: number } | undefined;
-    if (!user) throw new Error(`User with email ${userEmail} not found`);
-    const rawToken = crypto.randomBytes(32).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-    db.prepare('DELETE FROM password_reset_tokens WHERE user_id = ?').run(user.id);
-    db.prepare(
-      'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)',
-    ).run(user.id, tokenHash, expiresAt);
-    return rawToken;
-  } finally {
-    db.close();
-  }
+async function insertPasswordResetToken(
+  page: import('@playwright/test').Page,
+  userEmail: string,
+  expiresAt: string,
+): Promise<string> {
+  const res = await page.request.post('/api/dev/insert-reset-token', {
+    data: { email: userEmail, expiresAt },
+  });
+  expect(res.status(), `insertPasswordResetToken failed: ${await res.text()}`).toBe(200);
+  const body = await res.json();
+  return body.token as string;
 }
 
 // ---------------------------------------------------------------------------
@@ -120,7 +113,7 @@ test.describe('Password reset flow', () => {
     await resetDb(page);
     await registerUser(page, 'pwchangeuser', 'pwchange@example.com', 'Secure#Pass1');
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-    const rawToken = insertPasswordResetToken('pwchange@example.com', expiresAt);
+    const rawToken = await insertPasswordResetToken(page, 'pwchange@example.com', expiresAt);
 
     await page.goto(`/reset-password?token=${rawToken}`);
     await expect(page.locator('#reset-form')).toBeVisible();
@@ -135,7 +128,7 @@ test.describe('Password reset flow', () => {
     await resetDb(page);
     await registerUser(page, 'pwsingleuser', 'pwsingle@example.com', 'Secure#Pass1');
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-    const rawToken = insertPasswordResetToken('pwsingle@example.com', expiresAt);
+    const rawToken = await insertPasswordResetToken(page, 'pwsingle@example.com', expiresAt);
 
     // First use — should succeed
     const csrfToken = await getCsrfToken(page);
@@ -162,7 +155,7 @@ test.describe('Password reset flow', () => {
     await resetDb(page);
     await registerUser(page, 'pwexpireduser', 'pwexpired@example.com', 'Secure#Pass1');
     const expiresAt = new Date(Date.now() - 1000).toISOString(); // already expired
-    const rawToken = insertPasswordResetToken('pwexpired@example.com', expiresAt);
+    const rawToken = await insertPasswordResetToken(page, 'pwexpired@example.com', expiresAt);
 
     const csrfToken = await getCsrfToken(page);
     const res = await page.request.post('/api/auth/reset-password', {
@@ -179,12 +172,10 @@ test.describe('Password reset flow', () => {
     await registerUser(page, 'pwlogintest', 'pwlogintest@example.com', 'Secure#Pass1');
 
     // Activate user
-    const db = new BetterSqlite3(DB_PATH);
-    db.prepare("UPDATE users SET status = 'active' WHERE username = 'pwlogintest'").run();
-    db.close();
+    await activateUser(page, 'pwlogintest');
 
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-    const rawToken = insertPasswordResetToken('pwlogintest@example.com', expiresAt);
+    const rawToken = await insertPasswordResetToken(page, 'pwlogintest@example.com', expiresAt);
 
     // Reset password
     const csrfToken = await getCsrfToken(page);

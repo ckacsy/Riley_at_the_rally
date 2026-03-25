@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-import path from 'path';
 
 /**
  * /broadcast page tests.
@@ -9,8 +8,6 @@ import path from 'path';
  *  2. Authenticated users can access /broadcast and see the viewport placeholder.
  *  3. Fullscreen toggle adds/removes the `is-fullscreen` class on the viewport.
  */
-
-const DB_PATH = path.join(__dirname, '../../riley.sqlite');
 
 // ---------------------------------------------------------------------------
 // Helpers (shared with other e2e specs)
@@ -42,15 +39,14 @@ async function registerUser(
   return body.user;
 }
 
-function activateUser(username: string): void {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const BetterSqlite3 = require('better-sqlite3') as typeof import('better-sqlite3');
-  const db = new BetterSqlite3(DB_PATH);
-  try {
-    db.prepare("UPDATE users SET status = 'active' WHERE username = ?").run(username);
-  } finally {
-    db.close();
-  }
+async function activateUser(
+  page: import('@playwright/test').Page,
+  username: string,
+): Promise<void> {
+  const res = await page.request.post('/api/dev/activate-user', {
+    data: { username },
+  });
+  expect(res.status(), `activateUser failed: ${await res.text()}`).toBe(200);
 }
 
 // ---------------------------------------------------------------------------
@@ -71,7 +67,7 @@ test.describe('/broadcast page', () => {
     await resetDb(page);
 
     const user = await registerUser(page, 'broadcastuser', 'broadcast@example.com', 'Secure#Pass1');
-    activateUser(user.username);
+    await activateUser(page, user.username);
 
     const response = await page.goto('/broadcast');
     expect(response?.status()).toBe(200);
@@ -91,7 +87,7 @@ test.describe('/broadcast page', () => {
     await resetDb(page);
 
     const user = await registerUser(page, 'fsuser', 'fsuser@example.com', 'Secure#Pass1');
-    activateUser(user.username);
+    await activateUser(page, user.username);
 
     await page.goto('/broadcast');
 
@@ -118,7 +114,7 @@ test.describe('/broadcast page', () => {
     await resetDb(page);
 
     const user = await registerUser(page, 'fsuser2', 'fsuser2@example.com', 'Secure#Pass1');
-    activateUser(user.username);
+    await activateUser(page, user.username);
 
     await page.goto('/broadcast');
 
