@@ -134,3 +134,17 @@ test.describe('/broadcast page', () => {
     await expect(viewport).not.toHaveClass(/is-fullscreen/, { timeout: 3_000 });
   });
 });
+
+// ---------------------------------------------------------------------------
+// /api/config/video endpoint tests
+// ---------------------------------------------------------------------------
+
+test.describe('GET /api/config/video', () => {
+  test('returns { streamUrl: null, type: null } when VIDEO_STREAM_URL is not set', async ({ page }) => {
+    // In the test environment VIDEO_STREAM_URL is not set
+    const res = await page.request.get('/api/config/video');
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body).toMatchObject({ streamUrl: null, type: null });
+  });
+});
