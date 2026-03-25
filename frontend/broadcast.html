@@ -223,6 +223,122 @@
         #broadcast-viewport.is-fullscreen ~ #fullscreen-btn {
             display: none;
         }
+
+        /* ── Right sidebar: chat panel ── */
+        .chat-panel {
+            width: 320px;
+            min-width: 260px;
+            max-width: 360px;
+            background: #111;
+            border-left: 1px solid #222;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-panel-header {
+            font-size: 13px;
+            font-weight: bold;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 14px 12px 10px;
+            border-bottom: 1px solid #222;
+            flex-shrink: 0;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            scroll-behavior: smooth;
+        }
+
+        .chat-msg {
+            font-size: 13px;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+
+        .chat-msg .chat-msg-user {
+            font-weight: bold;
+            color: #4ade80;
+            margin-right: 4px;
+        }
+
+        .chat-msg .chat-msg-text {
+            color: #d0d0d0;
+        }
+
+        .chat-empty {
+            color: #444;
+            font-size: 12px;
+            font-style: italic;
+            text-align: center;
+            padding-top: 16px;
+        }
+
+        .chat-jump-btn {
+            display: none;
+            position: absolute;
+            bottom: 60px;
+            right: 12px;
+            background: #333;
+            color: #e0e0e0;
+            border: 1px solid #555;
+            border-radius: 12px;
+            padding: 4px 12px;
+            font-size: 12px;
+            cursor: pointer;
+            z-index: 5;
+        }
+
+        .chat-jump-btn.visible { display: block; }
+
+        .chat-input-row {
+            display: flex;
+            gap: 6px;
+            padding: 10px 12px;
+            border-top: 1px solid #222;
+            flex-shrink: 0;
+        }
+
+        .chat-input {
+            flex: 1;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: #e0e0e0;
+            font-size: 13px;
+            padding: 7px 10px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .chat-input:focus { border-color: #555; }
+        .chat-input:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .chat-send-btn {
+            background: #2563eb;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 7px 14px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.2s;
+            flex-shrink: 0;
+        }
+
+        .chat-send-btn:hover { background: #1d4ed8; }
+        .chat-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* Hide chat panel on very small screens */
+        @media (max-width: 700px) {
+            .chat-panel { display: none; }
+        }
     </style>
 </head>
 <body>
@@ -253,15 +369,35 @@
 
             <button id="fullscreen-btn" aria-label="Развернуть на весь экран">Развернуть</button>
         </main>
+
+        <!-- Right panel: global chat -->
+        <aside class="chat-panel" id="chat-panel">
+            <div class="chat-panel-header">💬 Чат</div>
+            <div class="chat-messages" id="chat-messages">
+                <div class="chat-empty" id="chat-empty">Нет сообщений</div>
+            </div>
+            <button class="chat-jump-btn" id="chat-jump-btn" aria-label="К последнему сообщению">↓ Вниз</button>
+            <div class="chat-input-row">
+                <input
+                    type="text"
+                    id="chat-input"
+                    class="chat-input"
+                    placeholder="Сообщение…"
+                    maxlength="300"
+                    autocomplete="off"
+                />
+                <button id="chat-send-btn" class="chat-send-btn">Отправить</button>
+            </div>
+        </aside>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
       (function () {
         // ── Fullscreen toggle ──
-        const viewport = document.getElementById('broadcast-viewport');
-        const fullscreenBtn = document.getElementById('fullscreen-btn');
-        const exitBtn = document.getElementById('exit-fullscreen-btn');
+        var viewport = document.getElementById('broadcast-viewport');
+        var fullscreenBtn = document.getElementById('fullscreen-btn');
+        var exitBtn = document.getElementById('exit-fullscreen-btn');
 
         function enterFullscreen() {
           viewport.classList.add('is-fullscreen');
@@ -291,11 +427,10 @@
         });
 
         // ── Driver presence ──
-        const driversList = document.getElementById('drivers-list');
-        const driversEmpty = document.getElementById('drivers-empty');
+        var driversList = document.getElementById('drivers-list');
+        var driversEmpty = document.getElementById('drivers-empty');
 
         function renderDrivers(drivers) {
-          // Remove all existing driver items (keep the empty placeholder)
           var items = driversList.querySelectorAll('.driver-item');
           items.forEach(function (el) { el.remove(); });
 
@@ -323,6 +458,92 @@
           });
         }
 
+        // ── Chat ──
+        var chatMessages = document.getElementById('chat-messages');
+        var chatEmpty = document.getElementById('chat-empty');
+        var chatInput = document.getElementById('chat-input');
+        var chatSendBtn = document.getElementById('chat-send-btn');
+        var chatJumpBtn = document.getElementById('chat-jump-btn');
+
+        function isScrolledToBottom() {
+          return chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight < 40;
+        }
+
+        function scrollToBottom() {
+          chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function appendMessage(msg) {
+          var wasAtBottom = isScrolledToBottom();
+          chatEmpty.style.display = 'none';
+
+          var div = document.createElement('div');
+          div.className = 'chat-msg';
+          div.setAttribute('data-msg-id', msg.id);
+
+          var userSpan = document.createElement('span');
+          userSpan.className = 'chat-msg-user';
+          userSpan.textContent = msg.username + ':';
+
+          var textSpan = document.createElement('span');
+          textSpan.className = 'chat-msg-text';
+          textSpan.textContent = ' ' + msg.message;
+
+          div.appendChild(userSpan);
+          div.appendChild(textSpan);
+          chatMessages.appendChild(div);
+
+          if (wasAtBottom) {
+            scrollToBottom();
+            chatJumpBtn.classList.remove('visible');
+          } else {
+            chatJumpBtn.classList.add('visible');
+          }
+        }
+
+        chatMessages.addEventListener('scroll', function () {
+          if (isScrolledToBottom()) {
+            chatJumpBtn.classList.remove('visible');
+          }
+        });
+
+        chatJumpBtn.addEventListener('click', function () {
+          scrollToBottom();
+          chatJumpBtn.classList.remove('visible');
+        });
+
+        function sendChatMessage() {
+          var text = chatInput.value.trim();
+          if (!text) return;
+          socket.emit('chat:send', { message: text, userId: window._chatUser && window._chatUser.id, username: window._chatUser && window._chatUser.username });
+          chatInput.value = '';
+        }
+
+        chatSendBtn.addEventListener('click', sendChatMessage);
+        chatInput.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') sendChatMessage();
+        });
+
+        // Fetch current user info for auth in chat:send
+        window._chatUser = null;
+        var _chatUserReady = false;
+        fetch('/api/auth/me').then(function (r) {
+          return r.ok ? r.json() : null;
+        }).then(function (data) {
+          if (data && data.user) window._chatUser = data.user;
+          _chatUserReady = true;
+          // Mark page as fully ready when both socket and user info are available
+          if (document.body.getAttribute('data-socket-connected') === 'true') {
+            document.body.setAttribute('data-socket-ready', 'true');
+          }
+        }).catch(function () {
+          _chatUserReady = true;
+          if (document.body.getAttribute('data-socket-connected') === 'true') {
+            document.body.setAttribute('data-socket-ready', 'true');
+          }
+        });
+
+        // ── Socket ──
         var socket = io(window.location.origin);
 
         socket.on('connect', function () {
@@ -332,8 +553,44 @@
         socket.on('presence:update', function (data) {
           renderDrivers(data && data.drivers ? data.drivers : []);
         });
+
+        socket.on('chat:history', function (history) {
+          // Clear existing messages
+          var msgs = chatMessages.querySelectorAll('.chat-msg');
+          msgs.forEach(function (el) { el.remove(); });
+          // Mark socket as connected
+          document.body.setAttribute('data-socket-connected', 'true');
+          // Mark ready only if user info is also loaded
+          if (_chatUserReady) {
+            document.body.setAttribute('data-socket-ready', 'true');
+          }
+          if (!history || history.length === 0) {
+            chatEmpty.style.display = '';
+            return;
+          }
+          chatEmpty.style.display = 'none';
+          history.forEach(function (msg) { appendMessage(msg); });
+          scrollToBottom();
+        });
+
+        socket.on('chat:message', function (msg) {
+          appendMessage(msg);
+        });
+
+        socket.on('chat:error', function (err) {
+          if (err && err.code === 'rate_limited') {
+            chatInput.disabled = true;
+            chatSendBtn.disabled = true;
+            setTimeout(function () {
+              chatInput.disabled = false;
+              chatSendBtn.disabled = false;
+              chatInput.focus();
+            }, 1500);
+          }
+        });
       })();
     </script>
+
+
 </body>
 </html>
-

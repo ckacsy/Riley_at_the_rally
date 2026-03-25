@@ -64,7 +64,7 @@ app.use(express.json());
 // Session middleware — uses connect-sqlite3 to persist sessions across server
 // restarts, replacing the default in-memory store which lost sessions on restart.
 const SESSION_SECRET = process.env.SESSION_SECRET || 'riley-secret-change-in-production';
-app.use(session({
+const sessionMiddleware = session({
   secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
@@ -75,7 +75,8 @@ app.use(session({
     sameSite: 'lax',
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   },
-}));
+});
+app.use(sessionMiddleware);
 
 const PORT = process.env.PORT || 5000;
 const RATE_PER_MINUTE = 0.50;
@@ -442,6 +443,16 @@ setInterval(() => {
   }
   if (changed) broadcastPresenceUpdate();
 }, PRESENCE_STALE_MS);
+
+// --- Global Chat (in-memory) ---
+const CHAT_HISTORY_MAX = 200;
+const CHAT_COOLDOWN_MS = 1000; // min ms between messages per user
+const CHAT_BURST_MAX = 3;      // max burst before enforcing cooldown
+const CHAT_MSG_MAX_LEN = 300;
+const chatHistory = []; // Array of { id, userId, username, message, createdAt }
+let chatMsgCounter = 0;
+// Per-user chat rate-limit state: userId -> { lastSent: timestamp, burst: number }
+const chatRateLimits = new Map();
 
 // Car availability status tracking
 let carStatusLastUpdated = new Date().toISOString();
@@ -1184,6 +1195,78 @@ app.get('/broadcast', pageRateLimit, (req, res) => {
 io.on('connection', (socket) => {
   metrics.log('debug', 'socket_connect', { socketId: socket.id });
 
+  // Send chat history to newly connected clients
+  socket.emit('chat:history', chatHistory.slice());
+
+  // --- Chat events ---
+
+  socket.on('chat:send', (data) => {
+    const { message, userId: clientUserId, username: clientUsername } = data || {};
+
+    // Auth: try HTTP session first, then fall back to client-provided identity
+    // (same pattern as presence:hello — validates against DB either way)
+    let authUserId, authUsername;
+    const sess = socket.request.session;
+    if (sess && sess.userId) {
+      const user = db.prepare('SELECT username, status FROM users WHERE id = ?').get(sess.userId);
+      if (user && user.status === 'active') {
+        authUserId = sess.userId;
+        authUsername = user.username;
+      }
+    }
+    // Fallback: client-provided userId+username (validated against DB)
+    if (!authUserId && Number.isInteger(clientUserId) && clientUsername) {
+      const user = db.prepare('SELECT username, status FROM users WHERE id = ? AND username = ?').get(clientUserId, clientUsername);
+      if (user && user.status === 'active') {
+        authUserId = clientUserId;
+        authUsername = user.username;
+      }
+    }
+    if (!authUserId) {
+      socket.emit('chat:error', { code: 'auth_required', message: 'Требуется авторизация' });
+      return;
+    }
+
+    // Rate limiting: per-user cooldown + burst
+    const now = Date.now();
+    let rateState = chatRateLimits.get(authUserId) || { lastSent: 0, burst: 0 };
+    const elapsed = now - rateState.lastSent;
+    if (elapsed >= CHAT_COOLDOWN_MS) {
+      // Reset burst count based on elapsed time
+      rateState.burst = Math.max(0, rateState.burst - Math.floor(elapsed / CHAT_COOLDOWN_MS));
+    }
+    rateState.burst += 1;
+    if (rateState.burst > CHAT_BURST_MAX) {
+      socket.emit('chat:error', { code: 'rate_limited', message: 'Слишком быстро, подождите немного' });
+      return;
+    }
+    rateState.lastSent = now;
+    chatRateLimits.set(authUserId, rateState);
+
+    // Message validation
+    if (!message || typeof message !== 'string') return;
+    const trimmed = message.trim();
+    if (!trimmed) return;
+    if (trimmed.length > CHAT_MSG_MAX_LEN) {
+      socket.emit('chat:error', { code: 'too_long', message: `Сообщение не должно превышать ${CHAT_MSG_MAX_LEN} символов` });
+      return;
+    }
+
+    const msg = {
+      id: ++chatMsgCounter,
+      userId: authUserId,
+      username: authUsername,
+      message: trimmed,
+      createdAt: new Date().toISOString(),
+    };
+
+    chatHistory.push(msg);
+    if (chatHistory.length > CHAT_HISTORY_MAX) chatHistory.shift();
+
+    io.emit('chat:message', msg);
+    metrics.log('debug', 'chat_message', { userId: authUserId, username: authUsername });
+  });
+
   // --- Presence events ---
 
   socket.on('presence:hello', (data) => {
@@ -1581,6 +1664,10 @@ if (process.env.NODE_ENV !== 'production') {
       presenceGraceTimers.clear();
       presenceMap.clear();
       broadcastPresenceUpdate();
+      // Clear chat history and rate limits
+      chatHistory.length = 0;
+      chatMsgCounter = 0;
+      chatRateLimits.clear();
       console.log('[DEV] Database reset: all users and sessions deleted.');
       res.json({ success: true, message: 'Database reset: all users, sessions and tokens deleted.' });
     } catch (e) {
