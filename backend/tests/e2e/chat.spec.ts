@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-import path from 'path';
 
 /**
  * Global chat tests (Part 3).
@@ -9,8 +8,6 @@ import path from 'path';
  *  2. User A replies from /control; User B sees it on /broadcast.
  *  3. Unauthenticated user cannot send chat messages (input is irrelevant; server rejects).
  */
-
-const DB_PATH = path.join(__dirname, '../../riley.sqlite');
 
 // ---------------------------------------------------------------------------
 // Helpers (reused from other specs)
@@ -55,15 +52,14 @@ async function loginUser(
   expect(res.status(), `login failed: ${await res.text()}`).toBe(200);
 }
 
-function activateUser(username: string): void {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const BetterSqlite3 = require('better-sqlite3') as typeof import('better-sqlite3');
-  const db = new BetterSqlite3(DB_PATH);
-  try {
-    db.prepare("UPDATE users SET status = 'active' WHERE username = ?").run(username);
-  } finally {
-    db.close();
-  }
+async function activateUser(
+  page: import('@playwright/test').Page,
+  username: string,
+): Promise<void> {
+  const res = await page.request.post('/api/dev/activate-user', {
+    data: { username },
+  });
+  expect(res.status(), `activateUser failed: ${await res.text()}`).toBe(200);
 }
 
 /** Inject sessionStorage on /control so the page treats itself as having an active session. */
@@ -112,10 +108,10 @@ test.describe('Global chat', () => {
 
       // Register & activate users
       const userA = await registerUser(pageA, 'chat_userA', 'chatA@example.com', 'Secure#Pass1');
-      activateUser(userA.username);
+      await activateUser(pageA, userA.username);
 
       const userB = await registerUser(pageA, 'chat_userB', 'chatB@example.com', 'Secure#Pass1');
-      activateUser(userB.username);
+      await activateUser(pageA, userB.username);
 
       // Login B on pageB
       await loginUser(pageB, userB.username, 'Secure#Pass1');
@@ -176,10 +172,10 @@ test.describe('Global chat', () => {
 
       // Register & activate users
       const userA = await registerUser(pageA, 'chat_replyA', 'chatReplyA@example.com', 'Secure#Pass1');
-      activateUser(userA.username);
+      await activateUser(pageA, userA.username);
 
       const userB = await registerUser(pageA, 'chat_replyB', 'chatReplyB@example.com', 'Secure#Pass1');
-      activateUser(userB.username);
+      await activateUser(pageA, userB.username);
 
       // Login B on pageB
       await loginUser(pageB, userB.username, 'Secure#Pass1');

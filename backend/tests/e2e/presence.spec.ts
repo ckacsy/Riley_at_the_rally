@@ -1,5 +1,4 @@
 import { test, expect, Browser } from '@playwright/test';
-import path from 'path';
 
 /**
  * Driver presence tests.
@@ -9,8 +8,6 @@ import path from 'path';
  *     shows that driver in the "Активные водители" list.
  *  2. The /api/health endpoint exposes the activeDrivers count.
  */
-
-const DB_PATH = path.join(__dirname, '../../riley.sqlite');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -55,15 +52,14 @@ async function loginUser(
   expect(res.status(), `login failed: ${await res.text()}`).toBe(200);
 }
 
-function activateUser(username: string): void {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const BetterSqlite3 = require('better-sqlite3') as typeof import('better-sqlite3');
-  const db = new BetterSqlite3(DB_PATH);
-  try {
-    db.prepare("UPDATE users SET status = 'active' WHERE username = ?").run(username);
-  } finally {
-    db.close();
-  }
+async function activateUser(
+  page: import('@playwright/test').Page,
+  username: string,
+): Promise<void> {
+  const res = await page.request.post('/api/dev/activate-user', {
+    data: { username },
+  });
+  expect(res.status(), `activateUser failed: ${await res.text()}`).toBe(200);
 }
 
 /** Inject sessionStorage on /control so the page treats itself as having an active session. */
@@ -113,11 +109,11 @@ test.describe('Driver presence', () => {
 
       // Register & activate driver (Context A) — register sets session on pageA
       const driverUser = await registerUser(pageA, 'driver_presence', 'driver@example.com', 'Secure#Pass1');
-      activateUser(driverUser.username);
+      await activateUser(pageA, driverUser.username);
 
       // Register spectator via pageA (separate DB user), then log in on pageB
       const spectatorUser = await registerUser(pageA, 'spectator_presence', 'spectator@example.com', 'Secure#Pass1');
-      activateUser(spectatorUser.username);
+      await activateUser(pageA, spectatorUser.username);
       await loginUser(pageB, spectatorUser.username, 'Secure#Pass1');
 
       // ── Context A: open /control with injected session ────────────────
@@ -170,7 +166,7 @@ test.describe('Driver presence', () => {
       await resetDb(page);
 
       const user = await registerUser(page, 'spectator_empty', 'spectator_empty@example.com', 'Secure#Pass1');
-      activateUser(user.username);
+      await activateUser(page, user.username);
 
       // Re-login since resetDb destroys the session created by register
       await loginUser(page, user.username, 'Secure#Pass1');
