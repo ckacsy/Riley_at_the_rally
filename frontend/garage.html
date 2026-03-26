@@ -623,6 +623,7 @@
                     <h3>Режимы</h3>
                     <button class="nav-btn" id="btn-lobby"><span>&#x1F3E0;</span>&nbsp;Лобби</button>
                     <button class="nav-btn" id="btn-track"><span>&#x1F3CE;</span>&nbsp;Трек</button>
+                    <button class="nav-btn" id="btn-broadcast"><span>&#x1F4E1;</span>&nbsp;Трансляция трека</button>
                 </div>
             </div>
 
@@ -1189,6 +1190,7 @@
         document.getElementById('btn-profile').addEventListener('click', function () { window.location.href = '/profile'; });
         document.getElementById('btn-lobby').addEventListener('click', function () { window.location.href = '/'; });
         document.getElementById('btn-track').addEventListener('click', function () { window.location.href = '/control'; });
+        document.getElementById('btn-broadcast').addEventListener('click', function () { window.location.href = '/broadcast'; });
 
         // Settings toggles
         document.getElementById('setting-shadows').addEventListener('change', function () { if (window._garageScene) window._garageScene.setShadows(this.checked); });

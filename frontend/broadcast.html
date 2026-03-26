@@ -21,26 +21,41 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 12px 20px;
+            padding: 10px 20px;
             background: #111;
             border-bottom: 1px solid #222;
             flex-shrink: 0;
+            gap: 8px;
         }
 
         .broadcast-nav a {
             color: #aaa;
             text-decoration: none;
             font-size: 14px;
-            transition: color 0.2s;
+            padding: 6px 12px;
+            border-radius: 6px;
+            transition: color 0.2s, background 0.2s;
         }
 
-        .broadcast-nav a:hover { color: #fff; }
+        .broadcast-nav a:hover { color: #fff; background: rgba(255,255,255,0.08); }
+
+        .broadcast-nav a.nav-active {
+            color: #fff;
+            background: rgba(229,57,53,0.18);
+            border: 1px solid rgba(229,57,53,0.35);
+        }
 
         .broadcast-nav .title {
             font-size: 16px;
             font-weight: bold;
             color: #fff;
             letter-spacing: 1px;
+        }
+
+        .broadcast-nav .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 4px;
         }
 
         /* ── Main layout: sidebar + content ── */
@@ -367,13 +382,57 @@
         @media (max-width: 700px) {
             .chat-panel { display: none; }
         }
+
+        /* ── Camera selector ── */
+        .camera-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 900px;
+            width: 100%;
+        }
+
+        .camera-selector-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            flex-shrink: 0;
+        }
+
+        .cam-btn {
+            padding: 6px 14px;
+            background: #1a1a1a;
+            color: #aaa;
+            border: 1px solid #333;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s, border-color 0.2s;
+        }
+
+        .cam-btn:hover { background: #2a2a2a; color: #fff; border-color: #555; }
+
+        .cam-btn.active {
+            background: rgba(229,57,53,0.18);
+            color: #fff;
+            border-color: rgba(229,57,53,0.5);
+        }
+
+        /* Hide camera selector in fullscreen */
+        #broadcast-viewport.is-fullscreen ~ .camera-selector { display: none; }
     </style>
 </head>
 <body>
     <nav class="broadcast-nav">
-        <a href="/garage">← Гараж</a>
-        <span class="title">📡 Трансляция</span>
-        <a href="/">Главная</a>
+        <div class="nav-links">
+            <a href="/garage">🏠 Гараж</a>
+            <a href="/broadcast" class="nav-active">📡 Трансляция трека</a>
+            <a href="/profile">👤 Профиль</a>
+        </div>
+        <span class="title" style="display:none">Трансляция</span>
     </nav>
 
     <div class="broadcast-body">
@@ -396,6 +455,16 @@
             </div>
 
             <button id="fullscreen-btn" aria-label="Развернуть на весь экран">Развернуть</button>
+
+            <!-- Camera selector (pluggable — replace data-src values with real stream URLs via API) -->
+            <div class="camera-selector" id="camera-selector" role="group" aria-label="Выбор камеры">
+                <span class="camera-selector-label">Камеры:</span>
+                <button class="cam-btn active" data-cam="cam1" data-label="Камера 1" aria-pressed="true">📷 Камера 1</button>
+                <button class="cam-btn" data-cam="cam2" data-label="Камера 2" aria-pressed="false">📷 Камера 2</button>
+                <button class="cam-btn" data-cam="cam3" data-label="Камера 3" aria-pressed="false">📷 Камера 3</button>
+                <!-- TODO: connect to active session for car cam stream -->
+                <button class="cam-btn" data-cam="car" data-label="Камера авто" aria-pressed="false">🚗 Камера авто</button>
+            </div>
         </main>
 
         <!-- Right panel: global chat -->
@@ -453,6 +522,32 @@
             viewport.classList.remove('is-fullscreen');
           }
         });
+
+        // ── Camera selector (MVP — switches active btn; pluggable src swap) ──
+        (function initCameraSelector() {
+          var camBtns = document.querySelectorAll('.cam-btn');
+          camBtns.forEach(function (btn) {
+            btn.addEventListener('click', function () {
+              camBtns.forEach(function (b) { b.classList.remove('active'); b.setAttribute('aria-pressed', 'false'); });
+              btn.classList.add('active');
+              btn.setAttribute('aria-pressed', 'true');
+              // TODO: swap stream src when real camera URLs are available via API
+              var cam = btn.getAttribute('data-cam');
+              var placeholder = document.getElementById('stream-placeholder');
+              if (placeholder) {
+                var sub = placeholder.querySelector('.overlay-sub');
+                if (sub) {
+                  if (cam === 'car') {
+                    sub.textContent = 'Камера из машинки (появится в активной сессии)';
+                  } else {
+                    var label = btn.getAttribute('data-label') || cam;
+                    sub.textContent = 'Статичная ' + label + ' — подключение скоро';
+                  }
+                }
+              }
+            });
+          });
+        })();
 
         // ── Driver presence ──
         var driversList = document.getElementById('drivers-list');
