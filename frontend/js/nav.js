@@ -15,6 +15,7 @@
 
     function getActivePath() {
         var pathname = window.location.pathname;
+        // Remove trailing slash so '/garage/' and '/garage' both match '/garage'
         return pathname.replace(/\/$/, '') || '/';
     }
 

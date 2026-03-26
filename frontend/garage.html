@@ -546,7 +546,8 @@
         .sb-dot.green { background: var(--neon-green); box-shadow: 0 0 6px var(--neon-green); }
 
         /* ── Main-nav adjustments (fixed layout) ── */
-        /* Garage uses 100% fixed positioning — no padding-top needed */
+        /* Garage uses 100% position:fixed layout — body padding-top is irrelevant
+           (all UI elements are positioned absolutely/fixed, not in normal flow). */
         body.has-main-nav { padding-top: 0; }
         /* Shift all fixed elements down by nav height */
         body.has-main-nav .status-bar   { top: var(--nav-height, 44px); }

@@ -15,7 +15,8 @@
     top: 0;
     left: 0;
     right: 0;
-    z-index: 9000;
+    /* z-index above page content (garage panels: 20-50, modal: 100) */
+    z-index: 1000;
 }
 
 /* ── Navbar inner element ── */
