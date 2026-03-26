@@ -703,6 +703,202 @@
             margin-left: auto;
             white-space: nowrap;
         }
+
+        /* ---- Controls tab styles ---- */
+        .controls-tab-content {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .control-scheme-card {
+            background: rgba(15, 20, 40, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.09);
+            border-radius: 8px;
+            overflow: hidden;
+            transition: border-color 0.2s;
+        }
+
+        .control-scheme-card:hover {
+            border-color: rgba(0, 212, 255, 0.3);
+        }
+
+        .control-scheme-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            cursor: pointer;
+            user-select: none;
+            font-size: 13px;
+            font-weight: bold;
+            color: #fff;
+            transition: background 0.15s;
+        }
+
+        .control-scheme-header:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .control-scheme-header .scheme-icon {
+            font-size: 18px;
+        }
+
+        .control-scheme-header .scheme-arrow {
+            margin-left: auto;
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.4);
+            transition: transform 0.2s;
+        }
+
+        .control-scheme-card.open .scheme-arrow {
+            transform: rotate(90deg);
+        }
+
+        .control-scheme-body {
+            display: none;
+            padding: 8px 12px 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .control-scheme-card.open .control-scheme-body {
+            display: block;
+        }
+
+        /* Keyboard visual */
+        .keyboard-layout {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            margin: 8px 0;
+        }
+
+        .key-row {
+            display: flex;
+            gap: 4px;
+            justify-content: center;
+        }
+
+        .key {
+            width: 40px;
+            height: 36px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: bold;
+            color: rgba(255, 255, 255, 0.85);
+            box-shadow: 0 2px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        .key-label {
+            font-size: 9px;
+            color: rgba(255, 255, 255, 0.4);
+            margin-top: 1px;
+        }
+
+        .key.space-key {
+            width: 120px;
+        }
+
+        .key-desc {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.5);
+            text-align: center;
+            margin-top: 6px;
+        }
+
+        /* Gamepad visual */
+        .gamepad-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin: 6px 0;
+        }
+
+        .gamepad-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .gamepad-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 36px;
+            height: 24px;
+            padding: 0 8px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            color: rgba(255, 255, 255, 0.85);
+            flex-shrink: 0;
+        }
+
+        /* Phone visual */
+        .phone-scheme {
+            text-align: center;
+            padding: 8px 0;
+        }
+
+        .phone-frame {
+            display: inline-block;
+            width: 100px;
+            height: 160px;
+            border: 2px solid rgba(255, 255, 255, 0.25);
+            border-radius: 14px;
+            position: relative;
+            margin: 8px auto;
+            overflow: hidden;
+        }
+
+        .phone-zone {
+            position: absolute;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .phone-zone-left {
+            left: 0;
+            top: 0;
+            width: 50%;
+            height: 100%;
+            background: rgba(76, 175, 80, 0.1);
+            border-right: 1px dashed rgba(255, 255, 255, 0.15);
+        }
+
+        .phone-zone-right {
+            right: 0;
+            top: 0;
+            width: 50%;
+            height: 100%;
+            background: rgba(33, 150, 243, 0.1);
+        }
+
+        .key-row-spaced {
+            margin-top: 4px;
+        }
+
+        .key-desc-secondary {
+            margin-top: 2px;
+        }
+
+        .phone-wip-block {
+            margin-top: 8px;
+        }
     </style>
 </head>
 <body>
@@ -775,6 +971,10 @@
                 <span class="tab-icon">&#x1F527;</span>
                 <span class="tab-label">Апгрейды</span>
             </button>
+            <button class="tab-btn" data-tab="controls">
+                <span class="tab-icon">🎮</span>
+                <span class="tab-label">Управление</span>
+            </button>
         </div>
 
         <div class="panel-content">
@@ -826,6 +1026,102 @@
                         <div class="upgrades-wip-badge">&#x1F6A7; В разработке — улучшения будут доступны в следующем обновлении</div>
                     </div>
                     <!-- Upgrade cards are rendered by JS below -->
+                </div>
+            </div>
+
+            <!-- Управление -->
+            <div class="tab-content" id="tab-controls">
+                <div class="controls-tab-content">
+
+                    <!-- Карточка: Клавиатура -->
+                    <div class="control-scheme-card open">
+                        <div class="control-scheme-header">
+                            <span class="scheme-icon">⌨️</span>
+                            <span>Клавиатура</span>
+                            <span class="scheme-arrow">▶</span>
+                        </div>
+                        <div class="control-scheme-body">
+                            <div class="keyboard-layout">
+                                <div class="key-row">
+                                    <div class="key">
+                                        <span>W</span>
+                                        <span class="key-label">Вперёд</span>
+                                    </div>
+                                </div>
+                                <div class="key-row">
+                                    <div class="key">
+                                        <span>A</span>
+                                        <span class="key-label">Влево</span>
+                                    </div>
+                                    <div class="key">
+                                        <span>S</span>
+                                        <span class="key-label">Назад</span>
+                                    </div>
+                                    <div class="key">
+                                        <span>D</span>
+                                        <span class="key-label">Вправо</span>
+                                    </div>
+                                </div>
+                                <div class="key-row key-row-spaced">
+                                    <div class="key space-key">
+                                        <span>Space</span>
+                                        <span class="key-label">Стоп / Тормоз</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="key-desc">↑ W — Вперёд &nbsp;|&nbsp; ↓ S — Назад &nbsp;|&nbsp; ← A — Влево &nbsp;|&nbsp; → D — Вправо</div>
+                        </div>
+                    </div>
+
+                    <!-- Карточка: Геймпад -->
+                    <div class="control-scheme-card">
+                        <div class="control-scheme-header">
+                            <span class="scheme-icon">🎮</span>
+                            <span>Геймпад</span>
+                            <span class="scheme-arrow">▶</span>
+                        </div>
+                        <div class="control-scheme-body">
+                            <div class="gamepad-controls">
+                                <div class="gamepad-row">
+                                    <span class="gamepad-btn">L Stick</span>
+                                    <span>— Направление движения</span>
+                                </div>
+                                <div class="gamepad-row">
+                                    <span class="gamepad-btn">RT</span>
+                                    <span>— Газ (правый триггер)</span>
+                                </div>
+                                <div class="gamepad-row">
+                                    <span class="gamepad-btn">LT</span>
+                                    <span>— Тормоз (левый триггер)</span>
+                                </div>
+                                <div class="gamepad-row">
+                                    <span class="gamepad-btn">B</span>
+                                    <span>— Стоп / Аварийный тормоз</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Карточка: Телефон -->
+                    <div class="control-scheme-card">
+                        <div class="control-scheme-header">
+                            <span class="scheme-icon">📱</span>
+                            <span>Телефон (гироскоп)</span>
+                            <span class="scheme-arrow">▶</span>
+                        </div>
+                        <div class="control-scheme-body">
+                            <div class="phone-scheme">
+                                <div class="phone-frame">
+                                    <div class="phone-zone phone-zone-left">⬆⬇</div>
+                                    <div class="phone-zone phone-zone-right">↩↪</div>
+                                </div>
+                                <div class="key-desc">Левая зона — газ / тормоз (свайп)</div>
+                                <div class="key-desc key-desc-secondary">Наклон телефона — руление</div>
+                            </div>
+                            <div class="placeholder-block phone-wip-block">🚧 Управление с телефона — в разработке</div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
 
@@ -1259,6 +1555,14 @@
                 btn.classList.add('active');
                 var tc = document.getElementById('tab-' + btn.getAttribute('data-tab'));
                 if (tc) tc.classList.add('active');
+            });
+        });
+
+        // Controls tab accordion
+        document.querySelectorAll('.control-scheme-header').forEach(function(header) {
+            header.addEventListener('click', function() {
+                var card = this.closest('.control-scheme-card');
+                card.classList.toggle('open');
             });
         });
 
