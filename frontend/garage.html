@@ -635,6 +635,74 @@
         body.has-main-nav .left-panel   { top: calc(var(--nav-height, 44px) + 38px); }
         body.has-main-nav .right-panel  { top: calc(var(--nav-height, 44px) + 38px); }
         body.has-main-nav .center-cta-wrap { top: calc(var(--nav-height, 44px) + 52px); }
+
+        /* ---- Yellow WIP placeholder blocks (overrides common.css) ---- */
+        .placeholder-block {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px dashed rgba(255, 193, 7, 0.4);
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+            color: rgba(255, 193, 7, 0.7);
+            font-size: 14px;
+            margin: 8px 0;
+            display: block;
+            min-height: unset;
+        }
+        .placeholder-block::before { content: none; }
+
+        /* ---- Show-UI floating button (visible only in fullscreen) ---- */
+        #show-ui-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 2000;
+            padding: 7px 14px;
+            background: rgba(0, 0, 0, 0.55);
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            border-radius: 8px;
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 12px;
+            cursor: pointer;
+            display: none;
+            backdrop-filter: blur(6px);
+            transition: opacity 0.2s;
+        }
+        #show-ui-btn:hover { background: rgba(0, 0, 0, 0.75); }
+
+        /* ---- Inline WIP badge for profile rank ---- */
+        .rank-wip {
+            display: inline-block;
+            font-size: 10px;
+            padding: 1px 6px;
+            border-radius: 10px;
+            background: rgba(255, 193, 7, 0.15);
+            color: rgba(255, 193, 7, 0.75);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            vertical-align: middle;
+            margin-left: 4px;
+        }
+
+        /* ---- Disabled settings row ---- */
+        .settings-row.disabled-row { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
+        .settings-row.disabled-row .toggle-switch { pointer-events: none; }
+        .settings-row .wip-label {
+            font-size: 10px;
+            color: rgba(255, 193, 7, 0.7);
+            margin-left: 4px;
+        }
+
+        /* ---- Bonus WIP badge ---- */
+        .bonus-wip {
+            font-size: 10px;
+            padding: 1px 6px;
+            border-radius: 8px;
+            background: rgba(255, 193, 7, 0.1);
+            color: rgba(255, 193, 7, 0.7);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            margin-left: auto;
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body>
@@ -661,6 +729,9 @@
     <!-- 3D Canvas -->
     <canvas id="garage-canvas"></canvas>
 
+    <!-- Show-UI button (visible only in fullscreen mode) -->
+    <button id="show-ui-btn" title="Показать интерфейс" aria-label="Показать интерфейс">&#x2936; UI</button>
+
     <!-- STATUS BAR (top) -->
     <div class="status-bar">
         <div class="sb-left">
@@ -676,9 +747,6 @@
             <span class="sb-item" id="sb-car-state">&#8212;</span>
         </div>
         <div class="sb-center">Riley at the Rally</div>
-        <div class="sb-right">
-            <div id="auth-chip" class="sb-item">&#8230;</div>
-        </div>
     </div>
 
     <!-- LEFT PANEL -->
@@ -690,26 +758,18 @@
             <div class="profile-avatar" aria-hidden="true">&#x1F464;</div>
             <div class="profile-info">
                 <div class="profile-username" id="profile-username">Гость</div>
-                <div class="profile-rank">&#x1F3C6;&nbsp;Новичок &middot; Сессий:&nbsp;<span id="profile-sessions">0</span></div>
+                <div class="profile-rank">&#x1F3C6;&nbsp;Рейтинг:&nbsp;&#8212;&nbsp;<span class="rank-wip">🚧 В разработке</span></div>
             </div>
         </div>
 
         <div class="panel-tabs">
-            <button class="tab-btn active" data-tab="sessions">
-                <span class="tab-icon">&#x1F3C1;</span>
-                <span class="tab-label">Режимы/Сессии</span>
-            </button>
-            <button class="tab-btn" data-tab="ratings">
+            <button class="tab-btn active" data-tab="ratings">
                 <span class="tab-icon">&#x1F3C6;</span>
-                <span class="tab-label">Рейтинги</span>
+                <span class="tab-label">Рейтинг</span>
             </button>
             <button class="tab-btn" data-tab="settings">
                 <span class="tab-icon">&#x2699;&#xFE0F;</span>
                 <span class="tab-label">Настройки</span>
-            </button>
-            <button class="tab-btn" data-tab="news">
-                <span class="tab-icon">&#x1F4F0;</span>
-                <span class="tab-label">Новости</span>
             </button>
             <button class="tab-btn" data-tab="upgrades">
                 <span class="tab-icon">&#x1F527;</span>
@@ -719,26 +779,11 @@
 
         <div class="panel-content">
 
-            <!-- Режимы/Сессии -->
-            <div class="tab-content active" id="tab-sessions">
+            <!-- Рейтинг -->
+            <div class="tab-content active" id="tab-ratings">
                 <div class="panel-section">
-                    <h3>Режимы</h3>
-                    <button class="nav-btn" id="btn-lobby"><span>&#x1F3E0;</span>&nbsp;Лобби</button>
-                    <button class="nav-btn" id="btn-track"><span>&#x1F3CE;</span>&nbsp;Трек</button>
-                    <button class="nav-btn" id="btn-broadcast"><span>&#x1F4E1;</span>&nbsp;Трансляция трека</button>
-                </div>
-            </div>
-
-            <!-- Рейтинги -->
-            <div class="tab-content" id="tab-ratings">
-                <div class="panel-section">
-                    <h3>Рейтинги</h3>
-                    <div class="leaderboard-preview" id="lb-preview">
-                        <div class="lb-row" style="color:rgba(255,255,255,0.38);font-size:12px;">Загрузка…</div>
-                    </div>
-                    <button class="nav-btn" style="margin-top:10px;" id="btn-leaderboard">
-                        <span>&#x1F4CA;</span>&nbsp;Полный рейтинг
-                    </button>
+                    <h3>Рейтинг</h3>
+                    <div class="placeholder-block">🚧 Рейтинг — в разработке</div>
                 </div>
             </div>
 
@@ -746,10 +791,10 @@
             <div class="tab-content" id="tab-settings">
                 <div class="panel-section">
                     <h3>Настройки</h3>
-                    <div class="settings-row">
-                        <span>Тени</span>
+                    <div class="settings-row disabled-row">
+                        <span>Тени <span class="wip-label">🚧</span></span>
                         <label class="toggle-switch">
-                            <input type="checkbox" id="setting-shadows" checked>
+                            <input type="checkbox" id="setting-shadows" checked disabled>
                             <span class="toggle-slider"></span>
                         </label>
                     </div>
@@ -760,44 +805,16 @@
                             <span class="toggle-slider"></span>
                         </label>
                     </div>
-                    <div class="settings-row">
-                        <span>Туман</span>
+                    <div class="settings-row disabled-row">
+                        <span>Туман <span class="wip-label">🚧</span></span>
                         <label class="toggle-switch">
-                            <input type="checkbox" id="setting-fog" checked>
+                            <input type="checkbox" id="setting-fog" checked disabled>
                             <span class="toggle-slider"></span>
                         </label>
                     </div>
                     <button class="nav-btn" style="margin-top:10px;" id="btn-profile">
                         <span>&#x1F464;</span>&nbsp;Профиль
                     </button>
-                </div>
-            </div>
-
-            <!-- Новости -->
-            <div class="tab-content" id="tab-news">
-                <div class="news-tab-content">
-                    <div class="placeholder-block">
-                        <span class="placeholder-icon">&#x1F4F0;</span>
-                        <h3 style="margin:4px 0;font-size:13px;color:rgba(255,255,255,0.75);">Новости и обновления</h3>
-                        <p style="margin:0;font-size:11px;">Здесь будут новости проекта, обновления трассы и анонсы событий</p>
-                        <span class="placeholder-badge">&#x1F6A7; В разработке</span>
-                    </div>
-
-                    <div class="news-tab-item placeholder">
-                        <span class="news-tab-date">26.03.2026</span>
-                        <span class="news-tab-title">Открытие нового трека!</span>
-                        <p class="news-tab-preview">Подробности скоро…</p>
-                    </div>
-                    <div class="news-tab-item placeholder">
-                        <span class="news-tab-date">20.03.2026</span>
-                        <span class="news-tab-title">Обновление системы управления</span>
-                        <p class="news-tab-preview">Подробности скоро…</p>
-                    </div>
-                    <div class="news-tab-item placeholder">
-                        <span class="news-tab-date">15.03.2026</span>
-                        <span class="news-tab-title">Новые машинки в гараже</span>
-                        <p class="news-tab-preview">Подробности скоро…</p>
-                    </div>
                 </div>
             </div>
 
@@ -814,28 +831,6 @@
 
         </div>
 
-        <!-- News panel at bottom of left panel -->
-        <div id="news-panel" class="news-panel">
-            <div class="news-header">&#x1F4F0; Новости</div>
-            <div class="news-scroll">
-                <div class="news-item">
-                    <div>Сезон 4 стартовал — новые трассы и ивенты!</div>
-                    <div class="news-item-date">24 марта 2026</div>
-                </div>
-                <div class="news-item">
-                    <div>Обновление 2.3: улучшена физика подвески</div>
-                    <div class="news-item-date">20 марта 2026</div>
-                </div>
-                <div class="news-item">
-                    <div>Клубный чемпионат — регистрация открыта</div>
-                    <div class="news-item-date">15 марта 2026</div>
-                </div>
-                <div class="news-item">
-                    <div>Новая машина Riley-X2 добавлена в систему</div>
-                    <div class="news-item-date">10 марта 2026</div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- CENTER CTA overlay (above 3D view) -->
@@ -862,12 +857,12 @@
             <div class="bonus-item">
                 <span class="bonus-icon">&#x1F4C5;</span>
                 <span>Ежедневный вход</span>
-                <span class="bonus-badge">&#x2713;</span>
+                <span class="bonus-wip">🚧 В разработке</span>
             </div>
             <div class="bonus-item">
                 <span class="bonus-icon">&#x1F3C6;</span>
                 <span>Награды</span>
-                <span class="bonus-badge">3</span>
+                <span class="bonus-wip">🚧 В разработке</span>
             </div>
         </div>
 
@@ -896,37 +891,6 @@
                 </div>
             </div>
             <div class="char-type">&#x1F30D;&nbsp;Тип: Ралли</div>
-        </div>
-
-        <!-- Components (Комплектующие) -->
-        <div id="upgrades-section" class="rp-section">
-            <div class="rp-title">Комплектующие</div>
-            <div class="upgrades-grid" id="upgrades-grid">
-                <div class="upgrade-item rarity-legendary" data-upgrade="motor">
-                    <span class="upgrade-icon">&#x2699;</span>
-                    Мотор
-                </div>
-                <div class="upgrade-item rarity-epic" data-upgrade="battery">
-                    <span class="upgrade-icon">&#x1F50B;</span>
-                    Батарея
-                </div>
-                <div class="upgrade-item rarity-rare" data-upgrade="servo">
-                    <span class="upgrade-icon">&#x1F527;</span>
-                    Сервопривод
-                </div>
-                <div class="upgrade-item rarity-rare" data-upgrade="suspension">
-                    <span class="upgrade-icon">&#x1FA9D;</span>
-                    Подвеска
-                </div>
-                <div class="upgrade-item rarity-common" data-upgrade="body">
-                    <span class="upgrade-icon">&#x1F697;</span>
-                    Кузов
-                </div>
-                <div class="upgrade-item rarity-common" data-upgrade="tires">
-                    <span class="upgrade-icon">&#x26AB;</span>
-                    Шины
-                </div>
-            </div>
         </div>
 
     </div>
@@ -1382,8 +1346,12 @@
             var btn = document.getElementById('fullscreen-btn');
             btn.classList.toggle('active', isFullscreen);
             btn.textContent = isFullscreen ? '\u26f6 \u041f\u0430\u043d\u0435\u043b\u0438' : '\u26f6 \u041f\u043e\u043b\u043d\u044b\u0439 \u044d\u043a\u0440\u0430\u043d';
+            var showUiBtn = document.getElementById('show-ui-btn');
+            if (showUiBtn) showUiBtn.style.display = isFullscreen ? 'block' : 'none';
         }
         document.getElementById('fullscreen-btn').addEventListener('click', function () { toggleFullscreen(); });
+        var showUiBtnEl = document.getElementById('show-ui-btn');
+        if (showUiBtnEl) showUiBtnEl.addEventListener('click', function () { toggleFullscreen(false); });
         document.addEventListener('keydown', function (e) {
             if (e.code === 'Space' && !['INPUT','TEXTAREA','SELECT','BUTTON'].includes(document.activeElement.tagName)) {
                 e.preventDefault(); toggleFullscreen();
@@ -1399,16 +1367,10 @@
         if (searchEl) searchEl.addEventListener('input', function () { if (window._renderCarousel) window._renderCarousel(); });
 
         // Navigation buttons
-        document.getElementById('btn-leaderboard').addEventListener('click', function () { window.location.href = '/#leaderboard-section'; });
         document.getElementById('btn-profile').addEventListener('click', function () { window.location.href = '/profile'; });
-        document.getElementById('btn-lobby').addEventListener('click', function () { window.location.href = '/'; });
-        document.getElementById('btn-track').addEventListener('click', function () { window.location.href = '/control'; });
-        document.getElementById('btn-broadcast').addEventListener('click', function () { window.location.href = '/broadcast'; });
 
         // Settings toggles
-        document.getElementById('setting-shadows').addEventListener('change', function () { if (window._garageScene) window._garageScene.setShadows(this.checked); });
         document.getElementById('setting-autorotate').addEventListener('change', function () { if (window._garageScene) window._garageScene.setAutoRotate(this.checked); });
-        document.getElementById('setting-fog').addEventListener('change', function () { if (window._garageScene) window._garageScene.setFog(this.checked); });
 
         // Status bar polling
         var sbServerDot  = document.getElementById('sb-server-dot');
@@ -1458,17 +1420,10 @@
         }
 
         function renderAuthChip() {
-            var el = document.getElementById('auth-chip');
             var profileEl = document.getElementById('profile-username');
             if (currentUser) {
-                el.innerHTML = '';
-                el.appendChild(document.createTextNode('👤 ' + currentUser.username + ' \u00b7 '));
-                var a = document.createElement('a');
-                a.href = '/profile'; a.textContent = '\u041f\u0440\u043e\u0444\u0438\u043b\u044c'; a.className = 'sb-auth-link';
-                el.appendChild(a);
                 if (profileEl) profileEl.textContent = currentUser.username;
             } else {
-                el.innerHTML = '<a class="sb-auth-link" href="/login">\u0412\u043e\u0439\u0442\u0438</a> \u00b7 <a class="sb-auth-link" href="/register">\u0420\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u044f</a>';
                 if (profileEl) profileEl.textContent = '\u0413\u043e\u0441\u0442\u044c';
             }
         }
