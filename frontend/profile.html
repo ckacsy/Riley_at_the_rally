@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Профиль — Riley at the Rally</title>
     <link rel="stylesheet" href="styles/common.css">
+    <link rel="stylesheet" href="styles/nav.css">
     <style>
         * { box-sizing: border-box; }
         body {
@@ -13,16 +14,6 @@
             margin: 0;
             padding: 20px;
         }
-        .top-nav {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            max-width: 860px;
-            margin: 0 auto 24px;
-            font-size: 14px;
-        }
-        .top-nav a { color: #007BFF; text-decoration: none; }
-        .top-nav a:hover { text-decoration: underline; }
         .logout-btn {
             background: none;
             border: 1px solid #dc3545;
@@ -254,10 +245,7 @@
     </style>
 </head>
 <body>
-    <div class="top-nav">
-        <a href="/garage">← Гараж</a>
-        <button class="logout-btn" id="logout-btn">Выйти</button>
-    </div>
+    <div id="main-nav"></div>
 
     <div id="loading" class="loading-msg">Загрузка профиля…</div>
     <div id="error" class="error-msg" style="display:none"></div>
@@ -287,6 +275,7 @@
                 <div class="profile-username" id="profile-username">—</div>
                 <div class="profile-email" id="profile-email">—</div>
                 <div class="profile-joined" id="profile-joined">—</div>
+                <button class="logout-btn" id="logout-btn" style="margin-top:12px;">Выйти</button>
             </div>
         </div>
 
@@ -530,5 +519,6 @@
 
         loadProfile();
     </script>
+    <script src="js/nav.js"></script>
 </body>
 </html>

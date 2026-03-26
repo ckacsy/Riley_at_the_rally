@@ -10,6 +10,7 @@
     <meta property="og:type" content="website">
     <meta property="og:url" content="" id="og-url">
     <link rel="stylesheet" href="styles/common.css">
+    <link rel="stylesheet" href="styles/nav.css">
     <style>
         * { box-sizing: border-box; }
         body {
@@ -116,47 +117,10 @@
             margin-bottom: 12px;
             flex-wrap: wrap;
         }
-        /* Auth nav bar */
-        .auth-nav {
-            display: flex;
-            justify-content: flex-end;
-            align-items: center;
-            gap: 12px;
-            max-width: 960px;
-            margin: 0 auto 16px;
-            font-size: 14px;
-        }
-        .auth-nav a { color: #007BFF; text-decoration: none; }
-        .auth-nav a:hover { text-decoration: underline; }
-        .auth-nav .user-greeting { color: #555; font-weight: bold; }
-        .auth-nav .logout-btn {
-            background: none;
-            border: 1px solid #dc3545;
-            color: #dc3545;
-            padding: 5px 12px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 13px;
-            transition: background-color 0.2s, color 0.2s;
-        }
-        .auth-nav .logout-btn:hover { background-color: #dc3545; color: white; }
-        .auth-nav .user-avatar {
-            width: 28px; height: 28px; border-radius: 50%;
-            object-fit: cover; border: 1px solid #ccc; vertical-align: middle;
-        }
-        .auth-nav .avatar-placeholder {
-            width: 28px; height: 28px; border-radius: 50%;
-            background: #6c757d; display: inline-flex;
-            align-items: center; justify-content: center;
-            font-size: 13px; color: white; vertical-align: middle; font-weight: bold;
-        }
     </style>
 </head>
 <body>
-    <!-- Auth navigation -->
-    <div class="auth-nav" id="auth-nav">
-        <span id="auth-loading" style="color:#aaa">…</span>
-    </div>
+    <div id="main-nav"></div>
 
     <h1 id="leaderboard-section">🏆 Рекорды — лучшие круги</h1>
     <p class="subtitle"><a href="/garage" style="color:#007BFF;text-decoration:none;">← Вернуться в гараж</a></p>
@@ -179,87 +143,6 @@
     </div>
 
     <script>
-        let currentUser = null;
-        let csrfToken = '';
-
-        // Fetch CSRF token on page load
-        fetch('/api/csrf-token')
-            .then(function (r) { return r.json(); })
-            .then(function (d) { csrfToken = d.csrfToken || ''; });
-
-        // Load auth state and render nav
-        function loadAuthNav() {
-            fetch('/api/auth/me')
-                .then(function (res) { return res.json(); })
-                .then(function (data) {
-                    currentUser = data.user || null;
-                    const nav = document.getElementById('auth-nav');
-                    if (currentUser) {
-                        nav.innerHTML = '';
-
-                        if (currentUser.avatar_path) {
-                            const img = document.createElement('img');
-                            img.className = 'user-avatar';
-                            img.src = currentUser.avatar_path;
-                            img.alt = 'Аватар';
-                            nav.appendChild(img);
-                        } else {
-                            const placeholder = document.createElement('span');
-                            placeholder.className = 'avatar-placeholder';
-                            placeholder.textContent = currentUser.username.charAt(0).toUpperCase();
-                            nav.appendChild(placeholder);
-                        }
-
-                        const greeting = document.createElement('span');
-                        greeting.className = 'user-greeting';
-                        greeting.textContent = '👤 ' + currentUser.username;
-                        nav.appendChild(greeting);
-
-                        const garageLink = document.createElement('a');
-                        garageLink.href = '/garage';
-                        garageLink.textContent = 'Гараж';
-                        nav.appendChild(garageLink);
-
-                        const broadcastLink = document.createElement('a');
-                        broadcastLink.href = '/broadcast';
-                        broadcastLink.textContent = 'Трансляция';
-                        nav.appendChild(broadcastLink);
-
-                        const profileLink = document.createElement('a');
-                        profileLink.href = '/profile';
-                        profileLink.textContent = 'Профиль';
-                        nav.appendChild(profileLink);
-
-                        const logoutBtn = document.createElement('button');
-                        logoutBtn.className = 'logout-btn';
-                        logoutBtn.id = 'logout-btn';
-                        logoutBtn.textContent = 'Выйти';
-                        logoutBtn.addEventListener('click', function () {
-                            fetch('/api/auth/logout', {
-                                method: 'POST',
-                                headers: { 'x-csrf-token': csrfToken }
-                            })
-                                .then(function () { currentUser = null; loadAuthNav(); });
-                        });
-                        nav.appendChild(logoutBtn);
-                    } else {
-                        nav.innerHTML =
-                            '<a href="/garage">Гараж</a>' +
-                            '<a href="/broadcast">Трансляция</a>' +
-                            '<a href="/login">Войти</a>' +
-                            '<a href="/register" style="background:#28a745;color:white;padding:6px 14px;border-radius:5px">Регистрация</a>';
-                    }
-                })
-                .catch(function () {
-                    document.getElementById('auth-nav').innerHTML =
-                        '<a href="/garage">Гараж</a>' +
-                        '<a href="/login">Войти</a>' +
-                        '<a href="/register" style="background:#28a745;color:white;padding:6px 14px;border-radius:5px">Регистрация</a>';
-                });
-        }
-
-        loadAuthNav();
-
         function formatLapTime(ms) {
             const mins = String(Math.floor(ms / 60000)).padStart(2, '0');
             const secs = String(Math.floor((ms % 60000) / 1000)).padStart(2, '0');
@@ -375,5 +258,6 @@
         loadLeaderboard();
         setInterval(function () { loadLeaderboard(currentLbRange); }, 10000);
     </script>
+    <script src="js/nav.js"></script>
 </body>
 </html>
