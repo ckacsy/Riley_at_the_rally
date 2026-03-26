@@ -1444,9 +1444,10 @@
             const newSt = (mappedSt != null) ? mappedSt : (window._carAvailabilityStatus || 'available');
             if (newSt !== window._carAvailabilityStatus) {
                 window._carAvailabilityStatus = newSt;
-                if (typeof renderAvailabilityBadge === 'function') renderAvailabilityBadge();
-                if (typeof updateCTA === 'function') updateCTA();
             }
+            // Always update CTA and badge for the newly selected car
+            if (typeof updateCTA === 'function') updateCTA();
+            if (typeof renderAvailabilityBadge === 'function') renderAvailabilityBadge();
             if (!scene || !renderer) return;
             scene.remove(carGroup);
             carGroup = buildCar(v.body, v.trim);
@@ -1759,11 +1760,17 @@
                 setBtn('\u041f\u043e\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u0435 email', false, '', function () { window.location.href = '/verify-email'; });
                 setFallback('\u041f\u043e\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u0435 email', false, function () { window.location.href = '/verify-email'; });
                 setCenter('\u041f\u043e\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u0435 email', false, '', function () { window.location.href = '/verify-email'; });
-            } else if (carAvailabilityStatus === 'busy') {
+            } else {
+            var activeIdx = window._activeVariant || 0;
+            var variants = window.CAR_VARIANTS_REF || [];
+            var selectedVariant = variants[activeIdx];
+            var perCarStatus = selectedVariant && window._carStatusMap ? window._carStatusMap[selectedVariant.id] : null;
+            var effectiveStatus = perCarStatus || carAvailabilityStatus;
+            if (effectiveStatus === 'busy' || effectiveStatus === 'unavailable') {
                 setBtn('\u041c\u0430\u0448\u0438\u043d\u0430 \u0437\u0430\u043d\u044f\u0442\u0430', true, '', null);
                 setFallback('\u041c\u0430\u0448\u0438\u043d\u0430 \u0437\u0430\u043d\u044f\u0442\u0430', true, null);
                 setCenter('\u041c\u0430\u0448\u0438\u043d\u0430 \u0437\u0430\u043d\u044f\u0442\u0430', true, '', null);
-            } else if (carAvailabilityStatus === 'offline') {
+            } else if (effectiveStatus === 'offline') {
                 setBtn('\u041c\u0430\u0448\u0438\u043d\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430', true, '', null);
                 setFallback('\u041c\u0430\u0448\u0438\u043d\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430', true, null);
                 setCenter('\u041c\u0430\u0448\u0438\u043d\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430', true, '', null);
@@ -1771,6 +1778,7 @@
                 setBtn('\u041d\u0410 \u0422\u0420\u0415\u041a', false, '', startSession);
                 setFallback('\u041d\u0410 \u0422\u0420\u0415\u041a', false, startSession);
                 setCenter('\u041d\u0410 \u0422\u0420\u0415\u041a', false, '', startSession);
+            }
             }
         }
 
@@ -1812,6 +1820,7 @@
                 .then(function (data) {
                     ratePerMinute = data.ratePerMinute || ratePerMinute;
                     var cars = data.cars || [];
+                    window._allCarsData = cars;
                     availableCars = cars.filter(function (c) { return c.status === 'available'; });
                     var newMap = {};
                     cars.forEach(function (c) { newMap[c.id] = c.status === 'unavailable' ? 'busy' : (c.status || 'available'); });
@@ -1876,15 +1885,40 @@
         // Start session (existing flow unchanged)
         function startSession() {
             if (!currentUser) { window.location.href = '/login?redirect=/garage'; return; }
-            if (availableCars.length === 0) {
-                alert('\u041d\u0435\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u044b\u0445 \u043c\u0430\u0448\u0438\u043d. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u043f\u043e\u0437\u0436\u0435.');
-                loadCars(); return;
+            // Determine the selected car from the carousel
+            var activeIdx = window._activeVariant || 0;
+            var variants = window.CAR_VARIANTS_REF || [];
+            var selectedVariant = variants[activeIdx];
+            if (!selectedVariant) {
+                alert('\u041c\u0430\u0448\u0438\u043d\u0430 \u043d\u0435 \u0432\u044b\u0431\u0440\u0430\u043d\u0430.');
+                return;
+            }
+            // Check per-car status
+            var statusMap = window._carStatusMap || {};
+            var carStatus = statusMap[selectedVariant.id];
+            if (carStatus === 'busy' || carStatus === 'unavailable') {
+                alert('\u042d\u0442\u0430 \u043c\u0430\u0448\u0438\u043d\u0430 \u0441\u0435\u0439\u0447\u0430\u0441 \u0437\u0430\u043d\u044f\u0442\u0430. \u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0434\u0440\u0443\u0433\u0443\u044e.');
+                return;
+            }
+            if (carStatus === 'offline') {
+                alert('\u042d\u0442\u0430 \u043c\u0430\u0448\u0438\u043d\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430.');
+                return;
+            }
+            // Find car data by matching the variant id
+            var allCarsMap = {};
+            if (window._allCarsData) {
+                window._allCarsData.forEach(function (c) { allCarsMap[c.id] = c; });
+            } else {
+                (availableCars || []).forEach(function (c) { allCarsMap[c.id] = c; });
+            }
+            var car = allCarsMap[selectedVariant.id];
+            if (!car) {
+                car = { id: selectedVariant.id, name: 'Riley-X1 \u00b7 ' + selectedVariant.name };
             }
             var btn = document.getElementById('cta-btn');
             var centerBtn = document.getElementById('center-cta-btn');
             if (btn) { btn.disabled = true; btn.textContent = '\u0417\u0430\u043f\u0443\u0441\u043a\u2026'; }
             if (centerBtn) { centerBtn.disabled = true; centerBtn.textContent = '\u0417\u0430\u043f\u0443\u0441\u043a\u2026'; }
-            var car = availableCars[0];
             var selectedRace = sessionStorage.getItem('selectedRaceId') || null;
             socket.emit('start_session', { carId: car.id, userId: currentUser.username, dbUserId: currentUser.id });
             socket.once('session_started', function (data) {
