@@ -7,29 +7,31 @@
     <link rel="stylesheet" href="styles/common.css">
     <link rel="stylesheet" href="styles/nav.css">
     <style>
-        * { box-sizing: border-box; }
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
             margin: 0;
-            padding: 20px;
+            padding: calc(var(--nav-height, 44px) + 20px) 20px 20px;
         }
         .logout-btn {
-            background: none;
-            border: 1px solid #dc3545;
-            color: #dc3545;
+            background: rgba(244, 67, 54, 0.15);
+            border: 1px solid rgba(244, 67, 54, 0.35);
+            color: #ef9a9a;
             padding: 6px 14px;
             border-radius: 5px;
             cursor: pointer;
             font-size: 13px;
-            transition: background-color 0.2s, color 0.2s;
+            transition: background 0.2s, color 0.2s, border-color 0.2s;
         }
-        .logout-btn:hover { background-color: #dc3545; color: white; }
+        .logout-btn:hover {
+            background: rgba(244, 67, 54, 0.28);
+            color: #fff;
+            border-color: rgba(244, 67, 54, 0.6);
+        }
         /* Profile header */
         .profile-header {
-            background: white;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
             border-radius: 12px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.10);
+            box-shadow: 0 4px 24px rgba(0,0,0,0.35);
             padding: 32px;
             max-width: 860px;
             margin: 0 auto 24px;
@@ -37,6 +39,8 @@
             align-items: center;
             gap: 32px;
             flex-wrap: wrap;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
         }
         .avatar-wrap {
             position: relative;
@@ -47,27 +51,29 @@
             height: 120px;
             border-radius: 50%;
             object-fit: cover;
-            border: 3px solid #007BFF;
-            background-color: #e9ecef;
+            border: 3px solid var(--accent-secondary);
+            background-color: rgba(255,255,255,0.08);
             display: block;
+            box-shadow: 0 0 16px rgba(100, 181, 246, 0.35);
         }
         .avatar-placeholder {
             width: 120px;
             height: 120px;
             border-radius: 50%;
-            background-color: #e9ecef;
-            border: 3px solid #007BFF;
+            background-color: rgba(255,255,255,0.08);
+            border: 3px solid var(--accent-secondary);
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 48px;
+            box-shadow: 0 0 16px rgba(100, 181, 246, 0.35);
         }
         .avatar-upload-label {
             display: block;
             text-align: center;
             margin-top: 8px;
             font-size: 12px;
-            color: #007BFF;
+            color: var(--accent-secondary);
             cursor: pointer;
             text-decoration: underline;
         }
@@ -76,17 +82,18 @@
         .profile-username {
             font-size: 28px;
             font-weight: bold;
-            color: #222;
+            color: var(--text-primary);
             margin: 0 0 6px;
         }
         .profile-email {
             font-size: 14px;
-            color: #888;
+            color: var(--text-secondary);
             margin: 0 0 8px;
         }
         .profile-joined {
             font-size: 13px;
-            color: #aaa;
+            color: var(--text-secondary);
+            opacity: 0.75;
         }
         /* Stats grid */
         .stats-section {
@@ -96,7 +103,7 @@
         .section-title {
             font-size: 18px;
             font-weight: bold;
-            color: #333;
+            color: var(--text-primary);
             margin-bottom: 14px;
         }
         .stats-grid {
@@ -105,29 +112,33 @@
             gap: 16px;
         }
         .stat-card {
-            background: white;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
             border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.25);
             padding: 20px 24px;
             flex: 1;
             min-width: 160px;
             text-align: center;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
         }
         .stat-value {
             font-size: 32px;
             font-weight: bold;
-            color: #007BFF;
+            color: var(--accent-secondary);
             margin-bottom: 4px;
         }
         .stat-label {
             font-size: 13px;
-            color: #888;
+            color: var(--text-secondary);
         }
         /* Best lap card */
         .best-lap-card {
-            background: white;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
             border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.25);
             padding: 24px 32px;
             max-width: 860px;
             margin: 0 auto 24px;
@@ -135,40 +146,46 @@
             align-items: center;
             gap: 24px;
             flex-wrap: wrap;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
         }
         .best-lap-icon { font-size: 48px; }
         .best-lap-info { flex: 1; }
         .best-lap-title {
             font-size: 14px;
-            color: #888;
+            color: var(--text-secondary);
             margin-bottom: 4px;
         }
         .best-lap-time {
             font-size: 36px;
             font-weight: bold;
             color: #FFD700;
-            text-shadow: 0 1px 3px rgba(0,0,0,0.15);
+            text-shadow: 0 1px 6px rgba(255,215,0,0.3);
         }
         .best-lap-car {
             font-size: 15px;
-            color: #555;
+            color: var(--text-secondary);
             margin-top: 4px;
         }
         .best-lap-date {
             font-size: 12px;
-            color: #aaa;
+            color: var(--text-secondary);
             margin-top: 2px;
+            opacity: 0.7;
         }
         .no-data-card {
-            background: white;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
             border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.25);
             padding: 24px;
             max-width: 860px;
             margin: 0 auto 24px;
             text-align: center;
-            color: #888;
+            color: var(--text-secondary);
             font-size: 15px;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
         }
         /* Recent laps table */
         .recent-section {
@@ -178,29 +195,32 @@
         .laps-table {
             width: 100%;
             border-collapse: collapse;
-            background: white;
+            background: var(--bg-card);
             border-radius: 10px;
             overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+            border: 1px solid var(--border-color);
         }
         .laps-table th {
-            background-color: #007BFF;
-            color: white;
+            background-color: rgba(229, 57, 53, 0.22);
+            color: var(--text-primary);
             padding: 10px 14px;
             text-align: left;
             font-size: 14px;
+            border-bottom: 1px solid var(--border-color);
         }
         .laps-table td {
             padding: 10px 14px;
             font-size: 14px;
-            color: #333;
-            border-bottom: 1px solid #f0f0f0;
+            color: var(--text-primary);
+            border-bottom: 1px solid var(--border-color);
         }
         .laps-table tr:last-child td { border-bottom: none; }
-        .laps-table tr:nth-child(odd) td { background-color: #f9f9f9; }
+        .laps-table tr:nth-child(odd) td { background-color: rgba(255,255,255,0.03); }
+        .laps-table tr:hover td { background-color: rgba(255,255,255,0.07); transition: background 0.15s; }
         .best-badge {
             background: #FFD700;
-            color: #333;
+            color: #111;
             font-size: 11px;
             font-weight: bold;
             padding: 2px 7px;
@@ -212,19 +232,19 @@
             text-align: center;
             padding: 60px 20px;
             font-size: 16px;
-            color: #888;
+            color: var(--text-secondary);
         }
-        .error-msg { color: #dc3545; }
+        .error-msg { color: var(--accent-danger); }
         .upload-status {
             font-size: 12px;
             text-align: center;
             margin-top: 4px;
             min-height: 16px;
-            color: #28a745;
+            color: var(--accent-success);
         }
         .pending-banner {
-            background: #fff3cd;
-            border: 1px solid #ffc107;
+            background: rgba(255, 193, 7, 0.08);
+            border: 1px solid rgba(255, 193, 7, 0.35);
             border-radius: 8px;
             padding: 16px 20px;
             max-width: 860px;
@@ -236,12 +256,21 @@
         }
         .pending-banner-icon { font-size: 28px; }
         .pending-banner-text { flex: 1; }
-        .pending-banner-text strong { display: block; color: #856404; margin-bottom: 4px; }
-        .pending-banner-text span { color: #664d03; font-size: 13px; }
+        .pending-banner-text strong { display: block; color: #ffc107; margin-bottom: 4px; }
+        .pending-banner-text span { color: rgba(255, 193, 7, 0.8); font-size: 13px; }
         .pending-banner-actions { display: flex; gap: 10px; flex-wrap: wrap; }
-        .resend-btn { padding: 8px 16px; background: #ffc107; color: #333; border: none; border-radius: 5px; cursor: pointer; font-size: 13px; font-weight: bold; min-height: 36px; }
-        .resend-btn:hover { background: #e0a800; }
+        .resend-btn { padding: 8px 16px; background: rgba(255, 193, 7, 0.15); color: #ffc107; border: 1px solid rgba(255, 193, 7, 0.4); border-radius: 5px; cursor: pointer; font-size: 13px; font-weight: bold; min-height: 36px; transition: background 0.2s; }
+        .resend-btn:hover { background: rgba(255, 193, 7, 0.3); }
         .resend-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        /* Responsive */
+        @media (max-width: 600px) {
+            body { padding: calc(var(--nav-height, 44px) + 12px) 12px 12px; }
+            .profile-header { padding: 20px; gap: 20px; }
+            .best-lap-card { padding: 16px 20px; }
+            .profile-username { font-size: 22px; }
+            .stat-value { font-size: 26px; }
+            .best-lap-time { font-size: 28px; }
+        }
     </style>
 </head>
 <body>
@@ -427,7 +456,7 @@
             // Recent laps
             const recentContainer = document.getElementById('recent-laps-container');
             if (!stats.recentLaps || stats.recentLaps.length === 0) {
-                recentContainer.innerHTML = '<div style="text-align:center;color:#888;padding:20px;background:white;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.08)">Нет записанных кругов</div>';
+                recentContainer.innerHTML = '<div class="no-data-card">Нет записанных кругов</div>';
             } else {
                 const bestTime = stats.bestLap ? stats.bestLap.lap_time_ms : null;
                 const rows = stats.recentLaps.map(function (lap) {
@@ -453,7 +482,7 @@
             if (!file) return;
             const statusEl = document.getElementById('upload-status');
             statusEl.textContent = 'Загрузка…';
-            statusEl.style.color = '#888';
+            statusEl.style.color = 'rgba(255,255,255,0.5)';
             const formData = new FormData();
             formData.append('avatar', file);
             fetch('/api/profile/avatar', {
@@ -467,16 +496,16 @@
                         const container = document.getElementById('avatar-container');
                         container.innerHTML = '<img class="avatar-img" src="' + data.avatarPath + '?t=' + Date.now() + '" alt="Аватар">';
                         statusEl.textContent = 'Фото обновлено!';
-                        statusEl.style.color = '#28a745';
+                        statusEl.style.color = '#4caf50';
                         setTimeout(function () { statusEl.textContent = ''; }, 3000);
                     } else {
                         statusEl.textContent = data.error || 'Ошибка загрузки';
-                        statusEl.style.color = '#dc3545';
+                        statusEl.style.color = '#f44336';
                     }
                 })
                 .catch(function () {
                     statusEl.textContent = 'Ошибка загрузки';
-                    statusEl.style.color = '#dc3545';
+                    statusEl.style.color = '#f44336';
                 });
         });
 
