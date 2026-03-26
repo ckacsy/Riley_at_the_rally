@@ -219,6 +219,11 @@
                         garageLink.textContent = 'Гараж';
                         nav.appendChild(garageLink);
 
+                        const broadcastLink = document.createElement('a');
+                        broadcastLink.href = '/broadcast';
+                        broadcastLink.textContent = 'Трансляция';
+                        nav.appendChild(broadcastLink);
+
                         const profileLink = document.createElement('a');
                         profileLink.href = '/profile';
                         profileLink.textContent = 'Профиль';
@@ -239,6 +244,7 @@
                     } else {
                         nav.innerHTML =
                             '<a href="/garage">Гараж</a>' +
+                            '<a href="/broadcast">Трансляция</a>' +
                             '<a href="/login">Войти</a>' +
                             '<a href="/register" style="background:#28a745;color:white;padding:6px 14px;border-radius:5px">Регистрация</a>';
                     }

@@ -1242,6 +1242,12 @@ app.get('/broadcast', pageRateLimit, (req, res) => {
   res.sendFile(path.join(frontendDir, 'broadcast.html'));
 });
 
+// /track is an alias for /broadcast (Трансляция трека)
+app.get('/track', pageRateLimit, (req, res) => {
+  if (!req.session.userId) return res.redirect('/login?redirect=/track');
+  res.redirect('/broadcast');
+});
+
 // Share Express session with Socket.io connections
 io.use((socket, next) => {
   sessionMiddleware(socket.request, socket.request.res || {}, next);
