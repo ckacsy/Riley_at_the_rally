@@ -10,9 +10,6 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
-            font-family: Arial, sans-serif;
-            background: #0a0a0a;
-            color: #e0e0e0;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
@@ -29,8 +26,8 @@
         .drivers-panel {
             width: 220px;
             min-width: 180px;
-            background: #111;
-            border-right: 1px solid #222;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
             padding: 16px 12px;
@@ -41,11 +38,11 @@
         .drivers-panel h2 {
             font-size: 13px;
             font-weight: bold;
-            color: #888;
+            color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 1px;
             padding-bottom: 8px;
-            border-bottom: 1px solid #222;
+            border-bottom: 1px solid var(--border-color);
             flex-shrink: 0;
         }
 
@@ -62,8 +59,8 @@
             align-items: center;
             gap: 8px;
             padding: 8px 10px;
-            background: #1a1a1a;
-            border: 1px solid #2a2a2a;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
             border-radius: 6px;
             font-size: 13px;
         }
@@ -72,19 +69,19 @@
             width: 8px;
             height: 8px;
             border-radius: 50%;
-            background: #22c55e;
+            background: var(--accent-success);
             flex-shrink: 0;
         }
 
         .driver-name {
-            color: #e0e0e0;
+            color: var(--text-primary);
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
         }
 
         .drivers-empty {
-            color: #555;
+            color: var(--text-secondary);
             font-size: 12px;
             font-style: italic;
             text-align: center;
@@ -109,8 +106,8 @@
             width: 100%;
             max-width: 900px;
             aspect-ratio: 16 / 9;
-            background: #1a1a1a;
-            border: 2px solid #333;
+            background: var(--bg-card);
+            border: 2px solid var(--border-color);
             border-radius: 8px;
             overflow: hidden;
             display: flex;
@@ -118,7 +115,7 @@
             justify-content: center;
         }
 
-        /* Fullscreen state: fill the whole viewport */
+        /* Fullscreen state: fill the whole viewport, above fixed navbar */
         #broadcast-viewport.is-fullscreen {
             position: fixed;
             inset: 0;
@@ -128,7 +125,7 @@
             aspect-ratio: unset;
             border-radius: 0;
             border: none;
-            z-index: 1000;
+            z-index: 1100;
         }
 
         .viewport-overlay {
@@ -141,7 +138,7 @@
             display: block;
             font-size: clamp(18px, 3vw, 32px);
             font-weight: bold;
-            color: #555;
+            color: var(--text-secondary);
             letter-spacing: 4px;
             text-transform: uppercase;
         }
@@ -150,7 +147,7 @@
             display: block;
             margin-top: 8px;
             font-size: clamp(11px, 1.5vw, 14px);
-            color: #333;
+            color: rgba(255, 255, 255, 0.2);
             letter-spacing: 1px;
         }
 
@@ -165,7 +162,7 @@
 
         .stream-error {
             text-align: center;
-            color: #e05555;
+            color: var(--accent-danger);
             font-size: 13px;
             padding: 12px;
             user-select: none;
@@ -177,38 +174,20 @@
             position: absolute;
             top: 12px;
             right: 12px;
-            background: rgba(0,0,0,0.6);
-            color: #fff;
-            border: 1px solid #555;
-            border-radius: 6px;
-            padding: 8px 14px;
-            font-size: 13px;
-            cursor: pointer;
+            background: rgba(0, 0, 0, 0.6);
+            border-color: var(--border-color);
             z-index: 10;
-            transition: background 0.2s;
         }
 
         #broadcast-viewport.is-fullscreen #exit-fullscreen-btn {
             display: block;
         }
 
-        #exit-fullscreen-btn:hover { background: rgba(80,80,80,0.8); }
+        #exit-fullscreen-btn:hover { background: rgba(80, 80, 80, 0.8); }
 
         /* ── Fullscreen toggle button (outside viewport) ── */
         #fullscreen-btn {
             padding: 10px 24px;
-            background: #222;
-            color: #e0e0e0;
-            border: 1px solid #444;
-            border-radius: 6px;
-            font-size: 14px;
-            cursor: pointer;
-            transition: background 0.2s, border-color 0.2s;
-        }
-
-        #fullscreen-btn:hover {
-            background: #333;
-            border-color: #666;
         }
 
         /* Hide the outer fullscreen button when viewport is fullscreen */
@@ -221,8 +200,8 @@
             width: 320px;
             min-width: 260px;
             max-width: 360px;
-            background: #111;
-            border-left: 1px solid #222;
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
         }
@@ -230,11 +209,11 @@
         .chat-panel-header {
             font-size: 13px;
             font-weight: bold;
-            color: #888;
+            color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 1px;
             padding: 14px 12px 10px;
-            border-bottom: 1px solid #222;
+            border-bottom: 1px solid var(--border-color);
             flex-shrink: 0;
         }
 
@@ -256,27 +235,27 @@
 
         .chat-msg .chat-msg-user {
             font-weight: bold;
-            color: #4ade80;
+            color: var(--accent-success);
             margin-right: 4px;
         }
 
         .chat-msg .chat-msg-text {
-            color: #d0d0d0;
+            color: var(--text-primary);
         }
 
         .chat-msg-deleted-text {
-            color: #666;
+            color: var(--text-secondary);
             font-style: italic;
         }
 
         .chat-msg .chat-msg-time {
-            color: #555;
+            color: var(--text-secondary);
             font-size: 11px;
             margin-left: 4px;
         }
 
         .chat-empty {
-            color: #444;
+            color: var(--text-secondary);
             font-size: 12px;
             font-style: italic;
             text-align: center;
@@ -288,9 +267,9 @@
             position: absolute;
             bottom: 60px;
             right: 12px;
-            background: #333;
-            color: #e0e0e0;
-            border: 1px solid #555;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
             border-radius: 12px;
             padding: 4px 12px;
             font-size: 12px;
@@ -304,39 +283,27 @@
             display: flex;
             gap: 6px;
             padding: 10px 12px;
-            border-top: 1px solid #222;
+            border-top: 1px solid var(--border-color);
             flex-shrink: 0;
         }
 
         .chat-input {
             flex: 1;
-            background: #1a1a1a;
-            border: 1px solid #333;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
             border-radius: 6px;
-            color: #e0e0e0;
+            color: var(--text-primary);
             font-size: 13px;
             padding: 7px 10px;
             outline: none;
-            transition: border-color 0.2s;
+            transition: border-color var(--transition-speed);
         }
 
-        .chat-input:focus { border-color: #555; }
+        .chat-input:focus { border-color: rgba(255, 255, 255, 0.3); }
         .chat-input:disabled { opacity: 0.4; cursor: not-allowed; }
 
-        .chat-send-btn {
-            background: #2563eb;
-            color: #fff;
-            border: none;
-            border-radius: 6px;
-            padding: 7px 14px;
-            font-size: 13px;
-            cursor: pointer;
-            transition: background 0.2s;
-            flex-shrink: 0;
-        }
-
-        .chat-send-btn:hover { background: #1d4ed8; }
-        .chat-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        /* flex-shrink is not part of .btn — keep it here */
+        .chat-send-btn { flex-shrink: 0; }
 
         /* Hide chat panel on very small screens */
         @media (max-width: 700px) {
@@ -356,7 +323,7 @@
 
         .camera-selector-label {
             font-size: 12px;
-            color: #666;
+            color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 1px;
             flex-shrink: 0;
@@ -364,21 +331,21 @@
 
         .cam-btn {
             padding: 6px 14px;
-            background: #1a1a1a;
-            color: #aaa;
-            border: 1px solid #333;
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
             border-radius: 6px;
             font-size: 13px;
             cursor: pointer;
-            transition: background 0.2s, color 0.2s, border-color 0.2s;
+            transition: background var(--transition-speed), color var(--transition-speed), border-color var(--transition-speed);
         }
 
-        .cam-btn:hover { background: #2a2a2a; color: #fff; border-color: #555; }
+        .cam-btn:hover { background: rgba(255, 255, 255, 0.1); color: var(--text-primary); border-color: rgba(255, 255, 255, 0.3); }
 
         .cam-btn.active {
-            background: rgba(229,57,53,0.18);
-            color: #fff;
-            border-color: rgba(229,57,53,0.5);
+            background: rgba(229, 57, 53, 0.18);
+            color: var(--text-primary);
+            border-color: rgba(229, 57, 53, 0.5);
         }
 
         /* Hide camera selector in fullscreen */
@@ -404,10 +371,10 @@
                     <span class="overlay-label">ТРАНСЛЯЦИЯ (скоро)</span>
                     <span class="overlay-sub">Трансляция трассы появится здесь</span>
                 </div>
-                <button id="exit-fullscreen-btn" aria-label="Свернуть">Свернуть</button>
+                <button id="exit-fullscreen-btn" class="btn" aria-label="Свернуть">Свернуть</button>
             </div>
 
-            <button id="fullscreen-btn" aria-label="Развернуть на весь экран">Развернуть</button>
+            <button id="fullscreen-btn" class="btn btn-primary" aria-label="Развернуть на весь экран">Развернуть</button>
 
             <!-- Camera selector (pluggable — replace data-src values with real stream URLs via API) -->
             <div class="camera-selector" id="camera-selector" role="group" aria-label="Выбор камеры">
@@ -436,7 +403,7 @@
                     maxlength="300"
                     autocomplete="off"
                 />
-                <button id="chat-send-btn" class="chat-send-btn">Отправить</button>
+                <button id="chat-send-btn" class="chat-send-btn btn btn-primary">Отправить</button>
             </div>
         </aside>
     </div>
