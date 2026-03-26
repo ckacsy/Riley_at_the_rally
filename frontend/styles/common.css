@@ -1,0 +1,268 @@
+/* =============================================================
+   RC Garage — Common Styles
+   Единый CSS для всех страниц проекта (тёмная тема)
+   ============================================================= */
+
+/* =============================================================
+   1. CSS CUSTOM PROPERTIES (переменные цветовой палитры)
+   ============================================================= */
+:root {
+    /* Фоны */
+    --bg-primary:    #0a0e1a;
+    --bg-secondary:  rgba(5, 8, 20, 0.88);
+    --bg-card:       rgba(15, 20, 40, 0.85);
+
+    /* Текст */
+    --text-primary:   #ffffff;
+    --text-secondary: rgba(255, 255, 255, 0.6);
+
+    /* Акценты */
+    --accent-primary:   #e53935;
+    --accent-secondary: #64b5f6;
+    --accent-success:   #4caf50;
+    --accent-warning:   #ff9800;
+    --accent-danger:    #f44336;
+
+    /* Границы */
+    --border-color:  rgba(255, 255, 255, 0.1);
+
+    /* Прочее */
+    --border-radius:    8px;
+    --font-family:      Arial, sans-serif;
+    --transition-speed: 0.2s;
+}
+
+/* =============================================================
+   2. RESET / BASE STYLES (мягкий сброс)
+   ============================================================= */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+/* Не сбрасываем margin/padding глобально, чтобы не сломать
+   существующие инлайн-стили. Только минимально необходимое. */
+
+body {
+    font-family: var(--font-family);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+a {
+    color: var(--accent-secondary);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* =============================================================
+   3. КНОПКИ
+   ============================================================= */
+
+/* Базовая кнопка */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 18px;
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-family: var(--font-family);
+    font-size: 14px;
+    font-weight: 500;
+    transition: background var(--transition-speed), opacity var(--transition-speed), transform var(--transition-speed);
+    user-select: none;
+    white-space: nowrap;
+}
+
+.btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+/* Акцентная кнопка (красная) */
+.btn-primary {
+    background: var(--accent-primary);
+    color: #fff;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: #c62828;
+    transform: translateY(-1px);
+}
+
+.btn-primary:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+/* Вторичная кнопка (полупрозрачная с рамкой) */
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.07);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.13);
+    border-color: rgba(255, 255, 255, 0.22);
+}
+
+/* Кнопка опасности (красная, насыщенная) */
+.btn-danger {
+    background: rgba(244, 67, 54, 0.15);
+    color: #ef9a9a;
+    border: 1px solid rgba(244, 67, 54, 0.35);
+}
+
+.btn-danger:hover:not(:disabled) {
+    background: rgba(244, 67, 54, 0.28);
+    color: #fff;
+    border-color: rgba(244, 67, 54, 0.6);
+}
+
+/* =============================================================
+   4. КАРТОЧКИ
+   ============================================================= */
+.card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 16px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.card-header {
+    font-size: 13px;
+    font-weight: bold;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.card-body {
+    color: var(--text-primary);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+/* =============================================================
+   5. КОМПОНЕНТ-ЗАГЛУШКА (placeholder)
+   ============================================================= */
+.placeholder-block {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 80px;
+    padding: 20px 16px;
+    border: 2px dashed rgba(255, 255, 255, 0.2);
+    border-radius: var(--border-radius);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--text-secondary);
+    font-size: 13px;
+    text-align: center;
+}
+
+.placeholder-block::before {
+    content: "🚧";
+    font-size: 24px;
+    line-height: 1;
+}
+
+.placeholder-block .placeholder-title {
+    font-weight: bold;
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.placeholder-block .placeholder-desc {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.3);
+}
+
+/* =============================================================
+   6. УТИЛИТАРНЫЕ КЛАССЫ
+   ============================================================= */
+
+/* Выравнивание текста */
+.text-center { text-align: center; }
+.text-left   { text-align: left; }
+.text-right  { text-align: right; }
+
+/* Отступы (1 = 8px, 2 = 16px) */
+.mt-1 { margin-top: 8px; }
+.mt-2 { margin-top: 16px; }
+.mb-1 { margin-bottom: 8px; }
+.mb-2 { margin-bottom: 16px; }
+
+/* Скрытие */
+.hidden { display: none !important; }
+
+/* Flex по центру */
+.flex-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* =============================================================
+   7. АДАПТИВНЫЕ MEDIA QUERIES
+   ============================================================= */
+
+/* Планшет (≤ 768px) */
+@media (max-width: 768px) {
+    .btn {
+        padding: 7px 14px;
+        font-size: 13px;
+    }
+
+    .card {
+        padding: 12px;
+    }
+
+    .card-header {
+        font-size: 12px;
+    }
+}
+
+/* Мобильный (≤ 480px) */
+@media (max-width: 480px) {
+    body {
+        font-size: 14px;
+    }
+
+    .btn {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+
+    .card {
+        padding: 10px;
+        border-radius: 6px;
+    }
+
+    .placeholder-block {
+        min-height: 60px;
+        padding: 14px 12px;
+        font-size: 12px;
+    }
+
+    .placeholder-block::before {
+        font-size: 20px;
+    }
+
+    .mt-2 { margin-top: 12px; }
+    .mb-2 { margin-bottom: 12px; }
+}
