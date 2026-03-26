@@ -1,0 +1,147 @@
+/* =============================================================
+   RC Garage — Navigation Bar Styles
+   Унифицированный навбар для всех страниц проекта.
+   Зависит от CSS-переменных, определённых в common.css.
+   ============================================================= */
+
+/* ── Nav height variable ── */
+:root {
+    --nav-height: 44px;
+}
+
+/* ── Fixed wrapper ── */
+#main-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    /* z-index above page content (garage panels: 20-50, modal: 100) */
+    z-index: 1000;
+}
+
+/* ── Navbar inner element ── */
+.main-nav {
+    display: flex;
+    align-items: center;
+    height: var(--nav-height);
+    padding: 0 20px;
+    background: var(--bg-secondary, rgba(5, 8, 20, 0.95));
+    border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    gap: 8px;
+}
+
+/* ── Logo / brand ── */
+.nav-logo {
+    font-size: 15px;
+    font-weight: bold;
+    color: var(--text-primary, #ffffff);
+    text-decoration: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+    letter-spacing: 0.5px;
+    margin-right: 16px;
+}
+
+.nav-logo:hover {
+    color: var(--accent-primary, #e53935);
+    text-decoration: none;
+}
+
+/* ── Navigation menu ── */
+.nav-menu {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    gap: 2px;
+    flex: 1;
+}
+
+.nav-menu a {
+    display: block;
+    padding: 6px 12px;
+    font-size: 13px;
+    color: var(--text-secondary, rgba(255, 255, 255, 0.6));
+    text-decoration: none;
+    border-radius: 6px;
+    transition: color 0.2s, background 0.2s;
+    white-space: nowrap;
+}
+
+.nav-menu a:hover {
+    color: var(--text-primary, #ffffff);
+    background: rgba(255, 255, 255, 0.08);
+    text-decoration: none;
+}
+
+.nav-menu a.nav-active {
+    color: var(--text-primary, #ffffff);
+    background: rgba(229, 57, 53, 0.18);
+    border: 1px solid rgba(229, 57, 53, 0.35);
+}
+
+/* ── Burger button (hidden on desktop) ── */
+.nav-burger {
+    display: none;
+    background: none;
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.15));
+    color: var(--text-primary, #ffffff);
+    font-size: 18px;
+    line-height: 1;
+    padding: 4px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-left: auto;
+    transition: background var(--transition-speed, 0.2s);
+    flex-shrink: 0;
+}
+
+.nav-burger:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+/* ── Body padding for pages that use normal flow ── */
+body.has-main-nav {
+    padding-top: var(--nav-height);
+}
+
+/* ── Mobile / responsive ── */
+@media (max-width: 640px) {
+    .nav-burger {
+        display: block;
+    }
+
+    .nav-menu {
+        display: none;
+        position: fixed;
+        top: var(--nav-height);
+        left: 0;
+        right: 0;
+        flex-direction: column;
+        gap: 0;
+        background: var(--bg-secondary, rgba(5, 8, 20, 0.97));
+        border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+        padding: 8px 0;
+        z-index: 8999;
+    }
+
+    .nav-menu.open {
+        display: flex;
+    }
+
+    .nav-menu a {
+        padding: 10px 20px;
+        border-radius: 0;
+        font-size: 14px;
+    }
+
+    .nav-menu a.nav-active {
+        border-left: 3px solid var(--accent-primary, #e53935);
+        border-radius: 0;
+        border-top: none;
+        border-right: none;
+        border-bottom: none;
+    }
+}
