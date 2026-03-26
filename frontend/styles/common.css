@@ -19,6 +19,7 @@
     /* Акценты */
     --accent-primary:   #e53935;
     --accent-secondary: #64b5f6;
+    --accent-secondary-hover: #3a8fd4;
     --accent-success:   #4caf50;
     --accent-warning:   #ff9800;
     --accent-danger:    #f44336;
