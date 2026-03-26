@@ -8,8 +8,6 @@
     <link rel="stylesheet" href="styles/nav.css">
     <style>
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
             margin: 0;
             padding: 20px;
         }
@@ -22,24 +20,24 @@
             margin-top: 20px;
         }
         .button {
-            background-color: #007BFF;
+            background-color: var(--accent-secondary);
             border: none;
-            color: white;
+            color: var(--text-primary);
             padding: 15px 20px;
             margin: 10px;
             cursor: pointer;
             border-radius: 5px;
             font-size: 16px;
-            transition: background-color 0.3s;
+            transition: background-color var(--transition-speed);
         }
         .button:hover {
-            background-color: #0056b3;
+            background-color: #3a8fd4;
         }
         .status {
             text-align: center;
             margin-top: 20px;
             font-size: 14px;
-            color: #555;
+            color: var(--text-secondary);
         }
         .status-indicator {
             display: inline-block;
@@ -47,14 +45,14 @@
             height: 10px;
             border-radius: 50%;
             margin-right: 6px;
-            background-color: #ccc;
+            background-color: rgba(255, 255, 255, 0.25);
             vertical-align: middle;
         }
         .status-indicator.connected {
-            background-color: #28a745;
+            background-color: var(--accent-success);
         }
         .status-indicator.disconnected {
-            background-color: #dc3545;
+            background-color: var(--accent-danger);
         }
         .camera-section {
             display: flex;
@@ -66,13 +64,13 @@
         .camera-section h2 {
             margin-bottom: 10px;
             font-size: 18px;
-            color: #333;
+            color: var(--text-primary);
         }
         .camera-feed {
             width: 640px;
             height: 480px;
             background-color: #000;
-            border: 2px solid #ccc;
+            border: 2px solid var(--border-color);
             border-radius: 5px;
             object-fit: contain;
         }
@@ -87,21 +85,23 @@
             flex: 1;
             max-width: 480px;
             padding: 6px 10px;
-            border: 1px solid #ccc;
+            border: 1px solid var(--border-color);
             border-radius: 4px;
             font-size: 14px;
+            background: var(--bg-card);
+            color: var(--text-primary);
         }
         .camera-url-btn {
             padding: 6px 14px;
-            background-color: #007BFF;
-            color: white;
+            background-color: var(--accent-secondary);
+            color: var(--text-primary);
             border: none;
             border-radius: 4px;
             cursor: pointer;
             font-size: 14px;
         }
         .camera-url-btn:hover {
-            background-color: #0056b3;
+            background-color: #3a8fd4;
         }
         .speed-control {
             display: flex;
@@ -110,7 +110,7 @@
             margin-top: 20px;
             gap: 12px;
             font-size: 16px;
-            color: #333;
+            color: var(--text-primary);
         }
         .speed-control label {
             font-weight: bold;
@@ -121,13 +121,13 @@
             width: 200px;
             height: 8px;
             border-radius: 5px;
-            background-color: #007BFF;
+            background-color: var(--accent-secondary);
             outline: none;
             cursor: pointer;
-            transition: background-color 0.3s;
+            transition: background-color var(--transition-speed);
         }
         .speed-control input[type="range"]:hover {
-            background-color: #0056b3;
+            background-color: #3a8fd4;
         }
         .speed-control input[type="range"]::-webkit-slider-thumb {
             -webkit-appearance: none;
@@ -135,16 +135,16 @@
             width: 20px;
             height: 20px;
             border-radius: 50%;
-            background-color: white;
-            border: 2px solid #007BFF;
+            background-color: var(--text-primary);
+            border: 2px solid var(--accent-secondary);
             cursor: pointer;
         }
         .speed-control input[type="range"]::-moz-range-thumb {
             width: 20px;
             height: 20px;
             border-radius: 50%;
-            background-color: white;
-            border: 2px solid #007BFF;
+            background-color: var(--text-primary);
+            border: 2px solid var(--accent-secondary);
             cursor: pointer;
         }
         .speed-control span {
@@ -155,7 +155,7 @@
             text-align: center;
             margin-top: 12px;
             font-size: 15px;
-            color: #333;
+            color: var(--text-primary);
         }
         .session-info span {
             font-weight: bold;
@@ -164,23 +164,23 @@
             display: block;
             margin: 24px auto 0;
             padding: 14px 36px;
-            background-color: #dc3545;
-            color: white;
+            background-color: var(--accent-danger);
+            color: var(--text-primary);
             border: none;
             border-radius: 6px;
             font-size: 17px;
             cursor: pointer;
-            transition: background-color 0.3s;
+            transition: background-color var(--transition-speed);
         }
         .end-rental-btn:hover {
-            background-color: #a71d2a;
+            background-color: var(--accent-primary);
         }
         /* Summary overlay */
         .summary-overlay {
             display: none;
             position: fixed;
             inset: 0;
-            background: rgba(0, 0, 0, 0.55);
+            background: rgba(0, 0, 0, 0.7);
             z-index: 100;
             justify-content: center;
             align-items: center;
@@ -189,68 +189,69 @@
             display: flex;
         }
         .summary-card {
-            background: white;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
             border-radius: 10px;
             padding: 36px 48px;
             text-align: center;
             max-width: 380px;
             width: 90%;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+            box-shadow: 0 4px 24px rgba(0,0,0,0.5);
         }
         .summary-card h2 {
             margin-top: 0;
-            color: #333;
+            color: var(--text-primary);
         }
         .summary-card p {
             font-size: 16px;
-            color: #555;
+            color: var(--text-secondary);
             margin: 10px 0;
         }
         .summary-card .cost {
             font-size: 28px;
             font-weight: bold;
-            color: #007BFF;
+            color: var(--accent-secondary);
             margin: 16px 0;
         }
         .summary-card .back-btn {
             display: inline-block;
             margin-top: 20px;
             padding: 12px 32px;
-            background-color: #007BFF;
-            color: white;
+            background-color: var(--accent-secondary);
+            color: var(--text-primary);
             border: none;
             border-radius: 6px;
             font-size: 16px;
             cursor: pointer;
             text-decoration: none;
-            transition: background-color 0.3s;
+            transition: background-color var(--transition-speed);
         }
         .summary-card .back-btn:hover {
-            background-color: #0056b3;
+            background-color: #3a8fd4;
         }
         .button:disabled {
             opacity: 0.5;
             cursor: not-allowed;
         }
         .button:disabled:hover {
-            background-color: #007BFF;
+            background-color: var(--accent-secondary);
         }
         .end-rental-btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
         }
         .end-rental-btn:disabled:hover {
-            background-color: #dc3545;
+            background-color: var(--accent-danger);
         }
         .session-inactive-msg {
             display: none;
             text-align: center;
-            color: #dc3545;
+            color: var(--accent-danger);
             font-size: 16px;
             margin-top: 16px;
         }
         .session-inactive-msg a {
-            color: #007BFF;
+            color: var(--accent-secondary);
         }
         /* Session timer badges */
         .session-timers-bar {
@@ -264,26 +265,26 @@
             display: inline-flex;
             align-items: center;
             gap: 5px;
-            background: #f0f4ff;
-            border: 1px solid #c8d8f0;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
             border-radius: 12px;
             padding: 4px 12px;
             font-size: 13px;
-            color: #334;
+            color: var(--text-primary);
             font-variant-numeric: tabular-nums;
         }
         .timer-badge.warning {
-            background: #fff3e0;
-            border-color: #ffb74d;
-            color: #e65100;
+            background: rgba(255, 152, 0, 0.15);
+            border-color: var(--accent-warning);
+            color: var(--accent-warning);
             font-weight: bold;
         }
         .timer-badge .timer-label {
-            color: #666;
+            color: var(--text-secondary);
             font-weight: normal;
         }
         .timer-badge.warning .timer-label {
-            color: #bf360c;
+            color: var(--accent-warning);
         }
         /* Warning banner */
         .session-warning-banner {
@@ -292,39 +293,40 @@
             bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
-            background: #ff9800;
-            color: #fff;
+            background: var(--accent-warning);
+            color: var(--text-primary);
             font-weight: bold;
             padding: 12px 24px;
             border-radius: 8px;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
             z-index: 1000;
             font-size: 15px;
             text-align: center;
             max-width: 90vw;
         }
         .session-warning-banner.critical {
-            background: #d32f2f;
+            background: var(--accent-primary);
         }
         .keyboard-hint {
             text-align: center;
             font-size: 13px;
-            color: #888;
+            color: var(--text-secondary);
             margin-top: 8px;
         }
         /* Race Panel */
         .race-panel {
             max-width: 680px;
             margin: 28px auto 0;
-            background: white;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
             border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.10);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
             padding: 20px 28px;
         }
         .race-panel h2 {
             margin-top: 0;
             font-size: 18px;
-            color: #333;
+            color: var(--text-primary);
             text-align: center;
         }
         .race-actions {
@@ -340,40 +342,42 @@
             border-radius: 5px;
             cursor: pointer;
             font-size: 14px;
-            transition: background-color 0.3s;
-            color: white;
+            transition: background-color var(--transition-speed);
+            color: var(--text-primary);
         }
-        .race-btn.create { background-color: #28a745; }
-        .race-btn.create:hover { background-color: #1e7e34; }
-        .race-btn.leave { background-color: #dc3545; }
-        .race-btn.leave:hover { background-color: #a71d2a; }
+        .race-btn.create { background-color: var(--accent-success); }
+        .race-btn.create:hover { background-color: #388e3c; }
+        .race-btn.leave { background-color: var(--accent-danger); }
+        .race-btn.leave:hover { background-color: var(--accent-primary); }
         .race-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .race-join-select {
             padding: 8px 12px;
-            border: 1px solid #ccc;
+            border: 1px solid var(--border-color);
             border-radius: 5px;
             font-size: 14px;
             min-width: 180px;
+            background: var(--bg-card);
+            color: var(--text-primary);
         }
         .race-join-go {
             padding: 9px 16px;
-            background-color: #007BFF;
-            color: white;
+            background-color: var(--accent-secondary);
+            color: var(--text-primary);
             border: none;
             border-radius: 5px;
             cursor: pointer;
             font-size: 14px;
-            transition: background-color 0.3s;
+            transition: background-color var(--transition-speed);
         }
-        .race-join-go:hover { background-color: #0056b3; }
+        .race-join-go:hover { background-color: #3a8fd4; }
         .race-join-go:disabled { opacity: 0.5; cursor: not-allowed; }
         .race-status-bar {
             text-align: center;
             font-size: 14px;
-            color: #555;
+            color: var(--text-secondary);
             margin-bottom: 12px;
         }
-        .race-status-bar strong { color: #007BFF; }
+        .race-status-bar strong { color: var(--accent-secondary); }
         /* Lap timer */
         .lap-timer-section {
             display: flex;
@@ -387,7 +391,7 @@
             font-size: 28px;
             font-weight: bold;
             font-family: monospace;
-            color: #222;
+            color: var(--text-primary);
             min-width: 140px;
             text-align: center;
         }
@@ -397,18 +401,18 @@
             border-radius: 5px;
             cursor: pointer;
             font-size: 14px;
-            color: white;
-            transition: background-color 0.3s;
+            color: var(--text-primary);
+            transition: background-color var(--transition-speed);
         }
-        .lap-btn.start { background-color: #28a745; }
-        .lap-btn.start:hover { background-color: #1e7e34; }
-        .lap-btn.stop { background-color: #fd7e14; }
-        .lap-btn.stop:hover { background-color: #c96a0e; }
+        .lap-btn.start { background-color: var(--accent-success); }
+        .lap-btn.start:hover { background-color: #388e3c; }
+        .lap-btn.stop { background-color: var(--accent-warning); }
+        .lap-btn.stop:hover { background-color: #e65100; }
         .lap-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .lap-flash {
             text-align: center;
             font-size: 13px;
-            color: #28a745;
+            color: var(--accent-success);
             font-weight: bold;
             min-height: 20px;
             margin-bottom: 8px;
@@ -421,25 +425,25 @@
             margin-bottom: 14px;
         }
         .positions-table th {
-            background-color: #007BFF;
-            color: white;
+            background-color: var(--accent-secondary);
+            color: var(--text-primary);
             padding: 8px 10px;
             text-align: left;
         }
         .positions-table td {
             padding: 7px 10px;
-            border-bottom: 1px solid #f0f0f0;
-            color: #333;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
         }
         .positions-table tr.me td {
-            background-color: #e8f4fd;
+            background-color: rgba(100, 181, 246, 0.15);
             font-weight: bold;
         }
         /* In-race leaderboard */
         .race-leaderboard-title {
             font-size: 14px;
             font-weight: bold;
-            color: #555;
+            color: var(--text-secondary);
             margin: 12px 0 6px;
         }
         .lb-table {
@@ -448,15 +452,15 @@
             font-size: 13px;
         }
         .lb-table th {
-            background: #f0f0f0;
-            color: #555;
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
             padding: 6px 10px;
             text-align: left;
         }
         .lb-table td {
             padding: 5px 10px;
-            border-bottom: 1px solid #f5f5f5;
-            color: #333;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
         }
 
         /* ── Chat toggle button ── */
@@ -464,19 +468,19 @@
             position: fixed;
             top: 16px;
             right: 16px;
-            background: #007BFF;
-            color: #fff;
+            background: var(--accent-secondary);
+            color: var(--text-primary);
             border: none;
             border-radius: 6px;
             padding: 8px 16px;
             font-size: 14px;
             cursor: pointer;
             z-index: 200;
-            transition: background 0.2s, right 0.3s;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            transition: background var(--transition-speed), right 0.3s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         }
 
-        #chat-toggle-btn:hover { background: #0056b3; }
+        #chat-toggle-btn:hover { background: #3a8fd4; }
 
         /* Shift button left when drawer is open */
         body[data-chat-open="true"] #chat-toggle-btn {
@@ -490,13 +494,13 @@
             right: -400px;
             width: 380px;
             height: 100vh;
-            background: #1a1a2e;
-            border-left: 1px solid #2a2a4a;
+            background: var(--bg-card);
+            border-left: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
             z-index: 150;
             transition: right 0.3s ease;
-            box-shadow: -4px 0 16px rgba(0,0,0,0.2);
+            box-shadow: -4px 0 16px rgba(0,0,0,0.4);
         }
 
         body[data-chat-open="true"] #chat-drawer {
@@ -508,31 +512,31 @@
             align-items: center;
             justify-content: space-between;
             padding: 14px 16px;
-            background: #12122a;
-            border-bottom: 1px solid #2a2a4a;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
             flex-shrink: 0;
         }
 
         .chat-drawer-title {
             font-size: 15px;
             font-weight: bold;
-            color: #e0e0f0;
+            color: var(--text-primary);
             letter-spacing: 0.5px;
         }
 
         .chat-drawer-close {
             background: none;
             border: none;
-            color: #888;
+            color: var(--text-secondary);
             font-size: 20px;
             cursor: pointer;
             line-height: 1;
             padding: 2px 6px;
             border-radius: 4px;
-            transition: color 0.2s, background 0.2s;
+            transition: color var(--transition-speed), background var(--transition-speed);
         }
 
-        .chat-drawer-close:hover { color: #fff; background: #333; }
+        .chat-drawer-close:hover { color: var(--text-primary); background: rgba(255,255,255,0.1); }
 
         .chat-messages {
             flex: 1;
@@ -552,27 +556,28 @@
 
         .chat-msg .chat-msg-user {
             font-weight: bold;
-            color: #60a5fa;
+            color: var(--accent-secondary);
             margin-right: 4px;
         }
 
         .chat-msg .chat-msg-text {
-            color: #d0d0e0;
+            color: var(--text-primary);
         }
 
         .chat-msg-deleted-text {
-            color: #555;
+            color: var(--text-secondary);
             font-style: italic;
         }
 
         .chat-msg .chat-msg-time {
-            color: #4a4a6a;
+            color: var(--text-secondary);
             font-size: 11px;
             margin-left: 4px;
+            opacity: 0.6;
         }
 
         .chat-empty {
-            color: #555;
+            color: var(--text-secondary);
             font-size: 12px;
             font-style: italic;
             text-align: center;
@@ -584,9 +589,9 @@
             position: absolute;
             bottom: 66px;
             right: 14px;
-            background: #333;
-            color: #e0e0e0;
-            border: 1px solid #555;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
             border-radius: 12px;
             padding: 4px 12px;
             font-size: 12px;
@@ -600,38 +605,38 @@
             display: flex;
             gap: 6px;
             padding: 10px 14px;
-            border-top: 1px solid #2a2a4a;
+            border-top: 1px solid var(--border-color);
             flex-shrink: 0;
         }
 
         .chat-input {
             flex: 1;
-            background: #0d0d1f;
-            border: 1px solid #3a3a5a;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
             border-radius: 6px;
-            color: #e0e0f0;
+            color: var(--text-primary);
             font-size: 13px;
             padding: 7px 10px;
             outline: none;
-            transition: border-color 0.2s;
+            transition: border-color var(--transition-speed);
         }
 
-        .chat-input:focus { border-color: #5a5a8a; }
+        .chat-input:focus { border-color: rgba(255,255,255,0.3); }
         .chat-input:disabled { opacity: 0.4; cursor: not-allowed; }
 
         .chat-send-btn {
-            background: #2563eb;
-            color: #fff;
+            background: var(--accent-secondary);
+            color: var(--text-primary);
             border: none;
             border-radius: 6px;
             padding: 7px 14px;
             font-size: 13px;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: background var(--transition-speed);
             flex-shrink: 0;
         }
 
-        .chat-send-btn:hover { background: #1d4ed8; }
+        .chat-send-btn:hover { background: #3a8fd4; }
         .chat-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
     </style>
 </head>
@@ -780,7 +785,7 @@
             <p id="summary-car">Машина: —</p>
             <p id="summary-duration">Длительность: —</p>
             <p class="cost" id="summary-cost">$0.00</p>
-            <p id="summary-reason" style="color:#e67e22;font-weight:bold;display:none;"></p>
+            <p id="summary-reason" style="color:var(--accent-warning);font-weight:bold;display:none;"></p>
             <button class="back-btn" id="back-to-main">Вернуться в гараж</button>
         </div>
     </div>
