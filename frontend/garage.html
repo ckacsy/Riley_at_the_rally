@@ -438,34 +438,6 @@
         }
 
         /* =========================================
-           NEWS PANEL (bottom of left panel)
-           ========================================= */
-        .news-panel {
-            flex-shrink: 0; max-height: 180px; display: flex; flex-direction: column;
-            border-top: 1px solid rgba(0, 212, 255, 0.12);
-            background: rgba(0, 212, 255, 0.03);
-        }
-        .left-panel.collapsed .news-panel { display: none; }
-        .news-header {
-            padding: 6px 12px; font-size: 10px; font-weight: bold;
-            text-transform: uppercase; letter-spacing: 1.5px; color: var(--neon-blue);
-            flex-shrink: 0;
-        }
-        .news-scroll {
-            overflow-y: auto; flex: 1;
-            scrollbar-width: thin; scrollbar-color: rgba(0,212,255,0.2) transparent;
-        }
-        .news-scroll::-webkit-scrollbar { width: 3px; }
-        .news-scroll::-webkit-scrollbar-thumb { background: rgba(0,212,255,0.2); border-radius: 2px; }
-        .news-item {
-            padding: 6px 12px; border-bottom: 1px solid rgba(255,255,255,0.05);
-            font-size: 11px; color: rgba(255,255,255,0.7); line-height: 1.4;
-            cursor: pointer; transition: background 0.15s;
-        }
-        .news-item:hover { background: rgba(0, 212, 255, 0.06); }
-        .news-item-date { font-size: 10px; color: rgba(255,255,255,0.35); margin-top: 2px; }
-
-        /* =========================================
            CENTER CTA OVERLAY
            ========================================= */
         .center-cta-wrap {
@@ -959,7 +931,11 @@
         </div>
 
         <div class="panel-tabs">
-            <button class="tab-btn active" data-tab="ratings">
+            <button class="tab-btn active" data-tab="news">
+                <span class="tab-icon">📰</span>
+                <span class="tab-label">Новости</span>
+            </button>
+            <button class="tab-btn" data-tab="ratings">
                 <span class="tab-icon">&#x1F3C6;</span>
                 <span class="tab-label">Рейтинг</span>
             </button>
@@ -979,8 +955,30 @@
 
         <div class="panel-content">
 
+            <!-- Новости -->
+            <div class="tab-content active" id="tab-news">
+                <div class="news-tab-content">
+                    <div class="news-tab-item placeholder">
+                        <span class="news-tab-date">27.03.2026</span>
+                        <span class="news-tab-title">Обновление 1.2: новые трассы</span>
+                        <p class="news-tab-preview">Добавлены 3 новых маршрута и улучшена физика управления…</p>
+                    </div>
+                    <div class="news-tab-item placeholder">
+                        <span class="news-tab-date">20.03.2026</span>
+                        <span class="news-tab-title">Турнир выходного дня</span>
+                        <p class="news-tab-preview">Приглашаем всех участников на еженедельный рейтинговый заезд…</p>
+                    </div>
+                    <div class="news-tab-item placeholder">
+                        <span class="news-tab-date">15.03.2026</span>
+                        <span class="news-tab-title">Технические работы</span>
+                        <p class="news-tab-preview">Плановое обслуживание сервера в субботу с 02:00 до 04:00…</p>
+                    </div>
+                    <span class="placeholder-badge">🚧 Скоро — реальные новости</span>
+                </div>
+            </div>
+
             <!-- Рейтинг -->
-            <div class="tab-content active" id="tab-ratings">
+            <div class="tab-content" id="tab-ratings">
                 <div class="panel-section">
                     <h3>Рейтинг</h3>
                     <div class="placeholder-block">🚧 Рейтинг — в разработке</div>
