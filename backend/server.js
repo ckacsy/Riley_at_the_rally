@@ -171,6 +171,15 @@ db.exec(`
     deleted_by TEXT,
     deleted_at TEXT
   );
+  CREATE TABLE IF NOT EXISTS magic_links (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT NOT NULL,
+    token_hash TEXT UNIQUE NOT NULL,
+    expires_at TEXT NOT NULL,
+    used_at TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_magic_links_token_hash ON magic_links(token_hash);
 `);
 
 // --- DB Migrations (add new columns to existing databases) ---
@@ -287,6 +296,26 @@ const loginLimiter = rateLimit({
   skip: () => process.env.NODE_ENV === 'test',
 });
 
+const magicLinkLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Слишком много запросов. Попробуйте через 15 минут.' },
+  keyGenerator: (req) => req.ip,
+  skip: () => process.env.NODE_ENV === 'test',
+});
+
+const magicVerifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Слишком много попыток. Попробуйте через 15 минут.' },
+  keyGenerator: (req) => req.ip,
+  skip: () => process.env.NODE_ENV === 'test',
+});
+
 // --- Login failure lockout (in-memory per IP) ---
 // NOTE: Resets on server restart. Sufficient for single-process Pi deployment.
 // For multi-instance production, persist to DB or Redis.
@@ -324,6 +353,10 @@ function clearLoginFailures(ip) {
 // In non-production environments, keep the last verification URL per normalised email
 // so the /api/dev/verification-link endpoint can return it when SMTP is unavailable.
 const _devVerificationLinks = process.env.NODE_ENV !== 'production' ? new Map() : null;
+
+// In non-production environments, keep the last magic link URL per normalised email
+// so the /api/dev/magic-link endpoint can return it when SMTP is unavailable.
+const _devMagicLinks = process.env.NODE_ENV !== 'production' ? new Map() : null;
 
 function sendVerificationEmail(email, token, req) {
   const baseUrl = process.env.APP_BASE_URL ||
@@ -376,6 +409,37 @@ function createPasswordResetToken(userId) {
     'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)'
   ).run(userId, tokenHash, expiresAt);
   return rawToken;
+}
+
+function createMagicLinkToken(email) {
+  const emailNorm = normalizeEmail(email);
+  const rawToken = crypto.randomBytes(32).toString('hex');
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 minutes
+  db.prepare('DELETE FROM magic_links WHERE email = ? AND used_at IS NULL').run(emailNorm);
+  db.prepare(
+    'INSERT INTO magic_links (email, token_hash, expires_at) VALUES (?, ?, ?)'
+  ).run(emailNorm, tokenHash, expiresAt);
+  return rawToken;
+}
+
+function sendMagicLinkEmail(email, token, req) {
+  const baseUrl = process.env.APP_BASE_URL ||
+    (req ? `${req.protocol}://${req.get('host')}` : `http://localhost:${PORT}`);
+  const magicUrl = `${baseUrl}/auth/magic?token=${token}`;
+  const subject = 'Вход в Riley at the Rally';
+  const text = `Здравствуйте!\n\nДля входа на сайт перейдите по ссылке:\n${magicUrl}\n\nСсылка действительна 15 минут и может быть использована только один раз.\n\nЕсли вы не запрашивали эту ссылку, просто проигнорируйте это письмо.`;
+  const html = `<p>Здравствуйте!</p><p>Для входа на сайт перейдите по ссылке:</p><p><a href="${magicUrl}">${magicUrl}</a></p><p>Ссылка действительна <strong>15 минут</strong> и может быть использована только один раз.</p><p>Если вы не запрашивали эту ссылку, просто проигнорируйте это письмо.</p>`;
+  if (_devMagicLinks) {
+    _devMagicLinks.set(normalizeEmail(email), magicUrl);
+  }
+  mailer.sendMail({ to: email, subject, text, html }).catch((err) => {
+    console.error('[Mailer] Failed to send magic link email:', err.message);
+    if (_devMagicLinks) {
+      console.error('[Mailer] Tip: set DISABLE_EMAIL=true to print links to console, or fix SMTP env vars.');
+      console.error(`[Mailer] Magic link (dev only): ${magicUrl}`);
+    }
+  });
 }
 
 function saveRentalSession(dbUserId, carId, durationSeconds, cost) {
@@ -453,6 +517,17 @@ setInterval(() => {
   }
   if (changed) broadcastPresenceUpdate();
 }, PRESENCE_STALE_MS);
+
+// Periodic cleanup of expired magic links (older than 24 hours)
+setInterval(() => {
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const result = db.prepare(
+    "DELETE FROM magic_links WHERE expires_at < ?"
+  ).run(cutoff);
+  if (result.changes > 0) {
+    metrics.log('debug', 'magic_links_cleaned', { deleted: result.changes });
+  }
+}, 60 * 60 * 1000); // every hour
 
 // --- Global Chat (DB-backed) ---
 const CHAT_HISTORY_LIMIT = parseInt(process.env.CHAT_HISTORY_LIMIT, 10) || 500;
@@ -879,6 +954,89 @@ app.post('/api/auth/logout', csrfMiddleware, (req, res) => {
   req.session.destroy(() => res.json({ success: true }));
 });
 
+// --- Magic Link authentication ---
+app.post('/api/auth/magic-link', magicLinkLimiter, csrfMiddleware, (req, res) => {
+  const body = req.body || {};
+  const rawEmail = typeof body.email === 'string' ? body.email : '';
+
+  const emailErr = validateEmail(rawEmail);
+  if (emailErr) {
+    return res.status(400).json({ error: emailErr });
+  }
+
+  const emailNorm = normalizeEmail(rawEmail);
+  try {
+    const rawToken = createMagicLinkToken(emailNorm);
+    sendMagicLinkEmail(emailNorm, rawToken, req);
+  } catch (e) {
+    console.error('[magic-link] Error creating/sending magic link:', e.message);
+  }
+
+  // Always return success — do not leak whether email exists
+  res.json({ success: true, message: 'Если этот email зарегистрирован или является новым, вы получите письмо со ссылкой для входа.' });
+});
+
+// Magic link verification route — server-side redirect on success/failure
+app.get('/auth/magic', magicVerifyLimiter, (req, res) => {
+  const rawToken = typeof req.query.token === 'string' ? req.query.token.trim() : '';
+  if (!rawToken) {
+    return res.redirect('/magic-link?error=invalid');
+  }
+
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const record = db.prepare('SELECT * FROM magic_links WHERE token_hash = ?').get(tokenHash);
+
+  if (!record || record.used_at || new Date(record.expires_at) < new Date()) {
+    return res.redirect('/magic-link?error=invalid');
+  }
+
+  // Mark token as used
+  db.prepare('UPDATE magic_links SET used_at = CURRENT_TIMESTAMP WHERE id = ?').run(record.id);
+
+  const emailNorm = record.email;
+
+  // Find or create user
+  let user = db.prepare('SELECT * FROM users WHERE email_normalized = ?').get(emailNorm);
+
+  if (!user) {
+    // Auto-register: generate username from email local part
+    let baseUsername = (emailNorm.split('@')[0].replace(/[^a-z0-9_]/gi, '') || 'user').slice(0, 28);
+    let username = baseUsername;
+    // Ensure uniqueness — prepare statement once outside the loop
+    const checkUsername = db.prepare('SELECT id FROM users WHERE username_normalized = ?');
+    while (checkUsername.get(username.toLowerCase())) {
+      username = baseUsername + Math.floor(1000 + Math.random() * 9000);
+    }
+    try {
+      const result = db.prepare(
+        `INSERT INTO users (username, username_normalized, email, email_normalized, password_hash, status)
+         VALUES (?, ?, ?, ?, '', 'active')`
+      ).run(username, username.toLowerCase(), emailNorm, emailNorm);
+      user = db.prepare('SELECT * FROM users WHERE id = ?').get(result.lastInsertRowid);
+    } catch (e) {
+      console.error('[magic-link] Failed to create user:', e.message);
+      return res.redirect('/magic-link?error=invalid');
+    }
+  } else {
+    db.prepare('UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?').run(user.id);
+  }
+
+  req.session.regenerate((err) => {
+    if (err) {
+      console.error('[magic-link] Session regeneration error:', err.message);
+      return res.redirect('/magic-link?error=invalid');
+    }
+    req.session.userId = user.id;
+    req.session.csrfToken = generateCsrfToken();
+    // Validate redirect: must be a relative path (starts with / but not //)
+    const rawRedirect = typeof req.query.redirect === 'string' ? req.query.redirect : '';
+    const redirect = (rawRedirect.startsWith('/') && !rawRedirect.startsWith('//'))
+      ? rawRedirect
+      : '/garage';
+    res.redirect(redirect);
+  });
+});
+
 // General API rate limiter for authenticated read endpoints
 const apiReadLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -1231,6 +1389,10 @@ app.get('/forgot-password', pageRateLimit, (req, res) => {
 
 app.get('/reset-password', pageRateLimit, (req, res) => {
   res.sendFile(path.join(frontendDir, 'reset-password.html'));
+});
+
+app.get('/magic-link', pageRateLimit, (req, res) => {
+  res.sendFile(path.join(frontendDir, 'magic-link.html'));
 });
 
 app.get('/garage', pageRateLimit, (req, res) => {
@@ -1743,20 +1905,39 @@ if (process.env.NODE_ENV !== 'production') {
     return res.json({ verificationLink: link });
   });
 
+  // Dev helper: retrieve the last magic link URL for a given email.
+  // Useful when SMTP is misconfigured and emails cannot be delivered.
+  app.get('/api/dev/magic-link', devLimiter, (req, res) => {
+    const rawEmail = typeof req.query.email === 'string' ? req.query.email.trim() : '';
+    if (!rawEmail) {
+      return res.status(400).json({ error: 'Query param "email" is required' });
+    }
+    const emailNorm = normalizeEmail(rawEmail);
+    const link = _devMagicLinks && _devMagicLinks.get(emailNorm);
+    if (!link) {
+      return res.status(404).json({
+        error: 'No magic link in memory. Request a magic link first via POST /api/auth/magic-link.',
+      });
+    }
+    return res.json({ magicLink: link });
+  });
+
   app.post('/api/dev/reset-db', (req, res) => {
     try {
       db.transaction(() => {
         db.exec('DELETE FROM email_verification_tokens');
         db.exec('DELETE FROM password_reset_tokens');
+        db.exec('DELETE FROM magic_links');
         db.exec('DELETE FROM lap_times');
         db.exec('DELETE FROM rental_sessions');
         db.exec('DELETE FROM chat_messages');
         db.exec('DELETE FROM users');
         // Reset autoincrement counters
-        db.exec("DELETE FROM sqlite_sequence WHERE name IN ('users','lap_times','rental_sessions','email_verification_tokens','password_reset_tokens','chat_messages')");
+        db.exec("DELETE FROM sqlite_sequence WHERE name IN ('users','lap_times','rental_sessions','email_verification_tokens','password_reset_tokens','chat_messages','magic_links')");
       })();
       req.session.destroy((err) => { if (err) console.error('Session destroy error:', err); });
       if (_devVerificationLinks) _devVerificationLinks.clear();
+      if (_devMagicLinks) _devMagicLinks.clear();
       // Clear in-memory driver presence
       for (const timer of presenceGraceTimers.values()) clearTimeout(timer);
       presenceGraceTimers.clear();
