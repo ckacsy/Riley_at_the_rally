@@ -1265,6 +1265,36 @@
     <!-- Socket.io (served by backend) -->
     <script src="/socket.io/socket.io.js"></script>
 
+    <!-- Fallback detection — runs immediately, before module scripts -->
+    <script>
+    (function() {
+        var forceFallback = new URLSearchParams(window.location.search).get('forceFallback') === '1';
+        function hasWebGL() {
+            try {
+                var c = document.createElement('canvas');
+                return !!(window.WebGLRenderingContext &&
+                    (c.getContext('webgl') || c.getContext('experimental-webgl')));
+            } catch (e) { return false; }
+        }
+        window.__garageNeedsWebGLFallback = !hasWebGL() || forceFallback;
+        if (window.__garageNeedsWebGLFallback) {
+            var fb = document.getElementById('webgl-fallback');
+            var sl = document.getElementById('scene-loading');
+            if (fb) fb.classList.add('active');
+            if (sl) sl.classList.add('hidden');
+        }
+        // Safety net: if module script hasn't hidden the loader within 8s, force-hide it
+        setTimeout(function() {
+            var loader = document.getElementById('scene-loading');
+            var fallback = document.getElementById('webgl-fallback');
+            if (loader && !loader.classList.contains('hidden')) {
+                loader.classList.add('hidden');
+                if (fallback) fallback.classList.add('active');
+            }
+        }, 8000);
+    })();
+    </script>
+
     <!-- Three.js importmap (local vendor, no CDN) -->
     <script type="importmap">
     {
@@ -1303,19 +1333,7 @@
         window.CAR_VARIANTS_REF = CAR_VARIANTS;
         window._activeVariant = 0;
 
-        function hasWebGL() {
-            try {
-                const c = document.createElement('canvas');
-                return !!(window.WebGLRenderingContext &&
-                    (c.getContext('webgl') || c.getContext('experimental-webgl')));
-            } catch (e) { return false; }
-        }
-
-        const forceFallback = new URLSearchParams(window.location.search).get('forceFallback') === '1';
-
-        if (!hasWebGL() || forceFallback) {
-            document.getElementById('webgl-fallback').classList.add('active');
-            document.getElementById('scene-loading').classList.add('hidden');
+        if (window.__garageNeedsWebGLFallback) {
             renderCarousel();
             const v0 = CAR_VARIANTS[0];
             document.getElementById('car-title').textContent = 'Riley-X1 \u00b7 ' + v0.name;
