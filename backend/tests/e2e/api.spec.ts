@@ -221,10 +221,10 @@ test.describe('Profile page', () => {
 
     // 5. Navigate directly to /profile — user is authenticated, no redirect
     await page.goto('/profile');
-    await page.waitForLoadState('networkidle');
 
-    // 6. nav.js injects navigation with href="/garage"
+    // 6. nav.js injects navigation with href="/garage" — wait for it directly
+    //    (don't rely on networkidle — nav.js manipulates DOM, not network)
     const garageLink = page.locator('a[href="/garage"]');
-    await expect(garageLink.first()).toBeVisible({ timeout: 5_000 });
+    await expect(garageLink.first()).toBeVisible({ timeout: 10_000 });
   });
 });

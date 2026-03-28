@@ -678,6 +678,14 @@ if (process.env.NODE_ENV !== 'production') {
       req.session.destroy((err) => { if (err) console.error('Session destroy error:', err); });
       if (_devVerificationLinks) _devVerificationLinks.clear();
       if (_devMagicLinks) _devMagicLinks.clear();
+      // Clear active rental sessions and their associated timeouts
+      for (const [sid] of socketState.activeSessions) {
+        socketState.clearInactivityTimeout(sid);
+        socketState.clearSessionDurationTimeout(sid);
+      }
+      socketState.activeSessions.clear();
+      // Clear race rooms
+      socketState.raceRooms.clear();
       // Clear in-memory driver presence
       for (const timer of socketState.presenceGraceTimers.values()) clearTimeout(timer);
       socketState.presenceGraceTimers.clear();
@@ -685,6 +693,8 @@ if (process.env.NODE_ENV !== 'production') {
       socketState.broadcastPresenceUpdate();
       // Clear chat rate limits (messages already removed from DB above)
       socketState.chatRateLimits.clear();
+      // Broadcast clean car state to all connected sockets
+      socketState.broadcastCarsUpdate();
       console.log('[DEV] Database reset: all users and sessions deleted.');
       res.json({ success: true, message: 'Database reset: all users, sessions and tokens deleted.' });
     } catch (e) {
