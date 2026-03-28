@@ -142,6 +142,9 @@ test.describe('Global chat', () => {
       const userB = await registerUser(pageA, 'chat_userB', 'chatB@example.com', 'Secure#Pass1');
       await activateUser(pageA, userB.username);
 
+      // Re-login user A on pageA (registerUser(B) overwrote the session)
+      await loginUser(pageA, userA.username, 'Secure#Pass1');
+
       // Login B on pageB
       await loginUser(pageB, userB.username, 'Secure#Pass1');
 
@@ -206,6 +209,9 @@ test.describe('Global chat', () => {
 
       const userB = await registerUser(pageA, 'chat_replyB', 'chatReplyB@example.com', 'Secure#Pass1');
       await activateUser(pageA, userB.username);
+
+      // Re-login user A on pageA (registerUser(B) overwrote the session)
+      await loginUser(pageA, userA.username, 'Secure#Pass1');
 
       // Login B on pageB
       await loginUser(pageB, userB.username, 'Secure#Pass1');

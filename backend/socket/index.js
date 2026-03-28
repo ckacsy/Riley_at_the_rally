@@ -23,6 +23,7 @@ const { performance } = require('perf_hooks');
  *             presenceGraceTimers: Map, chatRateLimits: Map,
  *             broadcastPresenceUpdate: Function,
  *             clearInactivityTimeout: Function,
+ *             clearSessionDurationTimeout: Function,
  *             broadcastCarsUpdate: Function }}
  */
 function setupSocketIo(io, deps) {
@@ -747,6 +748,7 @@ function setupSocketIo(io, deps) {
     chatRateLimits,
     broadcastPresenceUpdate,
     clearInactivityTimeout,
+    clearSessionDurationTimeout,
     broadcastCarsUpdate,
   };
 }

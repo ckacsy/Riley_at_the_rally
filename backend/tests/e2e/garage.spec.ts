@@ -178,6 +178,8 @@ test.describe('Garage WoT-style UI blocks', () => {
   test('news panel is visible', async ({ page }) => {
     await page.goto('/garage?forceFallback=1');
     const newsPanel = page.locator('#news-panel');
+    await newsPanel.waitFor({ state: 'attached', timeout: UI_TIMEOUT });
+    await newsPanel.scrollIntoViewIfNeeded();
     await expect(newsPanel).toBeVisible({ timeout: UI_TIMEOUT });
   });
 
@@ -190,6 +192,8 @@ test.describe('Garage WoT-style UI blocks', () => {
   test('upgrades grid is visible and has 6 items', async ({ page }) => {
     await page.goto('/garage?forceFallback=1');
     const grid = page.locator('#upgrades-grid');
+    await grid.waitFor({ state: 'attached', timeout: UI_TIMEOUT });
+    await grid.scrollIntoViewIfNeeded();
     await expect(grid).toBeVisible({ timeout: UI_TIMEOUT });
     const items = grid.locator('.upgrade-item');
     await expect(items).toHaveCount(6);
@@ -233,6 +237,8 @@ test.describe('Garage WoT-style UI blocks', () => {
   test('upgrades section title is "Комплектующие"', async ({ page }) => {
     await page.goto('/garage?forceFallback=1');
     const title = page.locator('#upgrades-section .rp-title');
+    await title.waitFor({ state: 'attached', timeout: UI_TIMEOUT });
+    await title.scrollIntoViewIfNeeded();
     await expect(title).toHaveText('Комплектующие', { timeout: UI_TIMEOUT });
   });
 
@@ -244,6 +250,9 @@ test.describe('Garage WoT-style UI blocks', () => {
 
   test('upgrade items have rarity classes', async ({ page }) => {
     await page.goto('/garage?forceFallback=1');
+    const firstItem = page.locator('.upgrade-item').first();
+    await firstItem.waitFor({ state: 'attached', timeout: UI_TIMEOUT });
+    await firstItem.scrollIntoViewIfNeeded();
     await expect(page.locator('.upgrade-item.rarity-legendary')).toHaveCount(1);
     await expect(page.locator('.upgrade-item.rarity-epic')).toHaveCount(1);
     await expect(page.locator('.upgrade-item.rarity-rare')).toHaveCount(2);
