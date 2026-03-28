@@ -1,3 +1,23 @@
+// Must be first: override DNS so Node.js can resolve hostnames in VPN/Docker/WSL
+// environments where the system resolver is broken for the Node.js process.
+// Configurable via DNS_SERVERS env var (comma-separated IPs).
+{
+  const dns = require('dns');
+  // Basic IPv4/IPv6 validation — reject non-IP entries (hostnames, empty strings, etc.)
+  const isValidIP = s => /^(\d{1,3}\.){3}\d{1,3}$/.test(s) || /^[0-9a-fA-F:]+$/.test(s);
+  const servers = (process.env.DNS_SERVERS || '8.8.8.8,8.8.4.4')
+    .split(',')
+    .map(s => s.trim())
+    .filter(isValidIP);
+  if (servers.length > 0) {
+    try {
+      dns.setServers(servers);
+    } catch (e) {
+      console.warn('[DNS] Failed to set DNS servers — check DNS_SERVERS environment variable:', e.message);
+    }
+  }
+}
+
 const express = require('express');
 const http = require('http');
 const https = require('https');

@@ -68,6 +68,22 @@ NODE_ENV=production
 APP_BASE_URL=https://your-domain.com
 ```
 
+#### DNS resolution behind VPN / Docker / WSL
+
+In some environments (Outline VPN, Docker, WSL) the system DNS resolver is reachable from `nslookup` or PowerShell but **not** from the Node.js process itself.  The server automatically overrides the DNS servers used by Node.js to avoid this issue.
+
+The default DNS servers are `8.8.8.8` and `8.8.4.4` (Google Public DNS).  You can override them with the `DNS_SERVERS` variable:
+
+```env
+# Comma-separated list of IP addresses
+DNS_SERVERS=8.8.8.8,8.8.4.4
+```
+
+If you see an error like `queryA ETIMEOUT smtp.gmail.com` when starting the server, ensure you are either:
+- Connected to a network where outbound DNS (UDP 53) is not blocked, **or**
+- Set `DNS_SERVERS` in your `.env` to working public DNS servers, **or**
+- Set `DISABLE_EMAIL=true` so SMTP is not attempted.
+
 #### Switching between dev mode and production email
 
 | Mode | Behaviour | How to enable |
