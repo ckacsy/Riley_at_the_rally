@@ -22,14 +22,19 @@ let _transporter = null;
 
 function getTransporter() {
   if (_transporter) return _transporter;
+  const smtpHost = process.env.SMTP_HOST || 'localhost';
+  const tlsOpts = { rejectUnauthorized: true };
+  if (process.env.SMTP_TLS_SERVERNAME) {
+    tlsOpts.servername = process.env.SMTP_TLS_SERVERNAME;
+  }
   _transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'localhost',
+    host: smtpHost,
     port: parseInt(process.env.SMTP_PORT || '587', 10),
     secure: process.env.SMTP_SECURE === 'true',
     auth: process.env.SMTP_USER
       ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS || '' }
       : undefined,
-    tls: { rejectUnauthorized: true },
+    tls: tlsOpts,
   });
   return _transporter;
 }

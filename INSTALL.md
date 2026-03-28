@@ -84,6 +84,15 @@ If you see an error like `queryA ETIMEOUT smtp.gmail.com` when starting the serv
 - Set `DNS_SERVERS` in your `.env` to working public DNS servers, **or**
 - Set `DISABLE_EMAIL=true` so SMTP is not attempted.
 
+If DNS resolution is completely broken in your environment, you can connect by IP address instead of hostname.  First find the IP of `smtp.gmail.com` (e.g. `nslookup smtp.gmail.com` on another machine), then set:
+
+```env
+SMTP_HOST=142.250.102.108        # resolved IP of smtp.gmail.com
+SMTP_TLS_SERVERNAME=smtp.gmail.com  # tells TLS to validate the certificate as smtp.gmail.com
+```
+
+`SMTP_TLS_SERVERNAME` is only needed when `SMTP_HOST` is an IP address; it lets Node.js validate the server's TLS certificate against the real hostname instead of the IP.
+
 #### Switching between dev mode and production email
 
 | Mode | Behaviour | How to enable |
