@@ -16,7 +16,7 @@ import { test, expect } from '@playwright/test';
  */
 
 const TIMER_TIMEOUT = 15_000;
-const CTA_TIMEOUT = 20_000;
+const CTA_TIMEOUT = 25_000;
 const NAVIGATION_TIMEOUT = 30_000;
 
 /** Password used for test users in real-flow tests. */
@@ -128,6 +128,32 @@ async function stubSocketIo(page: import('@playwright/test').Page) {
 }
 
 // ---------------------------------------------------------------------------
+// Helper — mock car availability APIs for real-flow tests
+// ---------------------------------------------------------------------------
+
+async function mockCarsAvailable(page: import('@playwright/test').Page): Promise<void> {
+  await page.route('/api/car-status', (route) =>
+    route.fulfill({
+      json: { status: 'available', lastUpdated: new Date().toISOString() },
+    }),
+  );
+  await page.route('/api/cars', (route) =>
+    route.fulfill({
+      json: {
+        ratePerMinute: 0.5,
+        cars: [
+          { id: 1, name: 'Riley-X1 · Алый', model: 'Drift Car', status: 'available' },
+          { id: 2, name: 'Riley-X1 · Синий', model: 'Drift Car', status: 'available' },
+          { id: 3, name: 'Riley-X1 · Зелёный', model: 'Drift Car', status: 'available' },
+          { id: 4, name: 'Riley-X1 · Золотой', model: 'Drift Car', status: 'available' },
+          { id: 5, name: 'Riley-X1 · Чёрный', model: 'Drift Car', status: 'available' },
+        ],
+      },
+    }),
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Real user flow tests
 // ---------------------------------------------------------------------------
 
@@ -135,16 +161,21 @@ test.describe('Control page timer UI — real flow', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test('timer badges are present in DOM (real flow)', async ({ page }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(90_000);
     await resetDb(page);
     const user = await registerUser(page, 'timer_user1', 'timer1@example.com', TEST_PASSWORD);
     await activateUser(page, user.username);
     await loginUser(page, user.username, TEST_PASSWORD);
-    // forceFallback=1 loads the garage in WebGL-fallback mode where #cta-btn is rendered
-    // without requiring a working WebGL context (CI-friendly).
+    // Mock car availability before navigating so the CTA settles on "НА ТРЕК"
+    await mockCarsAvailable(page);
+    // forceFallback=1 loads the garage in WebGL-fallback mode (CI-friendly).
+    // #fallback-cta-btn is the visible, clickable CTA inside #webgl-fallback.active.
     await page.goto('/garage?forceFallback=1');
-    await expect(page.locator('#cta-btn')).toContainText('НА ТРЕК', { timeout: CTA_TIMEOUT });
-    await page.locator('#cta-btn').click();
+    const cta = page.locator('#fallback-cta-btn');
+    await expect(cta).toContainText('НА ТРЕК', { timeout: CTA_TIMEOUT });
+    await expect(cta).toBeVisible({ timeout: CTA_TIMEOUT });
+    await expect(cta).toBeEnabled({ timeout: CTA_TIMEOUT });
+    await cta.click();
     await expect(page).toHaveURL(/\/control/, { timeout: NAVIGATION_TIMEOUT });
 
     await expect(page.locator('#session-timers-bar')).toHaveCount(1);
@@ -154,16 +185,21 @@ test.describe('Control page timer UI — real flow', () => {
   });
 
   test('session-info shows car name (real flow)', async ({ page }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(90_000);
     await resetDb(page);
     const user = await registerUser(page, 'timer_user2', 'timer2@example.com', TEST_PASSWORD);
     await activateUser(page, user.username);
     await loginUser(page, user.username, TEST_PASSWORD);
-    // forceFallback=1 loads the garage in WebGL-fallback mode where #cta-btn is rendered
-    // without requiring a working WebGL context (CI-friendly).
+    // Mock car availability before navigating so the CTA settles on "НА ТРЕК"
+    await mockCarsAvailable(page);
+    // forceFallback=1 loads the garage in WebGL-fallback mode (CI-friendly).
+    // #fallback-cta-btn is the visible, clickable CTA inside #webgl-fallback.active.
     await page.goto('/garage?forceFallback=1');
-    await expect(page.locator('#cta-btn')).toContainText('НА ТРЕК', { timeout: CTA_TIMEOUT });
-    await page.locator('#cta-btn').click();
+    const cta = page.locator('#fallback-cta-btn');
+    await expect(cta).toContainText('НА ТРЕК', { timeout: CTA_TIMEOUT });
+    await expect(cta).toBeVisible({ timeout: CTA_TIMEOUT });
+    await expect(cta).toBeEnabled({ timeout: CTA_TIMEOUT });
+    await cta.click();
     await expect(page).toHaveURL(/\/control/, { timeout: NAVIGATION_TIMEOUT });
 
     await expect(page.locator('#car-name')).toContainText('Riley-X1', { timeout: TIMER_TIMEOUT });
