@@ -1,5 +1,54 @@
 import { test, expect } from '@playwright/test';
 
+async function resetDb(page: import('@playwright/test').Page): Promise<void> {
+  await page.request.post('/api/dev/reset-db');
+}
+
+async function getCsrfToken(page: import('@playwright/test').Page): Promise<string> {
+  const res = await page.request.get('/api/csrf-token');
+  const body = await res.json();
+  return body.csrfToken as string;
+}
+
+async function registerUser(
+  page: import('@playwright/test').Page,
+  username: string,
+  email: string,
+  password: string,
+): Promise<{ id: number; username: string; status: string }> {
+  const csrfToken = await getCsrfToken(page);
+  const res = await page.request.post('/api/auth/register', {
+    data: { username, email, password, confirm_password: password },
+    headers: { 'X-CSRF-Token': csrfToken },
+  });
+  expect(res.status(), `register failed: ${await res.text()}`).toBe(200);
+  const body = await res.json();
+  return body.user;
+}
+
+async function activateUser(
+  page: import('@playwright/test').Page,
+  username: string,
+): Promise<void> {
+  const res = await page.request.post('/api/dev/activate-user', {
+    data: { username },
+  });
+  expect(res.status(), `activateUser failed: ${await res.text()}`).toBe(200);
+}
+
+async function loginUser(
+  page: import('@playwright/test').Page,
+  identifier: string,
+  password: string,
+): Promise<void> {
+  const csrfToken = await getCsrfToken(page);
+  const res = await page.request.post('/api/auth/login', {
+    data: { identifier, password },
+    headers: { 'X-CSRF-Token': csrfToken },
+  });
+  expect(res.status(), `login failed: ${await res.text()}`).toBe(200);
+}
+
 /**
  * Server route availability and core API endpoint tests.
  *
@@ -157,21 +206,24 @@ test.describe('Leaderboard page (index.html)', () => {
 });
 
 test.describe('Profile page', () => {
-  test('profile page "home" link points to /garage', async ({ page, request }) => {
-    // Register + activate + login
-    await request.post('/api/dev/reset-db');
-    await request.post('/api/auth/register', {
-      data: { username: 'navtest', email: 'navtest@example.com', password: 'Secure#Pass1' },
-    });
-    await request.post('/api/dev/activate-user', { data: { username: 'navtest' } });
-    await page.goto('/login');
-    await page.fill('#identifier', 'navtest');
-    await page.fill('#password', 'Secure#Pass1');
-    await page.click('button[type="submit"]');
-    await page.waitForURL(/\/(garage|profile)/, { timeout: 10_000 });
+  test('profile page "home" link points to /garage', async ({ page }) => {
+    // 1. Reset DB
+    await resetDb(page);
 
+    // 2. Register user via API (sets session cookie on page)
+    const user = await registerUser(page, 'navtest', 'navtest@example.com', 'Secure#Pass1');
+
+    // 3. Activate (bypass email verification)
+    await activateUser(page, user.username);
+
+    // 4. Login via API (cookie jar shared with page — no form interaction needed)
+    await loginUser(page, user.username, 'Secure#Pass1');
+
+    // 5. Navigate directly to /profile — user is authenticated, no redirect
     await page.goto('/profile');
     await page.waitForLoadState('networkidle');
+
+    // 6. nav.js injects navigation with href="/garage"
     const garageLink = page.locator('a[href="/garage"]');
     await expect(garageLink.first()).toBeVisible({ timeout: 5_000 });
   });
