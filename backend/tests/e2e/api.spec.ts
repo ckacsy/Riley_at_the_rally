@@ -157,11 +157,13 @@ test.describe('Leaderboard page (index.html)', () => {
 });
 
 test.describe('Profile page', () => {
-  test('profile page "home" link points to /garage', async ({ request }) => {
-    const res = await request.get('/profile');
-    const body = await res.text();
-    // The "back" link should point to /garage, not /
-    expect(body).toContain('href="/garage"');
-    expect(body).not.toContain('href="/"');
+  test('profile page "home" link points to /garage', async ({ page }) => {
+    await page.goto('/profile');
+    // nav.js injects navigation with href="/garage" after JS execution
+    const garageLink = page.locator('a[href="/garage"]');
+    await expect(garageLink.first()).toBeVisible({ timeout: 5_000 });
+    // Ensure no link points to bare "/"
+    const rootLinks = await page.locator('a[href="/"]').count();
+    expect(rootLinks).toBe(0);
   });
 });

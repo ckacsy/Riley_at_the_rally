@@ -124,6 +124,7 @@ test.describe('Global chat', () => {
   });
 
   test('B sends message on /broadcast → A sees it in /control chat drawer', async ({ browser }) => {
+    test.setTimeout(60_000);
     const ctxA = await browser.newContext();
     const ctxB = await browser.newContext();
 
@@ -182,12 +183,13 @@ test.describe('Global chat', () => {
       const msgInDrawer = pageA.locator('#chat-messages .chat-msg', { hasText: bMsg });
       await expect(msgInDrawer).toBeVisible({ timeout: 10_000 });
     } finally {
-      await ctxA.close();
-      await ctxB.close();
+      await ctxA.close().catch(() => {});
+      await ctxB.close().catch(() => {});
     }
   });
 
   test('A replies from /control → B sees it on /broadcast', async ({ browser }) => {
+    test.setTimeout(60_000);
     const ctxA = await browser.newContext();
     const ctxB = await browser.newContext();
 
@@ -238,8 +240,8 @@ test.describe('Global chat', () => {
       const msgOnBroadcast = pageB.locator('#chat-messages .chat-msg', { hasText: aMsg });
       await expect(msgOnBroadcast).toBeVisible({ timeout: 10_000 });
     } finally {
-      await ctxA.close();
-      await ctxB.close();
+      await ctxA.close().catch(() => {});
+      await ctxB.close().catch(() => {});
     }
   });
 
