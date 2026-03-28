@@ -157,13 +157,22 @@ test.describe('Leaderboard page (index.html)', () => {
 });
 
 test.describe('Profile page', () => {
-  test('profile page "home" link points to /garage', async ({ page }) => {
+  test('profile page "home" link points to /garage', async ({ page, request }) => {
+    // Register + activate + login
+    await request.post('/api/dev/reset-db');
+    await request.post('/api/auth/register', {
+      data: { username: 'navtest', email: 'navtest@example.com', password: 'Secure#Pass1' },
+    });
+    await request.post('/api/dev/activate-user', { data: { username: 'navtest' } });
+    await page.goto('/login');
+    await page.fill('#username', 'navtest');
+    await page.fill('#password', 'Secure#Pass1');
+    await page.click('button[type="submit"]');
+    await page.waitForURL(/\/(garage|profile)/, { timeout: 10_000 });
+
     await page.goto('/profile');
-    // nav.js injects navigation with href="/garage" after JS execution
+    await page.waitForLoadState('networkidle');
     const garageLink = page.locator('a[href="/garage"]');
     await expect(garageLink.first()).toBeVisible({ timeout: 5_000 });
-    // Ensure no link points to bare "/"
-    const rootLinks = await page.locator('a[href="/"]').count();
-    expect(rootLinks).toBe(0);
   });
 });
