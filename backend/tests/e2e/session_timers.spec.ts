@@ -3,13 +3,77 @@ import { test, expect } from '@playwright/test';
 /**
  * Session timer and warning banner tests for the control page.
  *
- * These tests simulate an active session by injecting sessionStorage data
- * and mocking the socket `session_started` event to provide short timeout
- * values so that countdown timers and warning banners can be tested without
- * waiting for real backend timeouts.
+ * The first two tests ("timer badges are present in DOM" and "session-info
+ * shows car name") go through the REAL user flow:
+ *   register → activate → login → /garage → "НА ТРЕК" → /control.
+ *
+ * The remaining tests (countdown display, warning banner, disappearance)
+ * use the original inject+stub approach because they need to manipulate
+ * DOM state that only appears under specific timing conditions.
+ *
+ * The redirect-guard test verifies that visiting /control without an
+ * activeSession bounces the user to /garage.
  */
 
-const TIMER_TIMEOUT = 10_000;
+const TIMER_TIMEOUT = 15_000;
+const CTA_TIMEOUT = 20_000;
+const NAVIGATION_TIMEOUT = 30_000;
+
+/** Password used for test users in real-flow tests. */
+const TEST_PASSWORD = 'Secure#Pass1';
+
+// ---------------------------------------------------------------------------
+// Helpers — real user flow
+// ---------------------------------------------------------------------------
+
+async function resetDb(page: import('@playwright/test').Page): Promise<void> {
+  await page.request.post('/api/dev/reset-db');
+}
+
+async function getCsrfToken(page: import('@playwright/test').Page): Promise<string> {
+  const res = await page.request.get('/api/csrf-token');
+  const body = await res.json();
+  return body.csrfToken as string;
+}
+
+async function registerUser(
+  page: import('@playwright/test').Page,
+  username: string,
+  email: string,
+  password: string,
+): Promise<{ id: number; username: string; status: string }> {
+  const csrfToken = await getCsrfToken(page);
+  const res = await page.request.post('/api/auth/register', {
+    data: { username, email, password, confirm_password: password },
+    headers: { 'X-CSRF-Token': csrfToken },
+  });
+  expect(res.status(), `register failed: ${await res.text()}`).toBe(200);
+  const body = await res.json();
+  return body.user;
+}
+
+async function activateUser(
+  page: import('@playwright/test').Page,
+  username: string,
+): Promise<void> {
+  const res = await page.request.post('/api/dev/activate-user', {
+    data: { username },
+  });
+  expect(res.status(), `activateUser failed: ${await res.text()}`).toBe(200);
+}
+
+async function loginUser(
+  page: import('@playwright/test').Page,
+  identifier: string,
+  password: string,
+): Promise<void> {
+  const csrfToken = await getCsrfToken(page);
+  const res = await page.request.post('/api/auth/login', {
+    data: { identifier, password },
+    headers: { 'X-CSRF-Token': csrfToken },
+  });
+  expect(res.status(), `login failed: ${await res.text()}`).toBe(200);
+}
 
 /**
  * Inject a fake active session into sessionStorage so that /control
@@ -63,37 +127,54 @@ async function stubSocketIo(page: import('@playwright/test').Page) {
   await page.route('**/socket.io/?**', (route) => route.abort());
 }
 
-test.describe('Control page timer UI', () => {
-  test('timer badges are present in DOM', async ({ page }) => {
-    await injectFakeSession(page);
-    // Block socket connection so we don't accidentally trigger real session logic
-    await stubSocketIo(page);
-    await page.goto('/control');
-    await page.waitForLoadState('domcontentloaded');
-    await expect(page).toHaveURL(/\/control/);
+// ---------------------------------------------------------------------------
+// Real user flow tests
+// ---------------------------------------------------------------------------
 
-    // Timer bar element should be in DOM (hidden by default until session_started)
+test.describe('Control page timer UI — real flow', () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test('timer badges are present in DOM (real flow)', async ({ page }) => {
+    test.setTimeout(60_000);
+    await resetDb(page);
+    const user = await registerUser(page, 'timer_user1', 'timer1@example.com', TEST_PASSWORD);
+    await activateUser(page, user.username);
+    await loginUser(page, user.username, TEST_PASSWORD);
+    // forceFallback=1 loads the garage in WebGL-fallback mode where #cta-btn is rendered
+    // without requiring a working WebGL context (CI-friendly).
+    await page.goto('/garage?forceFallback=1');
+    await expect(page.locator('#cta-btn')).toContainText('НА ТРЕК', { timeout: CTA_TIMEOUT });
+    await page.locator('#cta-btn').click();
+    await expect(page).toHaveURL(/\/control/, { timeout: NAVIGATION_TIMEOUT });
+
     await expect(page.locator('#session-timers-bar')).toHaveCount(1);
-
-    // Both timer countdown elements should exist
     await expect(page.locator('#max-timer-countdown')).toHaveCount(1);
     await expect(page.locator('#inactivity-timer-countdown')).toHaveCount(1);
-
-    // Warning banner should exist in DOM
     await expect(page.locator('#session-warning-banner')).toHaveCount(1);
   });
 
-  test('session-info shows car name', async ({ page }) => {
-    await injectFakeSession(page);
-    await stubSocketIo(page);
-    await page.goto('/control');
-    await page.waitForLoadState('domcontentloaded');
-    await expect(page).toHaveURL(/\/control/);
+  test('session-info shows car name (real flow)', async ({ page }) => {
+    test.setTimeout(60_000);
+    await resetDb(page);
+    const user = await registerUser(page, 'timer_user2', 'timer2@example.com', TEST_PASSWORD);
+    await activateUser(page, user.username);
+    await loginUser(page, user.username, TEST_PASSWORD);
+    // forceFallback=1 loads the garage in WebGL-fallback mode where #cta-btn is rendered
+    // without requiring a working WebGL context (CI-friendly).
+    await page.goto('/garage?forceFallback=1');
+    await expect(page.locator('#cta-btn')).toContainText('НА ТРЕК', { timeout: CTA_TIMEOUT });
+    await page.locator('#cta-btn').click();
+    await expect(page).toHaveURL(/\/control/, { timeout: NAVIGATION_TIMEOUT });
 
-    const carName = page.locator('#car-name');
-    await expect(carName).toHaveText('Test Car', { timeout: TIMER_TIMEOUT });
+    await expect(page.locator('#car-name')).toContainText('Riley-X1', { timeout: TIMER_TIMEOUT });
   });
+});
 
+// ---------------------------------------------------------------------------
+// Stubbed tests (timing-dependent DOM states)
+// ---------------------------------------------------------------------------
+
+test.describe('Control page timer UI — stubbed', () => {
   test('timer badges become visible and show countdown when session_started fires with short timers', async ({
     page,
   }) => {
@@ -181,7 +262,13 @@ test.describe('Control page timer UI', () => {
 
     await expect(page.locator('#session-warning-banner')).toBeHidden();
   });
+});
 
+// ---------------------------------------------------------------------------
+// Redirect guard
+// ---------------------------------------------------------------------------
+
+test.describe('Control page redirect guard', () => {
   test('redirects to /garage when no active session exists', async ({ page }) => {
     // Do NOT inject a fake session — sessionStorage is empty
     await page.goto('/control');
