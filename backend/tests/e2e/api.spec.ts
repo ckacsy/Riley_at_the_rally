@@ -165,7 +165,7 @@ test.describe('Profile page', () => {
     });
     await request.post('/api/dev/activate-user', { data: { username: 'navtest' } });
     await page.goto('/login');
-    await page.fill('#username', 'navtest');
+    await page.fill('#identifier', 'navtest');
     await page.fill('#password', 'Secure#Pass1');
     await page.click('button[type="submit"]');
     await page.waitForURL(/\/(garage|profile)/, { timeout: 10_000 });
