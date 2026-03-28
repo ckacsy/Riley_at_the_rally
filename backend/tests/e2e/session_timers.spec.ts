@@ -34,37 +34,42 @@ async function injectFakeSession(page: import('@playwright/test').Page) {
 }
 
 /**
- * Intercept the socket.io connection and emit a fake `session_started`
- * event with very short timeouts to allow testing countdown and warning UI.
- *
- * We inject a script that overrides the Socket.io `on('connect')` callback
- * to emit a synthetic `session_started` event with short durations.
+ * Serve a minimal Socket.IO stub so that window.io is defined and the inline
+ * script in control.html can execute without a real WebSocket connection.
+ * Polling/websocket transport requests are aborted separately.
  */
-async function injectShortTimerSession(
-  page: import('@playwright/test').Page,
-  sessionMaxDurationMs: number,
-  inactivityTimeoutMs: number,
-) {
-  await page.addInitScript(
-    ({ maxMs, inactMs }) => {
-      // Patch Socket.io to intercept the 'session_started' event
-      // by overriding the global io() call.
-      const _origIo = (window as any).io;
-      // We'll patch after socket.io loads: use a MutationObserver / polling
-      // approach by storing the values and triggering them on socket connect.
-      (window as any).__testSessionMaxDurationMs = maxMs;
-      (window as any).__testInactivityTimeoutMs = inactMs;
-    },
-    { maxMs: sessionMaxDurationMs, inactMs: inactivityTimeoutMs },
+async function stubSocketIo(page: import('@playwright/test').Page) {
+  await page.route('**/socket.io/socket.io.js', (route) =>
+    route.fulfill({
+      contentType: 'application/javascript',
+      body: `
+        window.io = function() {
+          var handlers = {};
+          var socket = {
+            on: function(ev, fn) { handlers[ev] = fn; },
+            emit: function() {},
+            off: function() {},
+            connect: function() {},
+            disconnect: function() {},
+            connected: false,
+            id: null,
+          };
+          return socket;
+        };
+      `,
+    }),
   );
+  // Absorb polling/websocket transport requests safely
+  await page.route('**/socket.io/?**', (route) => route.abort());
 }
 
 test.describe('Control page timer UI', () => {
   test('timer badges are present in DOM', async ({ page }) => {
     await injectFakeSession(page);
     // Block socket connection so we don't accidentally trigger real session logic
-    await page.route('**/socket.io/**', (route) => route.abort());
+    await stubSocketIo(page);
     await page.goto('/control');
+    await expect(page).toHaveURL(/\/control/, { timeout: 5_000 });
 
     // Timer bar element should be in DOM (hidden by default until session_started)
     const bar = page.locator('#session-timers-bar');
@@ -82,8 +87,9 @@ test.describe('Control page timer UI', () => {
 
   test('session-info shows car name', async ({ page }) => {
     await injectFakeSession(page);
-    await page.route('**/socket.io/**', (route) => route.abort());
+    await stubSocketIo(page);
     await page.goto('/control');
+    await expect(page).toHaveURL(/\/control/, { timeout: 5_000 });
 
     const carName = page.locator('#car-name');
     await expect(carName).toHaveText('Test Car', { timeout: TIMER_TIMEOUT });
@@ -96,8 +102,9 @@ test.describe('Control page timer UI', () => {
 
     // Use page.evaluate after page loads to directly invoke startCountdownTimers
     // with short values via a script injected after page load.
-    await page.route('**/socket.io/**', (route) => route.abort());
+    await stubSocketIo(page);
     await page.goto('/control');
+    await expect(page).toHaveURL(/\/control/, { timeout: 5_000 });
 
     // Directly call the timer functions exposed in window scope via page.evaluate
     await page.evaluate(() => {
@@ -124,8 +131,9 @@ test.describe('Control page timer UI', () => {
 
   test('warning banner appears when inactivity timer badge gets warning class', async ({ page }) => {
     await injectFakeSession(page);
-    await page.route('**/socket.io/**', (route) => route.abort());
+    await stubSocketIo(page);
     await page.goto('/control');
+    await expect(page).toHaveURL(/\/control/, { timeout: 5_000 });
 
     // Simulate warning state via DOM manipulation
     await page.evaluate(() => {
@@ -151,8 +159,9 @@ test.describe('Control page timer UI', () => {
 
   test('warning banner disappears after session ends', async ({ page }) => {
     await injectFakeSession(page);
-    await page.route('**/socket.io/**', (route) => route.abort());
+    await stubSocketIo(page);
     await page.goto('/control');
+    await expect(page).toHaveURL(/\/control/, { timeout: 5_000 });
 
     // Show warning banner first
     await page.evaluate(() => {
