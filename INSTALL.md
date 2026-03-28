@@ -70,19 +70,22 @@ APP_BASE_URL=https://your-domain.com
 
 #### DNS resolution behind VPN / Docker / WSL
 
-In some environments (Outline VPN, Docker, WSL) the system DNS resolver is reachable from `nslookup` or PowerShell but **not** from the Node.js process itself.  The server automatically overrides the DNS servers used by Node.js to avoid this issue.
+In some environments (Outline VPN, Docker, WSL) the system DNS resolver is reachable from `nslookup` or PowerShell but **not** from the Node.js process itself, causing an error like `queryA ETIMEOUT smtp.gmail.com`.
 
-The default DNS servers are `8.8.8.8` and `8.8.4.4` (Google Public DNS).  You can override them with the `DNS_SERVERS` variable:
+The most reliable fix is to use the **resolved IP address** directly as `SMTP_HOST` and set `SMTP_TLS_SERVERNAME` to the real hostname so that TLS certificate validation passes:
 
-```env
-# Comma-separated list of IP addresses
-DNS_SERVERS=8.8.8.8,8.8.4.4
-```
+1. Find the current IP of `smtp.gmail.com`:
+   ```powershell
+   nslookup smtp.gmail.com
+   ```
+2. Set these two variables in `backend/.env`:
+   ```env
+   SMTP_HOST=142.250.102.108      # replace with the IP from nslookup
+   SMTP_TLS_SERVERNAME=smtp.gmail.com
+   ```
 
-If you see an error like `queryA ETIMEOUT smtp.gmail.com` when starting the server, ensure you are either:
-- Connected to a network where outbound DNS (UDP 53) is not blocked, **or**
-- Set `DNS_SERVERS` in your `.env` to working public DNS servers, **or**
-- Set `DISABLE_EMAIL=true` so SMTP is not attempted.
+> **Note:** Gmail's IP addresses can change.  If email stops working, run `nslookup smtp.gmail.com` again and update `SMTP_HOST`.  
+> If you cannot reach SMTP at all, set `DISABLE_EMAIL=true` so the server still starts and verification links are printed to the console.
 
 #### Switching between dev mode and production email
 

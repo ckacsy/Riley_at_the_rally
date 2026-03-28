@@ -22,14 +22,17 @@ let _transporter = null;
 
 function getTransporter() {
   if (_transporter) return _transporter;
+  const smtpHost = process.env.SMTP_HOST || 'localhost';
   _transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'localhost',
+    host: smtpHost,
     port: parseInt(process.env.SMTP_PORT || '587', 10),
     secure: process.env.SMTP_SECURE === 'true',
     auth: process.env.SMTP_USER
       ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS || '' }
       : undefined,
-    tls: { rejectUnauthorized: true },
+    tls: process.env.SMTP_TLS_SERVERNAME
+      ? { servername: process.env.SMTP_TLS_SERVERNAME, rejectUnauthorized: true }
+      : undefined,
   });
   return _transporter;
 }
@@ -42,12 +45,15 @@ function getTransporter() {
  * @returns {Promise<void>}
  */
 async function verifyConnection() {
-  if (MAIL_DISABLED) return;
+  if (MAIL_DISABLED) {
+    console.log('[Mailer] Email disabled — skipping SMTP verification.');
+    return;
+  }
   try {
     await getTransporter().verify();
     console.log('[Mailer] SMTP connection verified successfully.');
   } catch (err) {
-    console.warn('[Mailer] WARNING: SMTP connection verification failed:', err.message);
+    console.warn(`[Mailer] WARNING: SMTP connection verification failed: ${err.message}`);
     console.warn('[Mailer] Check SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS in your .env file.');
   }
 }
@@ -71,9 +77,7 @@ async function sendMail({ to, subject, text, html }) {
   const from = process.env.MAIL_FROM || '"Riley RC" <noreply@rileyrc.com>';
   try {
     await getTransporter().sendMail({ from, to, subject, text, html });
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`[Mailer] Email sent successfully to ${to} (subject: "${subject}")`);
-    }
+    console.log(`[Mailer] Email sent successfully to ${to}`);
   } catch (err) {
     console.error('[Mailer] Failed to send email to', to, '—', err.message);
     throw err;
