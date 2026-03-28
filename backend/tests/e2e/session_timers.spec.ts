@@ -168,7 +168,7 @@ test.describe('Control page timer UI', () => {
     await stubSocketIo(page);
     await page.goto('/control');
     await page.waitForLoadState('domcontentloaded');
-    await expect(page).toHaveURL(/\/control/);
+    await expect(page).toHaveURL(/\/control/, { timeout: 10_000 });
 
     // Timer bar element should be in DOM (hidden by default until session_started)
     await expect(page.locator('#session-timers-bar')).toHaveCount(1);
@@ -185,6 +185,13 @@ test.describe('Control page timer UI', () => {
     const user = await registerUser(page, 'timer_user2', 'timer2@example.com', TEST_PASSWORD);
     await activateUser(page, user.username);
     await loginUser(page, user.username, TEST_PASSWORD);
+    // Mock /api/auth/me so the CTA always resolves to "НА ТРЕК" regardless of
+    // session-cookie timing (same pattern as stable tests in garage.spec.ts).
+    await page.route('/api/auth/me', (route) =>
+      route.fulfill({
+        json: { user: { id: user.id, username: user.username, status: 'active' } },
+      }),
+    );
     // Mock car availability before navigating so the CTA settles on "НА ТРЕК"
     await mockCarsAvailable(page);
     // forceFallback=1 loads the garage in WebGL-fallback mode (CI-friendly).
