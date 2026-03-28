@@ -181,6 +181,13 @@ test.describe('Control page timer UI', () => {
 
     await expect(page.locator('#session-warning-banner')).toBeHidden();
   });
+
+  test('redirects to /garage when no active session exists', async ({ page }) => {
+    // Do NOT inject a fake session — sessionStorage is empty
+    await page.goto('/control');
+    // The inline script checks sessionStorage and calls window.location.replace('/garage')
+    await expect(page).toHaveURL(/\/garage/, { timeout: 10_000 });
+  });
 });
 
 test.describe('API config/session integration with control page', () => {
