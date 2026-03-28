@@ -122,6 +122,25 @@ test.describe('CTA button states by role', () => {
   test('active user: CTA shows "НА ТРЕК"', async ({ page }) => {
     await resetDb(page);
 
+    // Ensure car status is 'available' regardless of server state
+    await page.route('/api/car-status', (route) =>
+      route.fulfill({ json: { status: 'available', lastUpdated: new Date().toISOString() } }),
+    );
+    await page.route('/api/cars', (route) =>
+      route.fulfill({
+        json: {
+          ratePerMinute: 0.5,
+          cars: [
+            { id: 1, name: 'Riley-X1 · Алый', model: 'Drift Car', status: 'available' },
+            { id: 2, name: 'Riley-X1 · Синий', model: 'Drift Car', status: 'available' },
+            { id: 3, name: 'Riley-X1 · Зелёный', model: 'Drift Car', status: 'available' },
+            { id: 4, name: 'Riley-X1 · Золотой', model: 'Drift Car', status: 'available' },
+            { id: 5, name: 'Riley-X1 · Чёрный', model: 'Drift Car', status: 'available' },
+          ],
+        },
+      }),
+    );
+
     const user = await registerUser(
       page,
       'testactive',
