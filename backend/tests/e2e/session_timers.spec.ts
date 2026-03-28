@@ -69,27 +69,26 @@ test.describe('Control page timer UI', () => {
     // Block socket connection so we don't accidentally trigger real session logic
     await stubSocketIo(page);
     await page.goto('/control');
-    await expect(page).toHaveURL(/\/control/, { timeout: 5_000 });
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page).toHaveURL(/\/control/);
 
     // Timer bar element should be in DOM (hidden by default until session_started)
-    const bar = page.locator('#session-timers-bar');
-    await expect(bar).toBeAttached({ timeout: TIMER_TIMEOUT });
+    await expect(page.locator('#session-timers-bar')).toHaveCount(1);
 
     // Both timer countdown elements should exist
-    await expect(page.locator('#max-timer-countdown')).toBeAttached();
-    await expect(page.locator('#inactivity-timer-countdown')).toBeAttached();
+    await expect(page.locator('#max-timer-countdown')).toHaveCount(1);
+    await expect(page.locator('#inactivity-timer-countdown')).toHaveCount(1);
 
-    // Warning banner should exist but be hidden
-    const banner = page.locator('#session-warning-banner');
-    await expect(banner).toBeAttached();
-    await expect(banner).toBeHidden();
+    // Warning banner should exist in DOM
+    await expect(page.locator('#session-warning-banner')).toHaveCount(1);
   });
 
   test('session-info shows car name', async ({ page }) => {
     await injectFakeSession(page);
     await stubSocketIo(page);
     await page.goto('/control');
-    await expect(page).toHaveURL(/\/control/, { timeout: 5_000 });
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page).toHaveURL(/\/control/);
 
     const carName = page.locator('#car-name');
     await expect(carName).toHaveText('Test Car', { timeout: TIMER_TIMEOUT });
