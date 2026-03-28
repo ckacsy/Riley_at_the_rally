@@ -616,6 +616,7 @@ if (process.env.NODE_ENV !== 'production') {
     legacyHeaders: false,
     message: { error: 'Too many requests from this IP, please try again later.' },
     keyGenerator: (req) => req.ip,
+    skip: () => process.env.NODE_ENV === 'test',
   });
 
   // Dev helper: retrieve the current pending verification link for a user by email.
