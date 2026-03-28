@@ -2004,6 +2004,8 @@ function startServer(port, attempt) {
     if (appBaseUrl && finalPort !== BASE_PORT) {
       console.warn(`[server] Warning: APP_BASE_URL (${appBaseUrl}) still points at port ${BASE_PORT}, but server started on port ${finalPort}. Update your .env if needed.`);
     }
+
+    mailer.verifyConnection();
   });
 
   server.once('error', (err) => {

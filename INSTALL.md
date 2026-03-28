@@ -36,10 +36,54 @@ yarn start
 ```
 
 ## Configuration
-Update the configuration settings in the `config.json` or any other relevant configuration file as per your requirements.
+Copy `backend/.env.example` to `backend/.env` and edit the values for your environment:
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+### Email Configuration
+
+The backend sends transactional emails (email verification, magic-link login, password reset) via SMTP.  A full annotated example of every email-related variable is in `backend/.env.example`.
+
+#### Setting up Gmail SMTP
+
+1. Enable **2-Step Verification** on your Google account.
+2. Go to **Google Account → Security → App passwords** and generate a new app password for the application (select "Mail" and your device type).
+3. Set the following variables in `backend/.env`:
+
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false          # false = STARTTLS (port 587); true = SSL (port 465)
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-gmail-app-password   # 16-character app password, not your normal password
+MAIL_FROM="Riley RC" <your-email@gmail.com>
+```
+
+4. Set `NODE_ENV=production` and `APP_BASE_URL` to your public domain so that verification/magic-link URLs in emails point to the correct address:
+
+```env
+NODE_ENV=production
+APP_BASE_URL=https://your-domain.com
+```
+
+#### Switching between dev mode and production email
+
+| Mode | Behaviour | How to enable |
+|------|-----------|---------------|
+| **Mail disabled** | Email content is printed to the server console; no real email is sent. | Set `DISABLE_EMAIL=true` **or** `NODE_ENV=test` |
+| **Dev / default** | Email is attempted via SMTP, but `/api/dev/verification-link` and `/api/dev/magic-link` endpoints are also available as a fallback. | Leave `NODE_ENV` unset or set to anything other than `production` |
+| **Production** | Email is sent via SMTP; dev endpoints are disabled. | Set `NODE_ENV=production` and configure SMTP vars |
+
+> **Tip:** If `SMTP_HOST` is not set, the server will print a warning at startup and fall back to `localhost`, which will not deliver real email.  When `NODE_ENV` is not `production`, the server also stores the last-generated link in memory so you can retrieve it from `/api/dev/verification-link?email=…` even if SMTP is unavailable.
+
+#### Disabling email entirely
+
+Set `DISABLE_EMAIL=true` in your `.env`.  All emails will be printed to the server console instead of being delivered, regardless of SMTP settings.
 
 ## Additional Setup
-- Ensure that any necessary environment variables are set in your `.env` file as required by the application.
+- Ensure that any necessary environment variables are set in your `backend/.env` file as required by the application.
 - Follow any further setup instructions as outlined in the project documentation.
 
 ## Troubleshooting

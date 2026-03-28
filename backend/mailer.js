@@ -29,8 +29,27 @@ function getTransporter() {
     auth: process.env.SMTP_USER
       ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS || '' }
       : undefined,
+    tls: { rejectUnauthorized: true },
   });
   return _transporter;
+}
+
+/**
+ * Verify the SMTP connection.  Call once at startup for an early warning if
+ * SMTP is misconfigured.  Resolves silently on success; logs a warning on
+ * failure (does NOT throw).
+ *
+ * @returns {Promise<void>}
+ */
+async function verifyConnection() {
+  if (MAIL_DISABLED) return;
+  try {
+    await getTransporter().verify();
+    console.log('[Mailer] SMTP connection verified successfully.');
+  } catch (err) {
+    console.warn('[Mailer] WARNING: SMTP connection verification failed:', err.message);
+    console.warn('[Mailer] Check SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS in your .env file.');
+  }
 }
 
 /**
@@ -50,7 +69,15 @@ async function sendMail({ to, subject, text, html }) {
   }
 
   const from = process.env.MAIL_FROM || '"Riley RC" <noreply@rileyrc.com>';
-  await getTransporter().sendMail({ from, to, subject, text, html });
+  try {
+    await getTransporter().sendMail({ from, to, subject, text, html });
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[Mailer] Email sent successfully to ${to} (subject: "${subject}")`);
+    }
+  } catch (err) {
+    console.error('[Mailer] Failed to send email to', to, '—', err.message);
+    throw err;
+  }
 }
 
-module.exports = { sendMail };
+module.exports = { sendMail, verifyConnection };

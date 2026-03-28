@@ -39,6 +39,12 @@ cd backend
 npm install
 ```
 
+Copy the environment template and configure it for your setup (see **Configuration** below):
+
+```bash
+cp backend/.env.example backend/.env
+```
+
 ### Raspberry Pi
 
 ```bash
@@ -106,3 +112,10 @@ socket.emit('control_command', { direction: 'backward', speed: -50 });
 | Pi cannot connect to backend | Make sure the backend is running and `server_url` in `rpi/main.py` points to the correct IP/hostname. |
 | I2C / PCA9685 not detected on Pi | Run `sudo i2cdetect -y 1` to verify the device is visible. Check wiring and that I2C is enabled. |
 | Camera stream not loading | Confirm `picamera` is installed and the camera module is enabled (`sudo raspi-config` → Interface Options → Camera). Note: `picamera` requires the legacy camera stack (Raspberry Pi OS Bullseye or older). On newer OS versions use `picamera2` instead. |
+| Verification / magic-link emails not arriving | See **Configuration → Email** below. |
+
+## Configuration
+
+Copy `backend/.env.example` to `backend/.env` and fill in your values.  The most important variables for email delivery are `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`, `NODE_ENV`, and `APP_BASE_URL`.  Set `DISABLE_EMAIL=true` to print email content to the server console instead of sending real messages.
+
+See [INSTALL.md](./INSTALL.md#email-configuration) for a complete step-by-step guide to Gmail SMTP setup and switching between dev and production email modes.
