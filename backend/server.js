@@ -198,6 +198,29 @@ db.exec(`
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   );
   CREATE INDEX IF NOT EXISTS idx_magic_links_token_hash ON magic_links(token_hash);
+  CREATE TABLE IF NOT EXISTS transactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    type TEXT NOT NULL,
+    amount REAL NOT NULL,
+    balance_after REAL NOT NULL,
+    description TEXT,
+    reference_id TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id);
+  CREATE TABLE IF NOT EXISTS payment_orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    yookassa_payment_id TEXT UNIQUE,
+    amount REAL NOT NULL,
+    status TEXT DEFAULT 'pending',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_payment_orders_yookassa_id ON payment_orders(yookassa_payment_id);
 `);
 
 // --- DB Migrations (add new columns to existing databases) ---
@@ -220,6 +243,9 @@ db.exec(`
   if (!userCols.has('last_login_at')) db.exec('ALTER TABLE users ADD COLUMN last_login_at TEXT');
   if (!userCols.has('username_changed_at')) {
     try { db.exec('ALTER TABLE users ADD COLUMN username_changed_at TEXT'); } catch (e) { /* already exists */ }
+  }
+  if (!userCols.has('balance')) {
+    try { db.exec('ALTER TABLE users ADD COLUMN balance REAL DEFAULT 0'); } catch (e) { /* already exists */ }
   }
 
   // Backfill normalized fields for existing rows
@@ -276,6 +302,9 @@ const { requireAuth, requireActiveUser, _devVerificationLinks, _devMagicLinks, _
   apiReadLimiter,
   PORT,
 });
+
+const mountPaymentRoutes = require('./routes/payment');
+mountPaymentRoutes(app, db, { requireAuth, requireActiveUser, csrfMiddleware, apiReadLimiter });
 
 function saveRentalSession(dbUserId, carId, durationSeconds, cost) {
   if (!dbUserId) return;
@@ -544,6 +573,7 @@ app.post('/api/session/end', (req, res) => {
   socketState.activeSessions.delete(sessionId);
   const effectiveDbUserId = session.dbUserId || (Number.isInteger(dbUserId) ? dbUserId : null);
   saveRentalSession(effectiveDbUserId, session.carId, durationSeconds, cost);
+  socketState.processHoldDeduct(effectiveDbUserId, session.holdAmount, cost, session.carId, durationSeconds);
   socketState.broadcastCarsUpdate();
   metrics.log('info', 'session_end', {
     userId: session.userId,
@@ -692,9 +722,11 @@ if (process.env.NODE_ENV !== 'production') {
         db.exec('DELETE FROM lap_times');
         db.exec('DELETE FROM rental_sessions');
         db.exec('DELETE FROM chat_messages');
+        db.exec('DELETE FROM transactions');
+        db.exec('DELETE FROM payment_orders');
         db.exec('DELETE FROM users');
         // Reset autoincrement counters
-        db.exec("DELETE FROM sqlite_sequence WHERE name IN ('users','lap_times','rental_sessions','email_verification_tokens','password_reset_tokens','chat_messages','magic_links')");
+        db.exec("DELETE FROM sqlite_sequence WHERE name IN ('users','lap_times','rental_sessions','email_verification_tokens','password_reset_tokens','chat_messages','magic_links','transactions','payment_orders')");
       })();
       req.session.destroy((err) => { if (err) console.error('Session destroy error:', err); });
       if (_devVerificationLinks) _devVerificationLinks.clear();
@@ -732,7 +764,7 @@ if (process.env.NODE_ENV !== 'production') {
     if (!username) return res.status(400).json({ error: 'username required' });
     const usernameNorm = normalizeUsername(username);
     const result = db
-      .prepare("UPDATE users SET status = 'active', updated_at = CURRENT_TIMESTAMP WHERE username_normalized = ?")
+      .prepare("UPDATE users SET status = 'active', balance = 200, updated_at = CURRENT_TIMESTAMP WHERE username_normalized = ?")
       .run(usernameNorm);
     if (result.changes === 0) {
       if (process.env.NODE_ENV === 'test') {

@@ -369,6 +369,52 @@
         .stale-card .close-btn:hover { background: #c62828; }
 
         /* =========================================
+           TOP-UP MODAL
+           ========================================= */
+        .topup-btn {
+            display: block; width: 100%; margin-top: 10px; padding: 8px 0;
+            background: #1b5e20; color: #a5d6a7; border: 1px solid #2e7d32;
+            border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer;
+            transition: background 0.2s;
+        }
+        .topup-btn:hover { background: #2e7d32; color: #c8e6c9; }
+        .topup-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.65); z-index: 200;
+            justify-content: center; align-items: center;
+        }
+        .topup-overlay.visible { display: flex; }
+        .topup-card {
+            background: #141c30; border-radius: 12px; padding: 36px 44px; text-align: center;
+            max-width: 400px; width: 90%; box-shadow: 0 4px 40px rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .topup-card h2 { margin-top: 0; color: #fff; }
+        .topup-card p { font-size: 15px; color: #aaa; margin: 10px 0; }
+        .topup-amounts {
+            display: flex; flex-wrap: wrap; gap: 10px;
+            justify-content: center; margin: 18px 0;
+        }
+        .topup-amount-btn {
+            padding: 12px 20px; background: #1a237e; color: #90caf9;
+            border: 1px solid #283593; border-radius: 8px; font-size: 16px;
+            font-weight: bold; cursor: pointer; transition: background 0.15s, transform 0.1s;
+            min-width: 80px;
+        }
+        .topup-amount-btn:hover { background: #283593; color: #e3f2fd; transform: scale(1.04); }
+        .topup-amount-btn:active { transform: scale(0.97); }
+        .topup-amount-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .topup-status { font-size: 14px; margin: 10px 0; }
+        .topup-status.success { color: #66bb6a; }
+        .topup-status.error { color: #ef5350; }
+        .topup-close-btn {
+            display: inline-block; margin-top: 18px; padding: 10px 28px;
+            background: #37474f; color: #cfd8dc; border: none; border-radius: 8px;
+            font-size: 14px; cursor: pointer; transition: background 0.2s;
+        }
+        .topup-close-btn:hover { background: #455a64; }
+
+        /* =========================================
            MOBILE RESPONSIVE
            ========================================= */
         @media (max-width: 600px) {
@@ -1111,7 +1157,8 @@
         <div id="balance-section" class="rp-section">
             <div class="rp-title">Баланс</div>
             <div class="balance-credits" id="rp-credits">0.00 RC</div>
-            <div class="balance-label">Кредиты</div>
+            <div class="balance-label">1 RC = 1 ₽</div>
+            <button class="topup-btn" id="topup-btn">➕ Пополнить</button>
         </div>
 
         <!-- Bonuses -->
@@ -1702,12 +1749,94 @@
         setInterval(pollStatusBar, 5000);
 
         // Auth
+        var csrfToken = '';
+        fetch('/api/csrf-token').then(function(r){return r.json();}).then(function(d){csrfToken=d.csrfToken||'';});
+
         function loadAuth() {
             fetch('/api/auth/me')
                 .then(function (r) { return r.json(); })
                 .then(function (data) { currentUser = data.user || null; renderAuthChip(); updateCTA(); })
                 .catch(function () { currentUser = null; renderAuthChip(); updateCTA(); });
         }
+
+        // Balance
+        var currentBalance = 0;
+
+        function loadBalance() {
+            fetch('/api/balance')
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (data) {
+                    if (!data) return;
+                    currentBalance = data.balance || 0;
+                    var el = document.getElementById('rp-credits');
+                    if (el) el.textContent = currentBalance.toFixed(2) + ' RC';
+                    updateCTA();
+                })
+                .catch(function () {});
+        }
+
+        // Top-up modal
+        (function () {
+            var overlay = document.getElementById('topup-overlay');
+            var statusEl = document.getElementById('topup-status');
+
+            document.getElementById('topup-btn').addEventListener('click', function () {
+                if (!currentUser) { window.location.href = '/login?redirect=/garage'; return; }
+                statusEl.style.display = 'none';
+                statusEl.className = 'topup-status';
+                overlay.classList.add('visible');
+            });
+
+            document.getElementById('topup-close').addEventListener('click', function () {
+                overlay.classList.remove('visible');
+            });
+
+            overlay.addEventListener('click', function (e) {
+                if (e.target === overlay) overlay.classList.remove('visible');
+            });
+
+            document.querySelectorAll('.topup-amount-btn').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var amount = parseInt(this.getAttribute('data-amount'), 10);
+                    var allBtns = document.querySelectorAll('.topup-amount-btn');
+                    allBtns.forEach(function (b) { b.disabled = true; });
+                    statusEl.style.display = 'none';
+
+                    fetch('/api/payment/create', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
+                        body: JSON.stringify({ amount: amount })
+                    })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        if (data.confirmationUrl) {
+                            window.location.href = data.confirmationUrl;
+                        } else if (data.mock) {
+                            currentBalance = data.balance || currentBalance;
+                            var el = document.getElementById('rp-credits');
+                            if (el) el.textContent = currentBalance.toFixed(2) + ' RC';
+                            statusEl.textContent = '✅ Баланс пополнен на ' + amount + ' RC';
+                            statusEl.className = 'topup-status success';
+                            statusEl.style.display = 'block';
+                            updateCTA();
+                            setTimeout(function () { overlay.classList.remove('visible'); }, 2000);
+                        } else {
+                            statusEl.textContent = data.error || 'Ошибка создания платежа';
+                            statusEl.className = 'topup-status error';
+                            statusEl.style.display = 'block';
+                        }
+                    })
+                    .catch(function () {
+                        statusEl.textContent = 'Ошибка сети. Попробуйте снова.';
+                        statusEl.className = 'topup-status error';
+                        statusEl.style.display = 'block';
+                    })
+                    .finally(function () {
+                        allBtns.forEach(function (b) { b.disabled = false; });
+                    });
+                });
+            });
+        })();
 
         function renderAuthChip() {
             var profileEl = document.getElementById('profile-username');
@@ -1768,6 +1897,10 @@
                 setBtn('\u041c\u0430\u0448\u0438\u043d\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430', true, '', null);
                 setFallback('\u041c\u0430\u0448\u0438\u043d\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430', true, null);
                 setCenter('\u041c\u0430\u0448\u0438\u043d\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430', true, '', null);
+            } else if (currentBalance < 100) {
+                setBtn('\u041d\u0435\u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e RC (\u043c\u0438\u043d. 100)', true, '', null);
+                setFallback('\u041d\u0435\u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e RC', true, null);
+                setCenter('\u041d\u0435\u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e RC (\u043c\u0438\u043d. 100)', true, '', null);
             } else {
                 setBtn('\u041d\u0410 \u0422\u0420\u0415\u041a', false, '', startSession);
                 setFallback('\u041d\u0410 \u0422\u0420\u0415\u041a', false, startSession);
@@ -1879,6 +2012,14 @@
         // Start session (existing flow unchanged)
         function startSession() {
             if (!currentUser) { window.location.href = '/login?redirect=/garage'; return; }
+
+            // Check balance before starting
+            if (currentBalance < 100) {
+                alert('\u041d\u0435\u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e \u0441\u0440\u0435\u0434\u0441\u0442\u0432. \u041c\u0438\u043d\u0438\u043c\u0430\u043b\u044c\u043d\u044b\u0439 \u0431\u0430\u043b\u0430\u043d\u0441: 100 RC. \u041f\u043e\u043f\u043e\u043b\u043d\u0438\u0442\u0435 \u0431\u0430\u043b\u0430\u043d\u0441.');
+                document.getElementById('topup-overlay').classList.add('visible');
+                return;
+            }
+
             // Determine the selected car from the carousel
             var activeIdx = window._activeVariant || 0;
             var variants = window.CAR_VARIANTS_REF || [];
@@ -1925,7 +2066,11 @@
                 window.location.href = '/control';
             });
             socket.once('session_error', function (data) {
-                alert(data.message || '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043d\u0430\u0447\u0430\u0442\u044c \u0441\u0435\u0441\u0441\u0438\u044e.');
+                if (data.code === 'insufficient_balance') {
+                    document.getElementById('topup-overlay').classList.add('visible');
+                } else {
+                    alert(data.message || '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043d\u0430\u0447\u0430\u0442\u044c \u0441\u0435\u0441\u0441\u0438\u044e.');
+                }
                 updateCTA(); loadCars();
             });
         }
@@ -1994,12 +2139,50 @@
 
         // Init
         loadAuth();
+        loadBalance();
         loadCars();
         loadCarStatus();
         checkStaleSession();
         loadLeaderboard();
         setInterval(loadCarStatus, 10000);
+        // Reload balance on page return (e.g., after YooKassa redirect)
+        window.addEventListener('pageshow', function (e) {
+            var isBackForward = e.persisted;
+            if (!isBackForward) {
+                try {
+                    var navEntries = window.performance && performance.getEntriesByType && performance.getEntriesByType('navigation');
+                    if (navEntries && navEntries.length && navEntries[0].type === 'back_forward') {
+                        isBackForward = true;
+                    }
+                } catch (_) {}
+            }
+            if (isBackForward) {
+                loadBalance();
+            }
+            // Check for payment return via URL param
+            var params = new URLSearchParams(window.location.search);
+            if (params.get('payment') === 'return') {
+                loadBalance();
+            }
+        });
     </script>
+    <!-- TOP-UP MODAL -->
+    <div class="topup-overlay" id="topup-overlay">
+        <div class="topup-card">
+            <h2>Пополнение баланса</h2>
+            <p>Выберите сумму пополнения:</p>
+            <div class="topup-amounts">
+                <button class="topup-amount-btn" data-amount="50">50 ₽</button>
+                <button class="topup-amount-btn" data-amount="100">100 ₽</button>
+                <button class="topup-amount-btn" data-amount="150">150 ₽</button>
+                <button class="topup-amount-btn" data-amount="200">200 ₽</button>
+                <button class="topup-amount-btn" data-amount="500">500 ₽</button>
+            </div>
+            <p class="topup-status" id="topup-status" style="display:none;"></p>
+            <button class="topup-close-btn" id="topup-close">Закрыть</button>
+        </div>
+    </div>
+
     <script src="js/nav.js"></script>
 </body>
 </html>
