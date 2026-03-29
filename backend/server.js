@@ -96,7 +96,7 @@ const sessionMiddleware = session({
 app.use(sessionMiddleware);
 
 const PORT = process.env.PORT || 5000;
-const RATE_PER_MINUTE = 0.50;
+const RATE_PER_MINUTE = 10;
 const INACTIVITY_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes AFK
 // Max session duration: default 10 min, override via SESSION_MAX_DURATION_MS env var
 const _rawMaxDuration = parseInt(process.env.SESSION_MAX_DURATION_MS || '', 10);
@@ -113,11 +113,11 @@ const CONTROL_RATE_LIMIT_MAX = (!isNaN(_rawRateLimit) && _rawRateLimit > 0) ? _r
 const CONTROL_RATE_LIMIT_WINDOW_MS = 1000;
 
 const CARS = [
-  { id: 1, name: 'Riley-X1 · Алый',    model: 'Drift Car' },
-  { id: 2, name: 'Riley-X1 · Синий',   model: 'Drift Car' },
-  { id: 3, name: 'Riley-X1 · Зелёный', model: 'Drift Car' },
-  { id: 4, name: 'Riley-X1 · Золотой', model: 'Drift Car' },
-  { id: 5, name: 'Riley-X1 · Чёрный',  model: 'Drift Car' },
+  { id: 1, name: 'Riley-X1 · Алый',    model: 'Drift Car', cameraUrl: process.env.CAR_1_CAMERA_URL || '' },
+  { id: 2, name: 'Riley-X1 · Синий',   model: 'Drift Car', cameraUrl: process.env.CAR_2_CAMERA_URL || '' },
+  { id: 3, name: 'Riley-X1 · Зелёный', model: 'Drift Car', cameraUrl: process.env.CAR_3_CAMERA_URL || '' },
+  { id: 4, name: 'Riley-X1 · Золотой', model: 'Drift Car', cameraUrl: process.env.CAR_4_CAMERA_URL || '' },
+  { id: 5, name: 'Riley-X1 · Чёрный',  model: 'Drift Car', cameraUrl: process.env.CAR_5_CAMERA_URL || '' },
 ];
 
 // Serve frontend static files
@@ -140,7 +140,8 @@ db.exec(`
     status TEXT DEFAULT 'pending',
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT,
-    last_login_at TEXT
+    last_login_at TEXT,
+    username_changed_at TEXT
   );
   CREATE TABLE IF NOT EXISTS email_verification_tokens (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -217,6 +218,9 @@ db.exec(`
     db.exec("UPDATE users SET updated_at = COALESCE(created_at, CURRENT_TIMESTAMP) WHERE updated_at IS NULL");
   }
   if (!userCols.has('last_login_at')) db.exec('ALTER TABLE users ADD COLUMN last_login_at TEXT');
+  if (!userCols.has('username_changed_at')) {
+    try { db.exec('ALTER TABLE users ADD COLUMN username_changed_at TEXT'); } catch (e) { /* already exists */ }
+  }
 
   // Backfill normalized fields for existing rows
   db.prepare(
@@ -266,7 +270,7 @@ const apiReadLimiter = rateLimit({
 
 // Mount all auth & profile routes; get back shared middleware and dev maps
 const mountAuthRoutes = require('./routes/auth');
-const { requireAuth, requireActiveUser, _devVerificationLinks, _devMagicLinks } = mountAuthRoutes(app, db, {
+const { requireAuth, requireActiveUser, _devVerificationLinks, _devMagicLinks, _devResetLinks } = mountAuthRoutes(app, db, {
   csrfMiddleware,
   generateCsrfToken,
   apiReadLimiter,
@@ -662,6 +666,23 @@ if (process.env.NODE_ENV !== 'production') {
     return res.json({ magicLink: link });
   });
 
+  // Dev helper: retrieve the last password reset link URL for a given email.
+  // Useful when SMTP is misconfigured and emails cannot be delivered.
+  app.get('/api/dev/reset-link', devLimiter, (req, res) => {
+    const rawEmail = typeof req.query.email === 'string' ? req.query.email.trim() : '';
+    if (!rawEmail) {
+      return res.status(400).json({ error: 'Query param "email" is required' });
+    }
+    const emailNorm = normalizeEmail(rawEmail);
+    const link = _devResetLinks && _devResetLinks.get(emailNorm);
+    if (!link) {
+      return res.status(404).json({
+        error: 'No reset link in memory. Request a password reset first via POST /api/auth/forgot-password.',
+      });
+    }
+    return res.json({ resetLink: link });
+  });
+
   app.post('/api/dev/reset-db', (req, res) => {
     try {
       db.transaction(() => {
@@ -678,6 +699,7 @@ if (process.env.NODE_ENV !== 'production') {
       req.session.destroy((err) => { if (err) console.error('Session destroy error:', err); });
       if (_devVerificationLinks) _devVerificationLinks.clear();
       if (_devMagicLinks) _devMagicLinks.clear();
+      if (_devResetLinks) _devResetLinks.clear();
       // Clear active rental sessions and their associated timeouts
       for (const [sid] of socketState.activeSessions) {
         socketState.clearInactivityTimeout(sid);
