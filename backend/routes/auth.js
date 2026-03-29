@@ -109,6 +109,16 @@ module.exports = function mountAuthRoutes(app, db, deps) {
     skip: () => process.env.NODE_ENV === 'test',
   });
 
+  const usernameChangeLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Слишком много попыток. Попробуйте через минуту.' },
+    keyGenerator: (req) => req.ip,
+    skip: () => process.env.NODE_ENV === 'test',
+  });
+
   // --- Auth middleware ---
   function requireAuth(req, res, next) {
     if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
@@ -634,7 +644,9 @@ module.exports = function mountAuthRoutes(app, db, deps) {
     res.json({ success: true, avatarPath });
   });
 
-  app.patch('/api/profile/username', requireAuth, csrfMiddleware, (req, res) => {
+  const USERNAME_CHANGE_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+  app.patch('/api/profile/username', requireAuth, usernameChangeLimiter, csrfMiddleware, (req, res) => {
     const body = req.body || {};
     const rawUsername = typeof body.username === 'string' ? body.username : '';
 
@@ -654,8 +666,7 @@ module.exports = function mountAuthRoutes(app, db, deps) {
     const user = db.prepare('SELECT username_changed_at FROM users WHERE id = ?').get(userId);
     if (user && user.username_changed_at) {
       const lastChanged = new Date(user.username_changed_at);
-      const cooldownMs = 7 * 24 * 60 * 60 * 1000;
-      const nextAvailable = new Date(lastChanged.getTime() + cooldownMs);
+      const nextAvailable = new Date(lastChanged.getTime() + USERNAME_CHANGE_COOLDOWN_MS);
       if (Date.now() < nextAvailable.getTime()) {
         const dateStr = nextAvailable.toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' });
         return res.status(400).json({ error: `Имя можно менять раз в 7 дней. Следующая смена доступна: ${dateStr}` });
