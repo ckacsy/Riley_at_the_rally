@@ -55,6 +55,8 @@ const SQLiteStore = require('connect-sqlite3')(session);
 
 const metrics = require('./metrics');
 const mailer = require('./mailer');
+const { isKnownRole, STATUSES } = require('./middleware/roles');
+const { logAdminAudit } = require('./utils/adminAudit');
 
 const {
   validateUsername,
@@ -344,6 +346,16 @@ const { requireAuth, requireActiveUser, loadCurrentUser, requireRole, _devVerifi
   apiReadLimiter,
   PORT,
 });
+
+const adminRouteDeps = {
+  requireAuth,
+  requireActiveUser,
+  loadCurrentUser,
+  requireRole,
+  csrfMiddleware,
+  logAdminAudit: (auditData) => logAdminAudit(db, auditData),
+};
+app.locals.adminRouteDeps = adminRouteDeps;
 
 const mountPaymentRoutes = require('./routes/payment');
 mountPaymentRoutes(app, db, { requireAuth, requireActiveUser, csrfMiddleware, apiReadLimiter, getActiveSessions: () => socketState && socketState.activeSessions });
@@ -815,6 +827,78 @@ if (process.env.NODE_ENV !== 'production') {
       return res.status(404).json({ error: 'User not found' });
     }
     res.json({ success: true });
+  });
+
+  app.post('/api/dev/set-user-status', devLimiter, (req, res) => {
+    const { username, status } = req.body || {};
+    if (!username) return res.status(400).json({ error: 'username required' });
+    if (typeof status !== 'string' || (!Object.values(STATUSES).includes(status) && status !== 'disabled')) {
+      return res.status(400).json({ error: 'valid status required' });
+    }
+    const usernameNorm = normalizeUsername(username);
+    const result = db
+      .prepare('UPDATE users SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE username_normalized = ?')
+      .run(status, usernameNorm);
+    if (result.changes === 0) return res.status(404).json({ error: 'User not found' });
+    const user = db
+      .prepare('SELECT id, username, status, role FROM users WHERE username_normalized = ?')
+      .get(usernameNorm);
+    res.json({ success: true, user });
+  });
+
+  app.post('/api/dev/set-user-role', devLimiter, (req, res) => {
+    const { username, role } = req.body || {};
+    if (!username) return res.status(400).json({ error: 'username required' });
+    if (typeof role !== 'string' || !isKnownRole(role)) {
+      return res.status(400).json({ error: 'valid role required' });
+    }
+    const usernameNorm = normalizeUsername(username);
+    const result = db
+      .prepare('UPDATE users SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE username_normalized = ?')
+      .run(role, usernameNorm);
+    if (result.changes === 0) return res.status(404).json({ error: 'User not found' });
+    const user = db
+      .prepare('SELECT id, username, status, role FROM users WHERE username_normalized = ?')
+      .get(usernameNorm);
+    res.json({ success: true, user });
+  });
+
+  app.get('/api/dev/role-probe/admin', devLimiter, adminRouteDeps.requireRole('admin'), (req, res) => {
+    res.json({
+      success: true,
+      user: req.user ? {
+        id: req.user.id,
+        username: req.user.username,
+        status: req.user.status,
+        role: req.user.role,
+      } : null,
+    });
+  });
+
+  app.post('/api/dev/admin-audit-log/write', devLimiter, adminRouteDeps.requireRole('admin'), csrfMiddleware, (req, res) => {
+    const { action, targetType, targetId, details } = req.body || {};
+    if (!action || typeof action !== 'string') return res.status(400).json({ error: 'action required' });
+    if (!targetType || typeof targetType !== 'string') return res.status(400).json({ error: 'targetType required' });
+
+    adminRouteDeps.logAdminAudit({
+      adminId: req.user.id,
+      action,
+      targetType,
+      targetId: Number.isInteger(targetId) ? targetId : null,
+      details: details && typeof details === 'object' ? details : null,
+      ipAddress: req.ip || null,
+      userAgent: req.get('user-agent') || null,
+    });
+
+    const row = db.prepare(
+      `SELECT id, admin_id, action, target_type, target_id, details_json, ip_address, user_agent, created_at
+         FROM admin_audit_log
+        WHERE admin_id = ? AND action = ? AND target_type = ?
+        ORDER BY id DESC
+        LIMIT 1`
+    ).get(req.user.id, action, targetType);
+
+    res.json({ success: true, row });
   });
 
   // Dev helper: insert a password reset token directly (bypasses email flow).

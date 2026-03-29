@@ -21,7 +21,7 @@ async function getCsrfToken(page: import('@playwright/test').Page): Promise<stri
   return body.csrfToken as string;
 }
 
-async function registerAndActivate(
+async function registerUser(
   page: import('@playwright/test').Page,
   username: string,
   email: string,
@@ -34,13 +34,17 @@ async function registerAndActivate(
   });
   expect(res.status(), `register failed: ${await res.text()}`).toBe(200);
   const body = await res.json();
-  const user = body.user;
+  return body.user;
+}
 
+async function activateUser(
+  page: import('@playwright/test').Page,
+  username: string,
+): Promise<void> {
   const actRes = await page.request.post('/api/dev/activate-user', {
     data: { username },
   });
   expect(actRes.status(), `activate failed: ${await actRes.text()}`).toBe(200);
-  return user;
 }
 
 async function loginUser(
@@ -54,6 +58,28 @@ async function loginUser(
     headers: { 'X-CSRF-Token': csrfToken },
   });
   expect(res.status(), `login failed: ${await res.text()}`).toBe(200);
+}
+
+async function setUserStatus(
+  page: import('@playwright/test').Page,
+  username: string,
+  status: 'pending' | 'active' | 'banned' | 'deleted' | 'disabled',
+): Promise<void> {
+  const res = await page.request.post('/api/dev/set-user-status', {
+    data: { username, status },
+  });
+  expect(res.status(), `set-user-status failed: ${await res.text()}`).toBe(200);
+}
+
+async function setUserRole(
+  page: import('@playwright/test').Page,
+  username: string,
+  role: 'user' | 'moderator' | 'admin',
+): Promise<void> {
+  const res = await page.request.post('/api/dev/set-user-role', {
+    data: { username, role },
+  });
+  expect(res.status(), `set-user-role failed: ${await res.text()}`).toBe(200);
 }
 
 // ---------------------------------------------------------------------------
@@ -71,8 +97,8 @@ test.describe('PR1 migrations — schema smoke tests', () => {
   test('new user has role=user by default', async ({ page }) => {
     await resetDb(page);
 
-    // Register and activate via dev helper which also returns user object
-    const user = await registerAndActivate(page, 'roletest', 'roletest@example.com');
+    const user = await registerUser(page, 'roletest', 'roletest@example.com');
+    await activateUser(page, user.username);
 
     // The registration response should contain the user object.
     // Since the API doesn't expose role directly, verify via /api/auth/me
@@ -91,54 +117,127 @@ test.describe('PR1 migrations — schema smoke tests', () => {
 // Banned user is blocked by requireActiveUser
 // ---------------------------------------------------------------------------
 
-test.describe('PR1 — banned user is blocked', () => {
-  test('banned user gets 403 on protected endpoints', async ({ page }) => {
+test.describe('PR1 — requireRole and status enforcement', () => {
+  test('pending user gets 403 pending_verification on admin role probe', async ({ page }) => {
     await resetDb(page);
 
-    await registerAndActivate(page, 'banneduser', 'banneduser@example.com');
-    await loginUser(page, 'banneduser');
+    await registerUser(page, 'pendinguser', 'pendinguser@example.com');
+    await loginUser(page, 'pendinguser');
 
-    // Ban the user via the dev helper (set status directly)
-    const banRes = await page.request.post('/api/dev/set-user-status', {
-      data: { username: 'banneduser', status: 'banned' },
+    const res = await page.request.get('/api/dev/role-probe/admin');
+    expect(res.status()).toBe(403);
+    const body = await res.json();
+    expect(body).toMatchObject({
+      error: 'pending_verification',
     });
-    // This endpoint may not exist yet — if it returns 404, fall back to
-    // a manual check of the balance endpoint which requires active status.
-    // We'll test both paths.
-    if (banRes.status() === 200) {
-      const balRes = await page.request.get('/api/balance');
-      expect([401, 403]).toContain(balRes.status());
-    } else {
-      // The dev endpoint doesn't exist yet; skip with a note
-      test.info().annotations.push({
-        type: 'note',
-        description: '/api/dev/set-user-status not yet available — skipping live ban check',
-      });
-    }
+  });
+
+  test('banned user gets 403 account_banned on requireActiveUser-protected payment create', async ({ page }) => {
+    await resetDb(page);
+
+    await registerUser(page, 'banneduser', 'banneduser@example.com');
+    await activateUser(page, 'banneduser');
+    await loginUser(page, 'banneduser');
+    await setUserStatus(page, 'banneduser', 'banned');
+
+    const csrfToken = await getCsrfToken(page);
+    const res = await page.request.post('/api/payment/create', {
+      data: { amount: 50 },
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+    expect(res.status()).toBe(403);
+    const body = await res.json();
+    expect(body).toMatchObject({
+      error: 'account_banned',
+    });
+  });
+
+  test('legacy disabled user is also blocked by requireRole', async ({ page }) => {
+    await resetDb(page);
+
+    await registerUser(page, 'disableduser', 'disableduser@example.com');
+    await activateUser(page, 'disableduser');
+    await loginUser(page, 'disableduser');
+    await setUserStatus(page, 'disableduser', 'disabled');
+
+    const res = await page.request.get('/api/dev/role-probe/admin');
+    expect(res.status()).toBe(403);
+    const body = await res.json();
+    expect(body).toMatchObject({
+      error: 'account_banned',
+    });
+  });
+
+  test('plain active user gets 403 forbidden on admin role probe', async ({ page }) => {
+    await resetDb(page);
+
+    await registerUser(page, 'plainuser', 'plainuser@example.com');
+    await activateUser(page, 'plainuser');
+    await loginUser(page, 'plainuser');
+
+    const res = await page.request.get('/api/dev/role-probe/admin');
+    expect(res.status()).toBe(403);
+    const body = await res.json();
+    expect(body).toMatchObject({
+      error: 'forbidden',
+    });
+  });
+
+  test('admin user gets 200 on admin role probe', async ({ page }) => {
+    await resetDb(page);
+
+    await registerUser(page, 'adminuser', 'adminuser@example.com');
+    await activateUser(page, 'adminuser');
+    await setUserRole(page, 'adminuser', 'admin');
+    await loginUser(page, 'adminuser');
+
+    const res = await page.request.get('/api/dev/role-probe/admin');
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body).toMatchObject({
+      success: true,
+      user: {
+        username: 'adminuser',
+        role: 'admin',
+      },
+    });
+  });
+
+  test('unauthenticated request to admin role probe returns 401', async ({ request }) => {
+    const res = await request.get('/api/dev/role-probe/admin');
+    expect(res.status()).toBe(401);
   });
 });
 
-// ---------------------------------------------------------------------------
-// requireRole — 403 for plain user on an admin-only probe
-// ---------------------------------------------------------------------------
-
-test.describe('PR1 — requireRole enforcement', () => {
-  test('plain user gets 403 on admin-only endpoint', async ({ page }) => {
+test.describe('PR1 — admin audit log helper', () => {
+  test('admin audit write endpoint persists a row in admin_audit_log', async ({ page }) => {
     await resetDb(page);
 
-    await registerAndActivate(page, 'plainuser', 'plainuser@example.com');
-    await loginUser(page, 'plainuser');
+    await registerUser(page, 'auditadmin', 'auditadmin@example.com');
+    await activateUser(page, 'auditadmin');
+    await setUserRole(page, 'auditadmin', 'admin');
+    await loginUser(page, 'auditadmin');
 
-    // /api/admin/* routes will be added in PR 2.
-    // As a proxy, verify that a 403/404 (not 500) is returned — 404 means
-    // the route doesn't exist yet but the server is healthy; 403 means role
-    // enforcement fired.
-    const res = await page.request.get('/api/admin/users');
-    expect([403, 404]).toContain(res.status());
-  });
+    const csrfToken = await getCsrfToken(page);
+    const res = await page.request.post('/api/dev/admin-audit-log/write', {
+      data: {
+        action: 'test_audit_write',
+        targetType: 'user',
+        targetId: 42,
+        details: { source: 'playwright', marker: 'audit-smoke' },
+      },
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
 
-  test('unauthenticated request to admin endpoint returns 401 or 404', async ({ request }) => {
-    const res = await request.get('/api/admin/users');
-    expect([401, 403, 404]).toContain(res.status());
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.row).toBeTruthy();
+    expect(body.row.admin_id).toBeGreaterThan(0);
+    expect(body.row.action).toBe('test_audit_write');
+    expect(body.row.target_type).toBe('user');
+    expect(body.row.target_id).toBe(42);
+    expect(typeof body.row.details_json).toBe('string');
+    expect(body.row.details_json).toContain('audit-smoke');
   });
 });

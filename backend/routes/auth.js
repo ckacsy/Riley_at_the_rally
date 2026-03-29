@@ -167,6 +167,9 @@ module.exports = function mountAuthRoutes(app, db, deps) {
     if (user.status === 'banned') {
       return res.status(403).json({ error: 'account_banned', message: 'Аккаунт заблокирован' });
     }
+    if (user.status === 'disabled') {
+      return res.status(403).json({ error: 'account_banned', message: 'Аккаунт заблокирован' });
+    }
     if (user.status === 'deleted') {
       req.session.destroy(() => {});
       return res.status(401).json({ error: 'Не авторизован' });
@@ -194,7 +197,13 @@ module.exports = function mountAuthRoutes(app, db, deps) {
         req.session.destroy(() => {});
         return res.status(401).json({ error: 'Не авторизован' });
       }
+      if (user.status === 'pending') {
+        return res.status(403).json({ error: 'pending_verification', message: 'Подтвердите email для доступа к этой функции' });
+      }
       if (user.status === 'banned') {
+        return res.status(403).json({ error: 'account_banned', message: 'Аккаунт заблокирован' });
+      }
+      if (user.status === 'disabled') {
         return res.status(403).json({ error: 'account_banned', message: 'Аккаунт заблокирован' });
       }
       if (!hasRequiredRole(user.role, roles)) {
