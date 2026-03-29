@@ -9,10 +9,10 @@ const rateLimit = require('express-rate-limit');
  *
  * @param {import('express').Application} app
  * @param {import('better-sqlite3').Database} db
- * @param {{ requireAuth: Function, requireActiveUser: Function, csrfMiddleware: Function }} deps
+ * @param {{ requireAuth: Function, requireActiveUser: Function, csrfMiddleware: Function, getActiveSessions?: () => Map<string, {dbUserId: number, holdAmount: number, carId: string|number, userId: string, startTime: Date}> }} deps
  */
 module.exports = function mountPaymentRoutes(app, db, deps) {
-  const { requireAuth, requireActiveUser, csrfMiddleware } = deps;
+  const { requireAuth, requireActiveUser, csrfMiddleware, getActiveSessions } = deps;
 
   const paymentReadLimiter = rateLimit({
     windowMs: 60 * 1000,
@@ -102,7 +102,18 @@ module.exports = function mountPaymentRoutes(app, db, deps) {
   app.get('/api/balance', paymentReadLimiter, requireAuth, (req, res) => {
     const row = db.prepare('SELECT balance FROM users WHERE id = ?').get(req.session.userId);
     if (!row) return res.status(404).json({ error: 'Пользователь не найден.' });
-    res.json({ balance: row.balance || 0 });
+    let activeHold = 0;
+    if (typeof getActiveSessions === 'function') {
+      const sessions = getActiveSessions();
+      if (sessions) {
+        for (const session of sessions.values()) {
+          if (session.dbUserId === req.session.userId) {
+            activeHold += session.holdAmount || 0;
+          }
+        }
+      }
+    }
+    res.json({ balance: row.balance || 0, activeHold });
   });
 
   // -------------------------------------------------------------------------
