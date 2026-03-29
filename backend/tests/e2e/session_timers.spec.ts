@@ -164,6 +164,10 @@ test.describe('Control page timer UI — real flow', () => {
     const user = await registerUser(page, 'timer_user2', 'timer2@example.com', TEST_PASSWORD);
     await activateUser(page, user.username);
     await loginUser(page, user.username, TEST_PASSWORD);
+    // Mock /api/auth/me so the garage page recognises the user as active
+    await page.route('/api/auth/me', (route) =>
+      route.fulfill({ json: { user: { id: user.id, username: user.username, status: 'active' } } }),
+    );
     // Mock car availability before navigating so the CTA settles on "НА ТРЕК"
     await mockCarsAvailable(page);
     // forceFallback=1 loads the garage in WebGL-fallback mode (CI-friendly).
