@@ -3,16 +3,13 @@ import { test, expect } from '@playwright/test';
 /**
  * Session timer and warning banner tests for the control page.
  *
- * The first test ("timer badges are present in DOM") is a lightweight smoke
- * test that uses injectFakeSession + stubSocketIo to verify the timer DOM
- * structure exists on /control without going through the full user flow.
- *
- * The second test ("session-info shows car name") goes through the REAL user
- * flow: register → activate → login → /garage → "НА ТРЕК" → /control.
+ * The first two tests ("timer badges are present in DOM" and "session-info
+ * shows car name") go through the REAL user flow:
+ *   register → activate → login → /garage → "НА ТРЕК" → /control.
  *
  * The remaining tests (countdown display, warning banner, disappearance)
- * use the inject+stub approach because they need to manipulate DOM state
- * that only appears under specific timing conditions.
+ * use the original inject+stub approach because they need to manipulate
+ * DOM state that only appears under specific timing conditions.
  *
  * The redirect-guard test verifies that visiting /control without an
  * activeSession bounces the user to /garage.
@@ -157,25 +154,33 @@ async function mockCarsAvailable(page: import('@playwright/test').Page): Promise
 }
 
 // ---------------------------------------------------------------------------
-// Timer UI tests (smoke + real flow)
+// Real user flow tests
 // ---------------------------------------------------------------------------
 
-test.describe('Control page timer UI', () => {
+test.describe('Control page timer UI — real flow', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('timer badges are present in DOM', async ({ page }) => {
-    await injectFakeSession(page);
-    await stubSocketIo(page);
-    await page.goto('/control');
-    await page.waitForLoadState('domcontentloaded');
-    await expect(page).toHaveURL(/\/control/, { timeout: 10_000 });
+  test('timer badges are present in DOM (real flow)', async ({ page }) => {
+    test.setTimeout(90_000);
+    await resetDb(page);
+    const user = await registerUser(page, 'timer_user1', 'timer1@example.com', TEST_PASSWORD);
+    await activateUser(page, user.username);
+    await loginUser(page, user.username, TEST_PASSWORD);
+    // Mock car availability before navigating so the CTA settles on "НА ТРЕК"
+    await mockCarsAvailable(page);
+    // forceFallback=1 loads the garage in WebGL-fallback mode (CI-friendly).
+    // #fallback-cta-btn is the visible, clickable CTA inside #webgl-fallback.active.
+    await page.goto('/garage?forceFallback=1');
+    const cta = page.locator('#fallback-cta-btn');
+    await expect(cta).toContainText('НА ТРЕК', { timeout: CTA_TIMEOUT });
+    await expect(cta).toBeVisible({ timeout: CTA_TIMEOUT });
+    await expect(cta).toBeEnabled({ timeout: CTA_TIMEOUT });
+    await cta.click();
+    await expect(page).toHaveURL(/\/control/, { timeout: NAVIGATION_TIMEOUT });
 
-    // Timer bar element should be in DOM (hidden by default until session_started)
     await expect(page.locator('#session-timers-bar')).toHaveCount(1);
-    // Both timer countdown elements should exist
     await expect(page.locator('#max-timer-countdown')).toHaveCount(1);
     await expect(page.locator('#inactivity-timer-countdown')).toHaveCount(1);
-    // Warning banner should exist in DOM
     await expect(page.locator('#session-warning-banner')).toHaveCount(1);
   });
 
@@ -185,13 +190,6 @@ test.describe('Control page timer UI', () => {
     const user = await registerUser(page, 'timer_user2', 'timer2@example.com', TEST_PASSWORD);
     await activateUser(page, user.username);
     await loginUser(page, user.username, TEST_PASSWORD);
-    // Mock /api/auth/me so the CTA always resolves to "НА ТРЕК" regardless of
-    // session-cookie timing (same pattern as stable tests in garage.spec.ts).
-    await page.route('/api/auth/me', (route) =>
-      route.fulfill({
-        json: { user: { id: user.id, username: user.username, status: 'active' } },
-      }),
-    );
     // Mock car availability before navigating so the CTA settles on "НА ТРЕК"
     await mockCarsAvailable(page);
     // forceFallback=1 loads the garage in WebGL-fallback mode (CI-friendly).
