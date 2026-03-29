@@ -1717,7 +1717,7 @@
 
         function pollStatusBar() {
             var t0 = Date.now();
-            fetch('/api/health')
+            fetch('/api/health', { credentials: 'same-origin' })
                 .then(function (r) { return r.json().then(function (d) { return { ok: r.ok && d.ok, ping: Date.now() - t0 }; }); })
                 .then(function (res) {
                     sbPing.textContent = res.ping + ' \u043c\u0441';
@@ -1750,10 +1750,10 @@
 
         // Auth
         var csrfToken = '';
-        fetch('/api/csrf-token').then(function(r){return r.json();}).then(function(d){csrfToken=d.csrfToken||'';});
+        fetch('/api/csrf-token', { credentials: 'same-origin' }).then(function(r){return r.json();}).then(function(d){csrfToken=d.csrfToken||'';loadAuth();});
 
         function loadAuth() {
-            fetch('/api/auth/me')
+            fetch('/api/auth/me', { credentials: 'same-origin' })
                 .then(function (r) { return r.json(); })
                 .then(function (data) { currentUser = data.user || null; renderAuthChip(); updateCTA(); })
                 .catch(function () { currentUser = null; renderAuthChip(); updateCTA(); });
@@ -1763,7 +1763,7 @@
         var currentBalance = 0;
 
         function loadBalance() {
-            fetch('/api/balance')
+            fetch('/api/balance', { credentials: 'same-origin' })
                 .then(function (r) { return r.ok ? r.json() : null; })
                 .then(function (data) {
                     if (!data) return;
@@ -1804,6 +1804,7 @@
 
                     fetch('/api/payment/create', {
                         method: 'POST',
+                        credentials: 'same-origin',
                         headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
                         body: JSON.stringify({ amount: amount })
                     })
@@ -1925,7 +1926,7 @@
         }
 
         function loadCarStatus() {
-            fetch('/api/car-status')
+            fetch('/api/car-status', { credentials: 'same-origin' })
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
                     carAvailabilityStatus = data.status || 'available';
@@ -1942,7 +1943,7 @@
         }
 
         function loadCars() {
-            fetch('/api/cars')
+            fetch('/api/cars', { credentials: 'same-origin' })
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
                     ratePerMinute = data.ratePerMinute || ratePerMinute;
@@ -1958,7 +1959,7 @@
         }
 
         function loadLeaderboard() {
-            fetch('/api/leaderboard?range=all')
+            fetch('/api/leaderboard?range=all', { credentials: 'same-origin' })
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
                     var rows = data.leaderboard || [];
@@ -2082,7 +2083,7 @@
             if (!stale || !stale.sessionId) { sessionStorage.removeItem('activeSession'); return; }
             sessionStorage.removeItem('activeSession');
             fetch('/api/session/end', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ sessionId: stale.sessionId })
             })
             .then(function (r) { return r.json(); })
@@ -2138,7 +2139,6 @@
         }());
 
         // Init
-        loadAuth();
         loadBalance();
         loadCars();
         loadCarStatus();
