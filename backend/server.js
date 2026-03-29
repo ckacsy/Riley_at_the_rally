@@ -879,12 +879,13 @@ if (process.env.NODE_ENV !== 'production') {
     const { action, targetType, targetId, details } = req.body || {};
     if (!action || typeof action !== 'string') return res.status(400).json({ error: 'action required' });
     if (!targetType || typeof targetType !== 'string') return res.status(400).json({ error: 'targetType required' });
+    const targetIdAsNumber = Number(targetId);
 
     adminRouteDeps.logAdminAudit({
       adminId: req.user.id,
       action,
       targetType,
-      targetId: Number.isInteger(targetId) ? targetId : null,
+      targetId: Number.isInteger(targetIdAsNumber) ? targetIdAsNumber : null,
       details: details && typeof details === 'object' ? details : null,
       ipAddress: req.ip || null,
       userAgent: req.get('user-agent') || null,

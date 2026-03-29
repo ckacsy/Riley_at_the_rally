@@ -19,7 +19,15 @@
  * }} data
  */
 function logAdminAudit(db, data) {
-  const { adminId, action, targetType, targetId, details, ipAddress, userAgent } = data || {};
+  if (!data || typeof data !== 'object') {
+    console.warn('[adminAudit] Skipping audit log write: missing required fields');
+    return;
+  }
+  const { adminId, action, targetType, targetId, details, ipAddress, userAgent } = data;
+  if (!db || !adminId || !action || !targetType) {
+    console.warn('[adminAudit] Skipping audit log write: missing required fields');
+    return;
+  }
   try {
     const detailsJson = details != null ? JSON.stringify(details) : null;
     db.prepare(
