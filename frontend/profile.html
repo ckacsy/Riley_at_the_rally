@@ -79,12 +79,63 @@
         }
         #avatar-input { display: none; }
         .profile-info { flex: 1; min-width: 200px; }
+        .profile-username-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0 0 6px;
+        }
         .profile-username {
             font-size: 28px;
             font-weight: bold;
             color: var(--text-primary);
+            margin: 0;
+        }
+        .username-edit-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            color: var(--text-secondary);
+            padding: 2px 4px;
+            border-radius: 4px;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+        .username-edit-btn:hover { color: var(--text-primary); }
+        .username-edit-form {
+            display: none;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
             margin: 0 0 6px;
         }
+        .username-edit-form.visible { display: flex; }
+        .username-edit-input {
+            font-size: 20px;
+            font-weight: bold;
+            padding: 4px 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            min-width: 140px;
+        }
+        .username-save-btn, .username-cancel-btn {
+            padding: 4px 12px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .username-save-btn { background: var(--accent-secondary); color: var(--text-primary); }
+        .username-cancel-btn { background: rgba(255,255,255,0.1); color: var(--text-secondary); }
+        .username-msg {
+            font-size: 13px;
+            margin: 0 0 6px;
+        }
+        .username-msg.success { color: #4caf50; }
+        .username-msg.error { color: #f44336; }
         .profile-email {
             font-size: 14px;
             color: var(--text-secondary);
@@ -301,7 +352,16 @@
                 <div class="upload-status" id="upload-status"></div>
             </div>
             <div class="profile-info">
-                <div class="profile-username" id="profile-username">—</div>
+                <div class="profile-username-row">
+                    <div class="profile-username" id="profile-username">—</div>
+                    <button class="username-edit-btn" id="username-edit-btn" title="Изменить имя пользователя">✏️</button>
+                </div>
+                <div class="username-edit-form" id="username-edit-form">
+                    <input type="text" class="username-edit-input" id="username-edit-input" maxlength="30" autocomplete="off" />
+                    <button class="username-save-btn" id="username-save-btn">Сохранить</button>
+                    <button class="username-cancel-btn" id="username-cancel-btn">Отмена</button>
+                </div>
+                <div class="username-msg" id="username-msg" style="display:none;"></div>
                 <div class="profile-email" id="profile-email">—</div>
                 <div class="profile-joined" id="profile-joined">—</div>
                 <button class="logout-btn" id="logout-btn" style="margin-top:12px;">Выйти</button>
@@ -428,6 +488,7 @@
             }
 
             // Profile info
+            currentUsername = user.username;
             document.getElementById('profile-username').textContent = user.username;
             document.getElementById('profile-email').textContent = user.email;
             document.getElementById('profile-joined').textContent = 'Участник с ' + formatDate(user.created_at);
@@ -545,6 +606,58 @@
                     });
             });
         }
+
+        // Username change
+        var currentUsername = '';
+        document.getElementById('username-edit-btn').addEventListener('click', function () {
+            var input = document.getElementById('username-edit-input');
+            input.value = currentUsername;
+            document.getElementById('username-edit-form').classList.add('visible');
+            document.getElementById('username-msg').style.display = 'none';
+            input.focus();
+        });
+        document.getElementById('username-cancel-btn').addEventListener('click', function () {
+            document.getElementById('username-edit-form').classList.remove('visible');
+            document.getElementById('username-msg').style.display = 'none';
+        });
+        document.getElementById('username-save-btn').addEventListener('click', function () {
+            var newName = document.getElementById('username-edit-input').value.trim();
+            var saveBtn = document.getElementById('username-save-btn');
+            var msgEl = document.getElementById('username-msg');
+            if (!newName) return;
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Сохранение…';
+            fetch('/api/profile/username', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
+                body: JSON.stringify({ username: newName })
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.success) {
+                        currentUsername = data.username;
+                        document.getElementById('profile-username').textContent = data.username;
+                        document.getElementById('username-edit-form').classList.remove('visible');
+                        msgEl.textContent = '✅ Имя изменено';
+                        msgEl.className = 'username-msg success';
+                        msgEl.style.display = 'block';
+                        setTimeout(function () { msgEl.style.display = 'none'; }, 4000);
+                    } else {
+                        msgEl.textContent = data.error || 'Ошибка';
+                        msgEl.className = 'username-msg error';
+                        msgEl.style.display = 'block';
+                    }
+                })
+                .catch(function () {
+                    msgEl.textContent = 'Ошибка сети';
+                    msgEl.className = 'username-msg error';
+                    msgEl.style.display = 'block';
+                })
+                .finally(function () {
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = 'Сохранить';
+                });
+        });
 
         loadProfile();
     </script>

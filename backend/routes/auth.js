@@ -23,7 +23,7 @@ const {
  * @param {import('express').Application} app
  * @param {import('better-sqlite3').Database} db
  * @param {{ csrfMiddleware: Function, generateCsrfToken: Function, apiReadLimiter: Function, PORT: number|string }} deps
- * @returns {{ requireAuth: Function, requireActiveUser: Function, _devVerificationLinks: Map|null, _devMagicLinks: Map|null }}
+ * @returns {{ requireAuth: Function, requireActiveUser: Function, _devVerificationLinks: Map|null, _devMagicLinks: Map|null, _devResetLinks: Map|null }}
  */
 module.exports = function mountAuthRoutes(app, db, deps) {
   const { csrfMiddleware, generateCsrfToken, apiReadLimiter, PORT } = deps;
@@ -172,6 +172,10 @@ module.exports = function mountAuthRoutes(app, db, deps) {
   // so the /api/dev/magic-link endpoint can return it when SMTP is unavailable.
   const _devMagicLinks = process.env.NODE_ENV !== 'production' ? new Map() : null;
 
+  // In non-production environments, keep the last password reset URL per normalised email
+  // so the /api/dev/reset-link endpoint can return it when SMTP is unavailable.
+  const _devResetLinks = process.env.NODE_ENV !== 'production' ? new Map() : null;
+
   // --- Token helpers ---
   function createVerificationToken(userId) {
     const rawToken = crypto.randomBytes(32).toString('hex');
@@ -234,8 +238,15 @@ module.exports = function mountAuthRoutes(app, db, deps) {
     const subject = 'Сброс пароля — Riley at the Rally';
     const text = `Здравствуйте!\n\nДля сброса пароля перейдите по ссылке:\n${resetUrl}\n\nСсылка действительна 1 час.\n\nЕсли вы не запрашивали сброс пароля, просто проигнорируйте это письмо.`;
     const html = `<p>Здравствуйте!</p><p>Для сброса пароля перейдите по ссылке:</p><p><a href="${resetUrl}">${resetUrl}</a></p><p>Ссылка действительна 1 час.</p><p>Если вы не запрашивали сброс пароля, просто проигнорируйте это письмо.</p>`;
+    if (_devResetLinks) {
+      _devResetLinks.set(normalizeEmail(email), resetUrl);
+    }
     mailer.sendMail({ to: email, subject, text, html }).catch((err) => {
       console.error('[Mailer] Failed to send password reset email:', err.message);
+      if (_devResetLinks) {
+        console.error('[Mailer] Tip: set DISABLE_EMAIL=true to print links to console, or fix SMTP env vars.');
+        console.error(`[Mailer] Password reset link (dev only): ${resetUrl}`);
+      }
     });
   }
 
@@ -623,5 +634,40 @@ module.exports = function mountAuthRoutes(app, db, deps) {
     res.json({ success: true, avatarPath });
   });
 
-  return { requireAuth, requireActiveUser, _devVerificationLinks, _devMagicLinks };
+  app.patch('/api/profile/username', requireAuth, csrfMiddleware, (req, res) => {
+    const body = req.body || {};
+    const rawUsername = typeof body.username === 'string' ? body.username : '';
+
+    const usernameErr = validateUsername(rawUsername);
+    if (usernameErr) return res.status(400).json({ error: usernameErr });
+
+    const newUsername = normalizeText(rawUsername);
+    const newUsernameNorm = normalizeUsername(rawUsername);
+
+    const userId = req.session.userId;
+
+    // Check uniqueness (excluding current user)
+    const existing = db.prepare('SELECT id FROM users WHERE username_normalized = ? AND id != ?').get(newUsernameNorm, userId);
+    if (existing) return res.status(400).json({ error: 'Это имя пользователя уже занято' });
+
+    // Check cooldown (7 days)
+    const user = db.prepare('SELECT username_changed_at FROM users WHERE id = ?').get(userId);
+    if (user && user.username_changed_at) {
+      const lastChanged = new Date(user.username_changed_at);
+      const cooldownMs = 7 * 24 * 60 * 60 * 1000;
+      const nextAvailable = new Date(lastChanged.getTime() + cooldownMs);
+      if (Date.now() < nextAvailable.getTime()) {
+        const dateStr = nextAvailable.toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' });
+        return res.status(400).json({ error: `Имя можно менять раз в 7 дней. Следующая смена доступна: ${dateStr}` });
+      }
+    }
+
+    db.prepare(
+      'UPDATE users SET username = ?, username_normalized = ?, username_changed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+    ).run(newUsername, newUsernameNorm, userId);
+
+    res.json({ success: true, username: newUsername });
+  });
+
+  return { requireAuth, requireActiveUser, _devVerificationLinks, _devMagicLinks, _devResetLinks };
 };

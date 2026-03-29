@@ -502,6 +502,7 @@ function setupSocketIo(io, deps) {
         sessionId: socket.id,
         sessionMaxDurationMs: SESSION_MAX_DURATION_MS,
         inactivityTimeoutMs: INACTIVITY_TIMEOUT_MS,
+        cameraUrl: CARS.find((c) => c.id === carId)?.cameraUrl || '',
       });
       setInactivityTimeout(socket);
       setSessionDurationTimeout(socket);
@@ -519,6 +520,12 @@ function setupSocketIo(io, deps) {
         socket.emit('control_error', { message: 'Слишком много команд. Подождите немного.', code: 'rate_limited' });
         return;
       }
+      metrics.log('info', 'control_command', {
+        socketId: socket.id,
+        direction: data.direction || null,
+        speed: data.speed || 0,
+        steering_angle: data.steering_angle || 0,
+      });
       setInactivityTimeout(socket);
       const t0 = performance.now();
       socket.broadcast.emit('control_command', data);
