@@ -238,6 +238,135 @@ module.exports = function mountAdminRoutes(app, db, deps) {
   );
 
   // -------------------------------------------------------------------------
+  // GET /api/admin/audit-log  (admin only)
+  // -------------------------------------------------------------------------
+  app.get(
+    '/api/admin/audit-log',
+    adminReadLimiter,
+    requireRole('admin'),
+    (req, res) => {
+      // --- Pagination params ---
+      let page = 1;
+      let limit = 50;
+
+      if (req.query.page !== undefined) {
+        const p = parseInt(req.query.page, 10);
+        if (!Number.isInteger(p) || p < 1) {
+          return res.status(400).json({ error: 'Invalid page parameter' });
+        }
+        page = p;
+      }
+
+      if (req.query.limit !== undefined) {
+        const l = parseInt(req.query.limit, 10);
+        if (!Number.isInteger(l) || l < 1 || l > 100) {
+          return res.status(400).json({ error: 'Invalid limit parameter (1–100)' });
+        }
+        limit = l;
+      }
+
+      // --- Filter params ---
+      const conditions = [];
+      const params = [];
+
+      if (req.query.admin_id !== undefined) {
+        const aid = parseInt(req.query.admin_id, 10);
+        if (!Number.isInteger(aid) || aid < 1) {
+          return res.status(400).json({ error: 'Invalid admin_id parameter' });
+        }
+        conditions.push('a.admin_id = ?');
+        params.push(aid);
+      }
+
+      if (req.query.action !== undefined) {
+        if (typeof req.query.action !== 'string' || !req.query.action.trim()) {
+          return res.status(400).json({ error: 'Invalid action parameter' });
+        }
+        conditions.push('a.action = ?');
+        params.push(req.query.action.trim());
+      }
+
+      if (req.query.target_type !== undefined) {
+        if (typeof req.query.target_type !== 'string' || !req.query.target_type.trim()) {
+          return res.status(400).json({ error: 'Invalid target_type parameter' });
+        }
+        conditions.push('a.target_type = ?');
+        params.push(req.query.target_type.trim());
+      }
+
+      if (req.query.target_id !== undefined) {
+        const tid = parseInt(req.query.target_id, 10);
+        if (!Number.isInteger(tid) || tid < 1) {
+          return res.status(400).json({ error: 'Invalid target_id parameter' });
+        }
+        conditions.push('a.target_id = ?');
+        params.push(tid);
+      }
+
+      const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+      if (req.query.date_from !== undefined) {
+        if (!DATE_RE.test(req.query.date_from)) {
+          return res.status(400).json({ error: 'Invalid date_from format (use YYYY-MM-DD)' });
+        }
+        conditions.push("a.created_at >= ?");
+        params.push(req.query.date_from + ' 00:00:00');
+      }
+
+      if (req.query.date_to !== undefined) {
+        if (!DATE_RE.test(req.query.date_to)) {
+          return res.status(400).json({ error: 'Invalid date_to format (use YYYY-MM-DD)' });
+        }
+        // Exclusive upper boundary: next day start
+        const nextDay = new Date(req.query.date_to);
+        nextDay.setDate(nextDay.getDate() + 1);
+        const nextDayStr = nextDay.toISOString().slice(0, 10);
+        conditions.push("a.created_at < ?");
+        params.push(nextDayStr + ' 00:00:00');
+      }
+
+      const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+
+      // --- COUNT query ---
+      const countRow = db.prepare(
+        `SELECT COUNT(*) AS total FROM admin_audit_log a ${whereClause}`
+      ).get(...params);
+      const total = countRow ? countRow.total : 0;
+      const pages = Math.ceil(total / limit) || 1;
+
+      // --- Data query ---
+      const offset = (page - 1) * limit;
+      const dataParams = [...params, limit, offset];
+
+      const items = db.prepare(
+        `SELECT
+           a.id,
+           a.admin_id,
+           u.username AS admin_username,
+           a.action,
+           a.target_type,
+           a.target_id,
+           t.username AS target_username,
+           a.details_json,
+           a.ip_address,
+           a.user_agent,
+           a.created_at
+         FROM admin_audit_log a
+         LEFT JOIN users u ON u.id = a.admin_id
+         LEFT JOIN users t ON t.id = a.target_id AND a.target_type = 'user'
+         ${whereClause}
+         ORDER BY a.created_at DESC, a.id DESC
+         LIMIT ? OFFSET ?`
+      ).all(...dataParams);
+
+      res.json({
+        items,
+        pagination: { page, limit, total, pages },
+      });
+    }
+  );
+
+  // -------------------------------------------------------------------------
   // POST /api/admin/users/:id/balance-adjust
   // -------------------------------------------------------------------------
   app.post(

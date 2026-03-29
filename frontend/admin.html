@@ -79,6 +79,11 @@
             <span class="admin-card-title">Новости</span>
             <span class="admin-card-desc">Создание и редактирование новостей, публикация, архивирование</span>
         </a>
+        <a href="/admin-audit" class="admin-card" id="card-audit" hidden>
+            <span class="admin-card-icon">📋</span>
+            <span class="admin-card-title">Журнал аудита</span>
+            <span class="admin-card-desc">Просмотр всех административных действий: баны, корректировки баланса, публикации новостей</span>
+        </a>
     </div>
 </div>
 
@@ -88,9 +93,12 @@
 (function () {
     'use strict';
     AdminApi.requireAdmin()
-        .then(function () {
+        .then(function (user) {
             document.getElementById('admin-loading').hidden = true;
             document.getElementById('admin-content').hidden = false;
+            if (user.role === 'admin') {
+                document.getElementById('card-audit').hidden = false;
+            }
         })
         .catch(function () { /* requireAdmin handles redirects */ });
 })();

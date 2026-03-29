@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Журнал аудита — Riley at the Rally</title>
+    <link rel="stylesheet" href="styles/common.css">
+    <link rel="stylesheet" href="styles/nav.css">
+    <style>
+        body { background: #0a0e1a; color: #fff; font-family: Arial, sans-serif; min-height: 100vh; }
+        .admin-container { max-width: 1200px; margin: 0 auto; padding: 32px 20px; }
+        .admin-header { margin-bottom: 24px; }
+        .admin-header h1 { font-size: 26px; font-weight: bold; color: #fff; margin-bottom: 6px; }
+        .admin-header p { color: rgba(255,255,255,0.6); font-size: 14px; }
+
+        /* Filters */
+        .filters-section {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 18px 20px;
+            margin-bottom: 20px;
+        }
+        .filters-section h2 { font-size: 15px; font-weight: bold; margin-bottom: 14px; color: rgba(255,255,255,0.8); }
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        .filter-group { display: flex; flex-direction: column; gap: 4px; }
+        .filter-group label { font-size: 12px; color: rgba(255,255,255,0.5); }
+        .filter-group input,
+        .filter-group select {
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 6px;
+            color: #fff;
+            padding: 7px 10px;
+            font-size: 13px;
+        }
+        .filter-group input::placeholder { color: rgba(255,255,255,0.3); }
+        .filter-actions { display: flex; gap: 10px; }
+        .btn { padding: 8px 18px; border-radius: 7px; border: none; cursor: pointer; font-size: 13px; font-weight: bold; transition: opacity 0.15s; }
+        .btn:hover { opacity: 0.85; }
+        .btn-primary { background: #3b82f6; color: #fff; }
+        .btn-secondary { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); }
+
+        /* Flash */
+        #flash-container { margin-bottom: 16px; }
+        .admin-flash { padding: 10px 14px; border-radius: 7px; font-size: 14px; }
+        .admin-flash--error { background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.4); color: #fca5a5; }
+        .admin-flash--success { background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.3); color: #86efac; }
+        .admin-flash--info { background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3); color: #93c5fd; }
+
+        /* Table */
+        .table-wrapper { overflow-x: auto; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        thead th {
+            background: rgba(255,255,255,0.07);
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: bold;
+            color: rgba(255,255,255,0.7);
+            white-space: nowrap;
+        }
+        tbody tr { border-top: 1px solid rgba(255,255,255,0.06); transition: background 0.1s; }
+        tbody tr:hover { background: rgba(255,255,255,0.03); }
+        td { padding: 9px 12px; vertical-align: top; color: rgba(255,255,255,0.85); }
+        td.nowrap { white-space: nowrap; }
+
+        /* Details */
+        .btn-details { padding: 3px 10px; font-size: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); border-radius: 5px; color: rgba(255,255,255,0.7); cursor: pointer; }
+        .btn-details:hover { background: rgba(255,255,255,0.18); }
+        .details-block { margin-top: 6px; }
+        .details-block pre {
+            background: rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+            padding: 8px 10px;
+            font-size: 11px;
+            color: #a3e635;
+            max-width: 340px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        /* Empty / loading */
+        .state-msg { text-align: center; padding: 40px 20px; color: rgba(255,255,255,0.4); font-size: 15px; }
+
+        /* Pagination */
+        .pagination { display: flex; align-items: center; gap: 10px; margin-top: 18px; font-size: 13px; }
+        .pagination button { padding: 6px 14px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.8); cursor: pointer; }
+        .pagination button:disabled { opacity: 0.35; cursor: default; }
+        .pagination button:not(:disabled):hover { background: rgba(255,255,255,0.14); }
+        .pagination-info { color: rgba(255,255,255,0.5); }
+
+        [hidden] { display: none !important; }
+        #admin-loading {
+            position: fixed; inset: 0; background: #0a0e1a;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; color: rgba(255,255,255,0.7);
+        }
+    </style>
+</head>
+<body>
+<div id="main-nav"></div>
+<div id="admin-loading">Загрузка…</div>
+
+<div class="admin-container" id="admin-content" hidden>
+    <div class="admin-header">
+        <h1>📋 Журнал аудита</h1>
+        <p>Административные действия — только для администраторов</p>
+    </div>
+
+    <div class="filters-section">
+        <h2>Фильтры</h2>
+        <div class="filters-grid">
+            <div class="filter-group">
+                <label for="f-action">Действие</label>
+                <select id="f-action">
+                    <option value="">— Все —</option>
+                    <option value="ban_user">ban_user</option>
+                    <option value="unban_user">unban_user</option>
+                    <option value="delete_user">delete_user</option>
+                    <option value="balance_adjust">balance_adjust</option>
+                    <option value="news_create">news_create</option>
+                    <option value="news_update">news_update</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="f-admin-id">ID администратора</label>
+                <input type="text" id="f-admin-id" placeholder="например, 5">
+            </div>
+            <div class="filter-group">
+                <label for="f-target-type">Тип цели</label>
+                <select id="f-target-type">
+                    <option value="">— Все —</option>
+                    <option value="user">user</option>
+                    <option value="news">news</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="f-target-id">ID цели</label>
+                <input type="text" id="f-target-id" placeholder="например, 42">
+            </div>
+            <div class="filter-group">
+                <label for="f-date-from">Дата с (YYYY-MM-DD)</label>
+                <input type="date" id="f-date-from">
+            </div>
+            <div class="filter-group">
+                <label for="f-date-to">Дата по (YYYY-MM-DD)</label>
+                <input type="date" id="f-date-to">
+            </div>
+        </div>
+        <div class="filter-actions">
+            <button class="btn btn-primary" id="btn-apply">Применить</button>
+            <button class="btn btn-secondary" id="btn-reset">Сбросить</button>
+        </div>
+    </div>
+
+    <div id="flash-container"></div>
+
+    <div id="table-area">
+        <div class="table-wrapper" id="table-wrapper" hidden>
+            <table id="audit-table">
+                <thead>
+                    <tr>
+                        <th>Дата/Время</th>
+                        <th>Администратор</th>
+                        <th>Действие</th>
+                        <th>Цель</th>
+                        <th>IP</th>
+                        <th>Детали</th>
+                    </tr>
+                </thead>
+                <tbody id="audit-tbody"></tbody>
+            </table>
+        </div>
+        <div id="state-empty" class="state-msg" hidden>Нет записей, соответствующих фильтрам</div>
+        <div id="state-loading" class="state-msg">Загрузка данных…</div>
+    </div>
+
+    <div class="pagination" id="pagination" hidden>
+        <button id="btn-prev" disabled>← Назад</button>
+        <span class="pagination-info" id="pagination-info"></span>
+        <button id="btn-next" disabled>Вперёд →</button>
+    </div>
+</div>
+
+<script src="js/nav.js"></script>
+<script src="js/admin-api.js"></script>
+<script src="js/admin-ui.js"></script>
+<script src="js/admin-audit.js"></script>
+</body>
+</html>

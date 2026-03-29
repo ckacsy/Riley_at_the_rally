@@ -61,7 +61,7 @@
     }
 
     /**
-     * Format an ISO datetime string for display.
+     * Format an ISO datetime string for display (date only).
      * @param {string|null} iso
      * @returns {string}
      */
@@ -73,6 +73,25 @@
             });
         } catch (_) {
             return iso.slice(0, 10);
+        }
+    }
+
+    /**
+     * Format an ISO datetime string for display (date + time).
+     * @param {string|null} iso
+     * @returns {string}
+     */
+    function formatDateTime(iso) {
+        if (!iso) return '—';
+        try {
+            var d = new Date(iso);
+            if (isNaN(d.getTime())) return '—';
+            return d.toLocaleString('ru-RU', {
+                day: '2-digit', month: '2-digit', year: 'numeric',
+                hour: '2-digit', minute: '2-digit',
+            });
+        } catch (_) {
+            return '—';
         }
     }
 
@@ -112,6 +131,7 @@
         roleBadge: roleBadge,
         statusBadge: statusBadge,
         formatDate: formatDate,
+        formatDateTime: formatDateTime,
         showLoading: showLoading,
         hideLoading: hideLoading,
         esc: esc,
