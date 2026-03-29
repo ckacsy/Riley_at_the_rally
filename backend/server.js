@@ -297,7 +297,7 @@ const { requireAuth, requireActiveUser, _devVerificationLinks, _devMagicLinks, _
 });
 
 const mountPaymentRoutes = require('./routes/payment');
-mountPaymentRoutes(app, db, { requireAuth, requireActiveUser, csrfMiddleware, apiReadLimiter });
+mountPaymentRoutes(app, db, { requireAuth, requireActiveUser, csrfMiddleware, apiReadLimiter, getActiveSessions: () => socketState && socketState.activeSessions });
 
 function saveRentalSession(dbUserId, carId, durationSeconds, cost) {
   if (!dbUserId) return;

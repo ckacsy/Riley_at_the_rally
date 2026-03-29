@@ -1778,6 +1778,7 @@
 
         // Balance
         var currentBalance = 0;
+        var currentActiveHold = 0;
 
         function loadBalance() {
             fetch('/api/balance', { credentials: 'same-origin' })
@@ -1785,6 +1786,7 @@
                 .then(function (data) {
                     if (!data) return;
                     currentBalance = data.balance || 0;
+                    currentActiveHold = data.activeHold || 0;
                     var el = document.getElementById('rp-credits');
                     if (el) el.textContent = currentBalance.toFixed(2) + ' RC';
                     updateCTA();
@@ -1915,7 +1917,7 @@
                 setBtn('\u041c\u0430\u0448\u0438\u043d\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430', true, '', null);
                 setFallback('\u041c\u0430\u0448\u0438\u043d\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430', true, null);
                 setCenter('\u041c\u0430\u0448\u0438\u043d\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430', true, '', null);
-            } else if (currentBalance < 100) {
+            } else if ((currentBalance + currentActiveHold) < 100) {
                 setBtn('\u041d\u0435\u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e RC (\u043c\u0438\u043d. 100)', true, '', null);
                 setFallback('\u041d\u0435\u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e RC', true, null);
                 setCenter('\u041d\u0435\u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e RC (\u043c\u0438\u043d. 100)', true, '', null);
