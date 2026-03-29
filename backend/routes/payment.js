@@ -2,16 +2,47 @@
 
 const https = require('https');
 const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
 
 /**
  * Mount payment routes.
  *
  * @param {import('express').Application} app
  * @param {import('better-sqlite3').Database} db
- * @param {{ requireAuth: Function, requireActiveUser: Function, csrfMiddleware: Function, apiReadLimiter: Function }} deps
+ * @param {{ requireAuth: Function, requireActiveUser: Function, csrfMiddleware: Function }} deps
  */
 module.exports = function mountPaymentRoutes(app, db, deps) {
-  const { requireAuth, requireActiveUser, csrfMiddleware, apiReadLimiter } = deps;
+  const { requireAuth, requireActiveUser, csrfMiddleware } = deps;
+
+  const paymentReadLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Слишком много запросов. Попробуйте позже.' },
+    keyGenerator: (req) => req.ip,
+    skip: () => process.env.NODE_ENV === 'test',
+  });
+
+  const paymentCreateLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Слишком много запросов. Попробуйте позже.' },
+    keyGenerator: (req) => req.session && req.session.userId ? String(req.session.userId) : req.ip,
+    skip: () => process.env.NODE_ENV === 'test',
+  });
+
+  const webhookLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests.' },
+    keyGenerator: (req) => req.ip,
+    skip: () => process.env.NODE_ENV === 'test',
+  });
 
   const YOOKASSA_SHOP_ID = process.env.YOOKASSA_SHOP_ID || '';
   const YOOKASSA_SECRET_KEY = process.env.YOOKASSA_SECRET_KEY || '';
@@ -68,7 +99,7 @@ module.exports = function mountPaymentRoutes(app, db, deps) {
   // -------------------------------------------------------------------------
   // GET /api/balance
   // -------------------------------------------------------------------------
-  app.get('/api/balance', apiReadLimiter, requireAuth, (req, res) => {
+  app.get('/api/balance', paymentReadLimiter, requireAuth, (req, res) => {
     const row = db.prepare('SELECT balance FROM users WHERE id = ?').get(req.session.userId);
     if (!row) return res.status(404).json({ error: 'Пользователь не найден.' });
     res.json({ balance: row.balance || 0 });
@@ -77,7 +108,7 @@ module.exports = function mountPaymentRoutes(app, db, deps) {
   // -------------------------------------------------------------------------
   // POST /api/payment/create
   // -------------------------------------------------------------------------
-  app.post('/api/payment/create', requireAuth, requireActiveUser, csrfMiddleware, async (req, res) => {
+  app.post('/api/payment/create', paymentCreateLimiter, requireAuth, requireActiveUser, csrfMiddleware, async (req, res) => {
     const userId = req.session.userId;
     const amount = Number(req.body && req.body.amount);
     if (!VALID_AMOUNTS.includes(amount)) {
@@ -131,7 +162,7 @@ module.exports = function mountPaymentRoutes(app, db, deps) {
   // -------------------------------------------------------------------------
   // POST /api/payment/webhook  (called by YooKassa — no auth/CSRF)
   // -------------------------------------------------------------------------
-  app.post('/api/payment/webhook', (req, res) => {
+  app.post('/api/payment/webhook', webhookLimiter, (req, res) => {
     const event = req.body;
     if (!event || event.type !== 'notification') return res.sendStatus(200);
 
@@ -167,7 +198,7 @@ module.exports = function mountPaymentRoutes(app, db, deps) {
   // -------------------------------------------------------------------------
   // GET /api/payment/status/:paymentOrderId
   // -------------------------------------------------------------------------
-  app.get('/api/payment/status/:paymentOrderId', apiReadLimiter, requireAuth, (req, res) => {
+  app.get('/api/payment/status/:paymentOrderId', paymentReadLimiter, requireAuth, (req, res) => {
     const orderId = parseInt(req.params.paymentOrderId, 10);
     if (!Number.isInteger(orderId)) return res.status(400).json({ error: 'Неверный идентификатор.' });
     const order = db.prepare(
@@ -181,7 +212,7 @@ module.exports = function mountPaymentRoutes(app, db, deps) {
   // -------------------------------------------------------------------------
   // GET /api/transactions
   // -------------------------------------------------------------------------
-  app.get('/api/transactions', apiReadLimiter, requireAuth, (req, res) => {
+  app.get('/api/transactions', paymentReadLimiter, requireAuth, (req, res) => {
     const transactions = db.prepare(
       'SELECT id, type, amount, balance_after, description, reference_id, created_at FROM transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT 50'
     ).all(req.session.userId);
