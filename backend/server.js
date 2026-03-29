@@ -307,6 +307,7 @@ db.exec(`
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_audit_admin_id ON admin_audit_log(admin_id)'); } catch (e) { /* ignore */ }
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_audit_created_at ON admin_audit_log(created_at)'); } catch (e) { /* ignore */ }
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_audit_action ON admin_audit_log(action)'); } catch (e) { /* ignore */ }
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_audit_target_type ON admin_audit_log(target_type)'); } catch (e) { /* ignore */ }
 
   // --- PR 3: news table ---
   db.exec(`
@@ -736,6 +737,10 @@ app.get('/admin-news', pageRateLimit, (req, res) => {
   res.sendFile(path.join(frontendDir, 'admin-news.html'));
 });
 
+app.get('/admin-audit', pageRateLimit, (req, res) => {
+  res.sendFile(path.join(frontendDir, 'admin-audit.html'));
+});
+
 // --- Dev-only: reset database (delete all users and sessions) ---
 // Accessible only when NODE_ENV !== 'production'
 if (process.env.NODE_ENV !== 'production') {
@@ -821,9 +826,10 @@ if (process.env.NODE_ENV !== 'production') {
         db.exec('DELETE FROM transactions');
         db.exec('DELETE FROM payment_orders');
         db.exec('DELETE FROM news');
+        db.exec('DELETE FROM admin_audit_log');
         db.exec('DELETE FROM users');
         // Reset autoincrement counters
-        db.exec("DELETE FROM sqlite_sequence WHERE name IN ('users','lap_times','rental_sessions','email_verification_tokens','password_reset_tokens','chat_messages','magic_links','transactions','payment_orders','news')");
+        db.exec("DELETE FROM sqlite_sequence WHERE name IN ('users','lap_times','rental_sessions','email_verification_tokens','password_reset_tokens','chat_messages','magic_links','transactions','payment_orders','news','admin_audit_log')");
       })();
       req.session.destroy((err) => { if (err) console.error('Session destroy error:', err); });
       if (_devVerificationLinks) _devVerificationLinks.clear();

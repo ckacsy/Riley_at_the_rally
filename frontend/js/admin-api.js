@@ -144,11 +144,31 @@
         });
     }
 
+    /**
+     * Strict admin guard: only allows users with role === 'admin'.
+     * Moderators are redirected to /garage.
+     * @returns {Promise<object>} resolves with the current user
+     */
+    function requireStrictAdmin() {
+        return getCurrentUser().then(function (user) {
+            if (!user) {
+                window.location.href = '/login';
+                return Promise.reject(new Error('Not authenticated'));
+            }
+            if (user.role !== 'admin') {
+                window.location.href = '/garage';
+                return Promise.reject(new Error('Forbidden'));
+            }
+            return user;
+        });
+    }
+
     // Expose as a global so HTML pages can load it as a plain <script>
     global.AdminApi = {
         getCsrfToken: getCsrfToken,
         getCurrentUser: getCurrentUser,
         adminFetch: adminFetch,
         requireAdmin: requireAdmin,
+        requireStrictAdmin: requireStrictAdmin,
     };
 })(window);
