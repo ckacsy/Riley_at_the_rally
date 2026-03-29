@@ -307,6 +307,29 @@ db.exec(`
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_audit_admin_id ON admin_audit_log(admin_id)'); } catch (e) { /* ignore */ }
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_audit_created_at ON admin_audit_log(created_at)'); } catch (e) { /* ignore */ }
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_audit_action ON admin_audit_log(action)'); } catch (e) { /* ignore */ }
+
+  // --- PR 3: news table ---
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS news (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      slug TEXT NOT NULL UNIQUE,
+      summary TEXT,
+      body_markdown TEXT NOT NULL,
+      body_html TEXT NOT NULL,
+      cover_image TEXT,
+      status TEXT NOT NULL DEFAULT 'draft',
+      pinned INTEGER NOT NULL DEFAULT 0,
+      author_id INTEGER NOT NULL,
+      published_at TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT
+    )
+  `);
+  try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_news_slug ON news(slug)'); } catch (e) { /* ignore */ }
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_news_status ON news(status)'); } catch (e) { /* ignore */ }
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_news_published_at ON news(published_at)'); } catch (e) { /* ignore */ }
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_news_pinned ON news(pinned)'); } catch (e) { /* ignore */ }
 })();
 
 // --- File uploads (avatars) ---
@@ -362,6 +385,9 @@ mountPaymentRoutes(app, db, { requireAuth, requireActiveUser, csrfMiddleware, ap
 
 const mountAdminRoutes = require('./routes/admin');
 mountAdminRoutes(app, db, adminRouteDeps);
+
+const mountNewsRoutes = require('./routes/news');
+mountNewsRoutes(app, db, adminRouteDeps);
 
 function saveRentalSession(dbUserId, carId, durationSeconds, cost) {
   if (!dbUserId) return;
@@ -781,9 +807,10 @@ if (process.env.NODE_ENV !== 'production') {
         db.exec('DELETE FROM chat_messages');
         db.exec('DELETE FROM transactions');
         db.exec('DELETE FROM payment_orders');
+        db.exec('DELETE FROM news');
         db.exec('DELETE FROM users');
         // Reset autoincrement counters
-        db.exec("DELETE FROM sqlite_sequence WHERE name IN ('users','lap_times','rental_sessions','email_verification_tokens','password_reset_tokens','chat_messages','magic_links','transactions','payment_orders')");
+        db.exec("DELETE FROM sqlite_sequence WHERE name IN ('users','lap_times','rental_sessions','email_verification_tokens','password_reset_tokens','chat_messages','magic_links','transactions','payment_orders','news')");
       })();
       req.session.destroy((err) => { if (err) console.error('Session destroy error:', err); });
       if (_devVerificationLinks) _devVerificationLinks.clear();
