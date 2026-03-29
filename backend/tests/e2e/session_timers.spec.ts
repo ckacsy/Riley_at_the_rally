@@ -173,6 +173,10 @@ test.describe('Control page timer UI — real flow', () => {
     // forceFallback=1 loads the garage in WebGL-fallback mode (CI-friendly).
     // #fallback-cta-btn is the visible, clickable CTA inside #webgl-fallback.active.
     await page.goto('/garage?forceFallback=1');
+    // Wait for the WebGL-fallback block to activate before asserting the CTA.
+    // The fallback activation script adds the 'active' class asynchronously;
+    // without this wait the locator races ahead of the DOM update.
+    await page.locator('#webgl-fallback.active').waitFor({ state: 'visible', timeout: CTA_TIMEOUT });
     const cta = page.locator('#fallback-cta-btn');
     await expect(cta).toContainText('НА ТРЕК', { timeout: CTA_TIMEOUT });
     await expect(cta).toBeVisible({ timeout: CTA_TIMEOUT });
