@@ -133,10 +133,41 @@
         }
     }
 
+    function maybeAddAdminLink(menu, user) {
+        if (!user) return;
+        if (user.role !== 'admin' && user.role !== 'moderator') return;
+        var existing = menu.querySelector('a[href="/admin"]');
+        if (existing) return;
+        var li = document.createElement('li');
+        var a = document.createElement('a');
+        a.href = '/admin';
+        a.textContent = '🛠 Админ';
+        if (isLinkActive('/admin')) {
+            a.className = 'nav-active';
+            a.setAttribute('aria-current', 'page');
+        }
+        li.appendChild(a);
+        menu.appendChild(li);
+        // Close menu on click (mobile)
+        a.addEventListener('click', function () {
+            var m = document.getElementById('nav-menu');
+            var b = document.getElementById('nav-burger');
+            if (m) m.classList.remove('open');
+            if (b) {
+                b.setAttribute('aria-expanded', 'false');
+                b.innerHTML = '&#9776;';
+            }
+        });
+    }
+
     function loadAuthStatus() {
         fetch('/api/auth/me', { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
-            .then(function (data) { updateAuthSection(data.user || null); })
+            .then(function (data) {
+                var user = data.user || null;
+                updateAuthSection(user);
+                maybeAddAdminLink(document.getElementById('nav-menu'), user);
+            })
             .catch(function (err) {
                 console.error('[nav] Auth check error:', err);
                 updateAuthSection(null);

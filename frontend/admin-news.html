@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Новости — Админ — Riley at the Rally</title>
+    <link rel="stylesheet" href="styles/common.css">
+    <link rel="stylesheet" href="styles/nav.css">
+    <style>
+        body { background: #0a0e1a; color: #fff; font-family: Arial, sans-serif; min-height: 100vh; }
+        .admin-container { max-width: 1200px; margin: 0 auto; padding: 32px 20px; }
+        .admin-header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+        .admin-header h1 { font-size: 24px; font-weight: bold; flex: 1; }
+        .admin-back { color: rgba(255,255,255,0.6); text-decoration: none; font-size: 14px; }
+        .admin-back:hover { color: #fff; }
+
+        #flash-container { margin-bottom: 16px; }
+        .admin-flash { padding: 12px 16px; border-radius: 8px; font-size: 14px; }
+        .admin-flash--success { background: rgba(76,175,80,0.2);  border: 1px solid #4caf50; color: #4caf50; }
+        .admin-flash--error   { background: rgba(229,57,53,0.2);  border: 1px solid #e53935; color: #e53935; }
+        .admin-flash--info    { background: rgba(100,181,246,0.2); border: 1px solid #64b5f6; color: #64b5f6; }
+
+        /* Layout: list on left, editor on right */
+        .admin-news-layout {
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            gap: 24px;
+            align-items: start;
+        }
+        @media (max-width: 768px) {
+            .admin-news-layout { grid-template-columns: 1fr; }
+        }
+
+        /* News list */
+        .news-list-panel { }
+        .news-list-panel h2 { font-size: 16px; margin-bottom: 12px; color: rgba(255,255,255,0.8); }
+        .news-list-actions { margin-bottom: 12px; }
+        .btn-new-news {
+            display: inline-block; padding: 8px 16px;
+            background: linear-gradient(135deg, #e53935, #c62828);
+            border: none; border-radius: 8px; color: #fff;
+            font-size: 14px; font-weight: bold; cursor: pointer;
+        }
+        .btn-new-news:hover { opacity: 0.85; }
+        .news-item {
+            padding: 12px 14px; margin-bottom: 8px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 10px; cursor: pointer; transition: background 0.15s;
+        }
+        .news-item:hover { background: rgba(255,255,255,0.07); }
+        .news-item.selected { border-color: rgba(229,57,53,0.5); background: rgba(229,57,53,0.08); }
+        .news-item-title { font-size: 14px; font-weight: bold; margin-bottom: 4px; }
+        .news-item-meta { font-size: 12px; color: rgba(255,255,255,0.5); display: flex; gap: 8px; flex-wrap: wrap; }
+
+        .badge {
+            display: inline-block; padding: 2px 8px; border-radius: 12px;
+            font-size: 11px; font-weight: bold; white-space: nowrap;
+        }
+        .badge-status--draft     { background: rgba(255,193,7,0.2);   color: #ffe082; }
+        .badge-status--published { background: rgba(76,175,80,0.2);   color: #a5d6a7; }
+        .badge-status--archived  { background: rgba(255,255,255,0.07); color: #999; }
+
+        .state-msg { padding: 24px 0; color: rgba(255,255,255,0.5); font-size: 14px; text-align: center; }
+
+        /* Editor */
+        .news-editor-panel h2 { font-size: 16px; margin-bottom: 16px; color: rgba(255,255,255,0.8); }
+        .editor-form { }
+        .form-row { margin-bottom: 14px; }
+        .form-row label { display: block; font-size: 13px; color: rgba(255,255,255,0.6); margin-bottom: 6px; }
+        .form-input, .form-select, .form-textarea {
+            width: 100%; padding: 8px 12px; border-radius: 8px;
+            background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15);
+            color: #fff; font-size: 14px; box-sizing: border-box;
+        }
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none; border-color: rgba(255,255,255,0.3);
+        }
+        .form-select option { background: #151b2e; color: #fff; }
+        .form-textarea { resize: vertical; min-height: 200px; font-family: monospace; line-height: 1.5; }
+        .form-checkbox-row { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+        .form-checkbox-row input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; }
+        .form-row-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        @media (max-width: 600px) { .form-row-two { grid-template-columns: 1fr; } }
+
+        /* Preview */
+        .preview-toggle { margin-bottom: 8px; }
+        .btn-preview {
+            padding: 6px 12px; border-radius: 6px; font-size: 13px;
+            background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15);
+            color: #fff; cursor: pointer;
+        }
+        .btn-preview:hover { background: rgba(255,255,255,0.12); }
+        .preview-pane {
+            padding: 16px; border-radius: 10px;
+            background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+            min-height: 100px; line-height: 1.6; font-size: 14px; color: rgba(255,255,255,0.85);
+        }
+        .preview-pane h2, .preview-pane h3 { color: #fff; margin: 12px 0 6px; }
+        .preview-pane p { margin: 0 0 10px; }
+        .preview-pane ul, .preview-pane ol { margin: 0 0 10px 20px; }
+        .preview-pane code { background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+        .preview-pane pre { background: rgba(255,255,255,0.07); padding: 12px; border-radius: 8px; overflow-x: auto; }
+        .preview-pane blockquote { border-left: 3px solid rgba(255,255,255,0.3); padding-left: 12px; color: rgba(255,255,255,0.6); margin: 0 0 10px; }
+        .preview-pane a { color: #64b5f6; }
+
+        .editor-actions { display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap; }
+        .btn-save {
+            padding: 10px 24px; border-radius: 8px;
+            background: linear-gradient(135deg, #e53935, #c62828);
+            border: none; color: #fff; font-size: 14px; font-weight: bold; cursor: pointer;
+        }
+        .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-cancel-edit {
+            padding: 10px 18px; border-radius: 8px;
+            background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15);
+            color: #fff; font-size: 14px; cursor: pointer;
+        }
+        #editor-flash { margin-bottom: 12px; }
+
+        #admin-loading {
+            position: fixed; inset: 0; background: #0a0e1a;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; color: rgba(255,255,255,0.7);
+        }
+    </style>
+</head>
+<body>
+<div id="main-nav"></div>
+<div id="admin-loading">Загрузка…</div>
+
+<div class="admin-container" id="admin-content" hidden>
+    <div class="admin-header">
+        <a href="/admin" class="admin-back">← Назад</a>
+        <h1>📰 Новости</h1>
+    </div>
+
+    <div id="flash-container"></div>
+
+    <div class="admin-news-layout">
+        <!-- Left: news list -->
+        <div class="news-list-panel">
+            <h2>Список новостей</h2>
+            <div class="news-list-actions">
+                <button class="btn-new-news" id="btn-new-news">+ Создать новость</button>
+            </div>
+            <div id="news-list-state" class="state-msg" hidden></div>
+            <div id="news-list"></div>
+        </div>
+
+        <!-- Right: editor -->
+        <div class="news-editor-panel" id="editor-panel">
+            <h2 id="editor-title">Редактор</h2>
+            <div id="editor-placeholder" class="state-msg">
+                Выберите новость из списка или нажмите «Создать»
+            </div>
+
+            <form class="editor-form" id="editor-form" hidden autocomplete="off">
+                <div id="editor-flash"></div>
+
+                <div class="form-row">
+                    <label for="field-title">Заголовок</label>
+                    <input type="text" id="field-title" class="form-input" required placeholder="Заголовок новости">
+                </div>
+                <div class="form-row-two">
+                    <div class="form-row">
+                        <label for="field-slug">Slug (авто, если пусто)</label>
+                        <input type="text" id="field-slug" class="form-input" placeholder="my-news-slug">
+                    </div>
+                    <div class="form-row">
+                        <label for="field-status">Статус</label>
+                        <select id="field-status" class="form-select">
+                            <option value="draft">Черновик</option>
+                            <option value="published">Опубликовано</option>
+                            <option value="archived">Архив</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <label for="field-summary">Краткое описание</label>
+                    <input type="text" id="field-summary" class="form-input" placeholder="Краткое описание…">
+                </div>
+                <div class="form-row">
+                    <label for="field-cover">Обложка (URL изображения)</label>
+                    <input type="url" id="field-cover" class="form-input" placeholder="https://…">
+                </div>
+                <div class="form-row">
+                    <div class="form-checkbox-row">
+                        <input type="checkbox" id="field-pinned">
+                        <label for="field-pinned">Закреплённая новость</label>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <label for="field-body">Текст (Markdown)</label>
+                    <textarea id="field-body" class="form-textarea" placeholder="## Заголовок&#10;&#10;Текст статьи…" rows="12"></textarea>
+                </div>
+
+                <div class="preview-toggle">
+                    <button type="button" class="btn-preview" id="btn-toggle-preview">👁 Предпросмотр</button>
+                </div>
+                <div id="preview-pane" class="preview-pane" hidden></div>
+
+                <div class="editor-actions">
+                    <button type="submit" class="btn-save" id="btn-save">Сохранить</button>
+                    <button type="button" class="btn-cancel-edit" id="btn-cancel-edit">Отмена</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="js/nav.js"></script>
+<script src="vendor/marked.umd.js"></script>
+<script src="vendor/purify.min.js"></script>
+<script src="js/admin-api.js"></script>
+<script src="js/admin-ui.js"></script>
+<script src="js/admin-news.js"></script>
+</body>
+</html>

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ-панель — Riley at the Rally</title>
+    <link rel="stylesheet" href="styles/common.css">
+    <link rel="stylesheet" href="styles/nav.css">
+    <style>
+        body { background: #0a0e1a; color: #fff; font-family: Arial, sans-serif; min-height: 100vh; }
+        .admin-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 32px 20px;
+        }
+        .admin-header {
+            margin-bottom: 32px;
+        }
+        .admin-header h1 {
+            font-size: 28px;
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 8px;
+        }
+        .admin-header p {
+            color: rgba(255,255,255,0.6);
+            font-size: 15px;
+        }
+        .admin-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 20px;
+        }
+        .admin-card {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 24px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            text-decoration: none;
+            color: #fff;
+            transition: background 0.2s, border-color 0.2s, transform 0.15s;
+        }
+        .admin-card:hover {
+            background: rgba(255,255,255,0.09);
+            border-color: rgba(255,255,255,0.2);
+            transform: translateY(-2px);
+        }
+        .admin-card-icon { font-size: 36px; }
+        .admin-card-title { font-size: 18px; font-weight: bold; }
+        .admin-card-desc { font-size: 14px; color: rgba(255,255,255,0.6); line-height: 1.5; }
+        #admin-loading {
+            position: fixed; inset: 0; background: #0a0e1a;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; color: rgba(255,255,255,0.7);
+        }
+    </style>
+</head>
+<body>
+<div id="main-nav"></div>
+<div id="admin-loading">Загрузка…</div>
+
+<div class="admin-container" id="admin-content" hidden>
+    <div class="admin-header">
+        <h1>🛠 Админ-панель</h1>
+        <p>Управление пользователями и новостями</p>
+    </div>
+    <div class="admin-cards">
+        <a href="/admin-users" class="admin-card" id="card-users">
+            <span class="admin-card-icon">👥</span>
+            <span class="admin-card-title">Пользователи</span>
+            <span class="admin-card-desc">Просмотр списка, бан/разбан, корректировка баланса, удаление</span>
+        </a>
+        <a href="/admin-news" class="admin-card" id="card-news">
+            <span class="admin-card-icon">📰</span>
+            <span class="admin-card-title">Новости</span>
+            <span class="admin-card-desc">Создание и редактирование новостей, публикация, архивирование</span>
+        </a>
+    </div>
+</div>
+
+<script src="js/nav.js"></script>
+<script src="js/admin-api.js"></script>
+<script>
+(function () {
+    'use strict';
+    AdminApi.requireAdmin()
+        .then(function () {
+            document.getElementById('admin-loading').hidden = true;
+            document.getElementById('admin-content').hidden = false;
+        })
+        .catch(function () { /* requireAdmin handles redirects */ });
+})();
+</script>
+</body>
+</html>
