@@ -94,6 +94,16 @@ function getLatestAdminAuditRow(adminId: number, action: string, targetId: numbe
   }
 }
 
+function getUserBalance(userId: number): number {
+  const db = new Database(DB_PATH, { readonly: true });
+  try {
+    const row = db.prepare('SELECT balance FROM users WHERE id = ?').get(userId) as { balance: number } | undefined;
+    return row?.balance ?? 0;
+  } finally {
+    db.close();
+  }
+}
+
 // ---------------------------------------------------------------------------
 // GET /api/admin/users
 // ---------------------------------------------------------------------------
@@ -364,6 +374,8 @@ test.describe('POST /api/admin/users/:id/balance-adjust', () => {
     await loginUser(page, 'adminbal');
 
     const idempotencyKey = `test-key-${Date.now()}`;
+    const initialBalance = getUserBalance(target.id);
+    const expectedBalance = initialBalance + 100;
 
     // First request
     const csrfToken1 = await getCsrfToken(page);
@@ -375,7 +387,7 @@ test.describe('POST /api/admin/users/:id/balance-adjust', () => {
     const body1 = await res1.json();
     expect(body1.success).toBe(true);
     expect(body1.idempotent).toBe(false);
-    expect(body1.balance).toBeCloseTo(300); // default 200 + 100
+    expect(body1.balance).toBeCloseTo(expectedBalance);
 
     // Second request with same idempotency_key — must be idempotent
     const csrfToken2 = await getCsrfToken(page);
@@ -388,7 +400,7 @@ test.describe('POST /api/admin/users/:id/balance-adjust', () => {
     expect(body2.success).toBe(true);
     expect(body2.idempotent).toBe(true);
     // Balance must NOT have changed a second time
-    expect(body2.balance).toBeCloseTo(300);
+    expect(body2.balance).toBeCloseTo(expectedBalance);
 
     // Same transaction id returned both times
     expect(body2.transaction.id).toBe(body1.transaction.id);
