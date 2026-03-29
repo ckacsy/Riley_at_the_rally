@@ -322,6 +322,47 @@
             .stat-value { font-size: 26px; }
             .best-lap-time { font-size: 28px; }
         }
+        /* Balance on profile */
+        .profile-balance {
+            font-size: 14px;
+            color: #42a5f5;
+            font-weight: bold;
+            margin: 4px 0 8px;
+        }
+        /* Transaction history */
+        .transactions-section { padding: 0 16px; }
+        .transactions-toggle {
+            width: 100%; text-align: left; padding: 14px 18px;
+            background: var(--bg-card); border: 1px solid var(--border-color);
+            border-radius: 10px; color: var(--text-primary); font-size: 16px;
+            font-weight: bold; cursor: pointer; transition: background 0.2s;
+        }
+        .transactions-toggle:hover { background: rgba(255,255,255,0.07); }
+        .transactions-content {
+            margin-top: 8px;
+            background: var(--bg-card); border: 1px solid var(--border-color);
+            border-radius: 10px; padding: 16px; overflow-x: auto;
+        }
+        .tx-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .tx-table th {
+            text-align: left; padding: 10px 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            color: var(--text-secondary); font-weight: 600; white-space: nowrap;
+        }
+        .tx-table td {
+            padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.05);
+            color: var(--text-primary); vertical-align: middle;
+        }
+        .tx-table tr:last-child td { border-bottom: none; }
+        .tx-table tr:nth-child(odd) td { background-color: rgba(255,255,255,0.02); }
+        .tx-table tr:hover td { background-color: rgba(255,255,255,0.06); }
+        .tx-type-topup  { color: #66bb6a; font-weight: bold; }
+        .tx-type-hold   { color: #ffa726; font-weight: bold; }
+        .tx-type-deduct { color: #ef5350; font-weight: bold; }
+        .tx-type-release{ color: #42a5f5; font-weight: bold; }
+        .tx-type-bonus  { color: #ffd54f; font-weight: bold; }
+        .tx-amount-pos { color: #66bb6a; }
+        .tx-amount-neg { color: #ef5350; }
     </style>
 </head>
 <body>
@@ -364,6 +405,7 @@
                 <div class="username-msg" id="username-msg" style="display:none;"></div>
                 <div class="profile-email" id="profile-email">—</div>
                 <div class="profile-joined" id="profile-joined">—</div>
+                <div class="profile-balance" id="profile-balance">Баланс: — RC</div>
                 <button class="logout-btn" id="logout-btn" style="margin-top:12px;">Выйти</button>
             </div>
         </div>
@@ -398,6 +440,18 @@
         <div class="recent-section">
             <div class="section-title">🕓 Последние круги</div>
             <div id="recent-laps-container"></div>
+        </div>
+
+        <!-- Transaction History -->
+        <div class="transactions-section" style="max-width:860px;margin:0 auto 40px;">
+            <button class="transactions-toggle" id="transactions-toggle">
+                💳 Информация о транзакциях ▶
+            </button>
+            <div class="transactions-content" id="transactions-content" style="display:none;">
+                <div id="transactions-container">
+                    <p style="text-align:center;color:var(--text-secondary);">Загрузка...</p>
+                </div>
+            </div>
         </div>
 
     </div>
@@ -660,6 +714,76 @@
         });
 
         loadProfile();
+
+        // Load balance display
+        fetch('/api/balance')
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (d) {
+                if (!d) return;
+                var el = document.getElementById('profile-balance');
+                if (el) el.textContent = 'Баланс: ' + (d.balance || 0).toFixed(2) + ' RC';
+            })
+            .catch(function () {});
+
+        // Transaction history toggle
+        var txLoaded = false;
+        document.getElementById('transactions-toggle').addEventListener('click', function () {
+            var content = document.getElementById('transactions-content');
+            var isVisible = content.style.display !== 'none';
+            content.style.display = isVisible ? 'none' : 'block';
+            this.textContent = (isVisible ? '💳 Информация о транзакциях ▶' : '💳 Информация о транзакциях ▼');
+            if (!isVisible && !txLoaded) {
+                txLoaded = true;
+                loadTransactions();
+            }
+        });
+
+        function loadTransactions() {
+            var container = document.getElementById('transactions-container');
+            container.innerHTML = '<p style="text-align:center;color:var(--text-secondary);">Загрузка...</p>';
+            fetch('/api/transactions')
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (data) {
+                    if (!data || !data.transactions) {
+                        container.innerHTML = '<p style="text-align:center;color:var(--text-secondary);">Нет данных</p>';
+                        return;
+                    }
+                    var txs = data.transactions;
+                    if (!txs.length) {
+                        container.innerHTML = '<p style="text-align:center;color:var(--text-secondary);">Транзакций пока нет</p>';
+                        return;
+                    }
+                    var typeLabels = {
+                        topup: 'Пополнение', hold: 'Блокировка',
+                        deduct: 'Списание', release: 'Возврат', bonus: 'Бонус'
+                    };
+                    var typeClasses = {
+                        topup: 'tx-type-topup', hold: 'tx-type-hold',
+                        deduct: 'tx-type-deduct', release: 'tx-type-release', bonus: 'tx-type-bonus'
+                    };
+                    var rows = txs.map(function (tx) {
+                        var amtCls = tx.amount >= 0 ? 'tx-amount-pos' : 'tx-amount-neg';
+                        var amtStr = (tx.amount >= 0 ? '+' : '') + tx.amount.toFixed(2) + ' RC';
+                        var typeLabel = typeLabels[tx.type] || tx.type;
+                        var typeCls = typeClasses[tx.type] || '';
+                        var dateStr = tx.created_at ? tx.created_at.replace('T', ' ').slice(0, 16) : '—';
+                        return '<tr>' +
+                            '<td>' + esc(dateStr) + '</td>' +
+                            '<td class="' + typeCls + '">' + esc(typeLabel) + '</td>' +
+                            '<td class="' + amtCls + '">' + esc(amtStr) + '</td>' +
+                            '<td>' + (tx.balance_after != null ? tx.balance_after.toFixed(2) + ' RC' : '—') + '</td>' +
+                            '<td>' + esc(tx.description) + '</td>' +
+                            '</tr>';
+                    }).join('');
+                    container.innerHTML =
+                        '<table class="tx-table">' +
+                        '<thead><tr><th>Дата</th><th>Тип</th><th>Сумма</th><th>Баланс после</th><th>Описание</th></tr></thead>' +
+                        '<tbody>' + rows + '</tbody></table>';
+                })
+                .catch(function () {
+                    container.innerHTML = '<p style="text-align:center;color:#ef5350;">Ошибка загрузки транзакций</p>';
+                });
+        }
     </script>
     <script src="js/nav.js"></script>
 </body>

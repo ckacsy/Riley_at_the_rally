@@ -24,7 +24,8 @@ const { performance } = require('perf_hooks');
  *             broadcastPresenceUpdate: Function,
  *             clearInactivityTimeout: Function,
  *             clearSessionDurationTimeout: Function,
- *             broadcastCarsUpdate: Function }}
+ *             broadcastCarsUpdate: Function,
+ *             processHoldDeduct: Function }}
  */
 function setupSocketIo(io, deps) {
   const {
@@ -79,6 +80,46 @@ function setupSocketIo(io, deps) {
   const chatRateLimits = new Map();
 
   // --- Helper functions ---
+
+  /** Minimum balance required to start a session (in RC). */
+  const MIN_BALANCE_FOR_SESSION = 100;
+  /** Amount held (blocked) at session start (in RC). */
+  const HOLD_AMOUNT = 100;
+
+  /**
+   * Finalize balance after a session: release unused hold, record deduct transaction.
+   * Must be called after actualCost is known (session end).
+   */
+  function processHoldDeduct(dbUserId, holdAmount, actualCost, carId, durationSeconds) {
+    if (!dbUserId || holdAmount == null) return;
+    const carName = CARS.find((c) => c.id === carId)?.name || ('Машина #' + carId);
+    try {
+      db.transaction(() => {
+        const releaseAmount = holdAmount - actualCost;
+        if (releaseAmount > 0) {
+          db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(releaseAmount, dbUserId);
+          const afterRelease = db.prepare('SELECT balance FROM users WHERE id = ?').get(dbUserId);
+          db.prepare(
+            `INSERT INTO transactions (user_id, type, amount, balance_after, description)
+             VALUES (?, 'release', ?, ?, ?)`
+          ).run(dbUserId, releaseAmount, afterRelease ? afterRelease.balance : 0, 'Возврат блокировки: ' + carName);
+        } else if (releaseAmount < 0) {
+          // actualCost exceeded hold — deduct the extra (safety guard)
+          const extra = -releaseAmount;
+          db.prepare('UPDATE users SET balance = MAX(0, balance - ?) WHERE id = ?').run(extra, dbUserId);
+        }
+        const mins = Math.floor(durationSeconds / 60);
+        const secs = durationSeconds % 60;
+        const rowAfter = db.prepare('SELECT balance FROM users WHERE id = ?').get(dbUserId);
+        db.prepare(
+          `INSERT INTO transactions (user_id, type, amount, balance_after, description)
+           VALUES (?, 'deduct', ?, ?, ?)`
+        ).run(dbUserId, -actualCost, rowAfter ? rowAfter.balance : 0, `Аренда: ${carName}, ${mins}м ${secs}с`);
+      })();
+    } catch (e) {
+      console.error('[Balance] processHoldDeduct error:', e);
+    }
+  }
 
   function broadcastPresenceUpdate() {
     const drivers = [...presenceMap.values()].map((e) => ({
@@ -162,6 +203,7 @@ function setupSocketIo(io, deps) {
       inactivityTimeouts.delete(socket.id);
       clearSessionDurationTimeout(socket.id);
       saveRentalSession(session.dbUserId, session.carId, durationSeconds, cost);
+      processHoldDeduct(session.dbUserId, session.holdAmount, cost, session.carId, durationSeconds);
       socket.emit('session_ended', { carId: session.carId, durationSeconds, cost, reason: 'inactivity' });
       broadcastCarsUpdate();
       metrics.log('info', 'session_end', {
@@ -197,6 +239,7 @@ function setupSocketIo(io, deps) {
       sessionDurationTimeouts.delete(socket.id);
       clearInactivityTimeout(socket.id);
       saveRentalSession(session.dbUserId, session.carId, durationSeconds, cost);
+      processHoldDeduct(session.dbUserId, session.holdAmount, cost, session.carId, durationSeconds);
       socket.emit('session_ended', { carId: session.carId, durationSeconds, cost, reason: 'time_limit' });
       broadcastCarsUpdate();
       metrics.log('info', 'session_end', {
@@ -491,11 +534,34 @@ function setupSocketIo(io, deps) {
         socket.emit('session_error', { message: 'Эта машина уже занята. Выберите другую.' });
         return;
       }
+
+      // Check balance and apply hold
+      const userBalance = db.prepare('SELECT balance FROM users WHERE id = ?').get(dbUserId);
+      const currentBalance = userBalance ? (userBalance.balance || 0) : 0;
+      if (currentBalance < MIN_BALANCE_FOR_SESSION) {
+        metrics.log('warn', 'session_blocked', { reason: 'insufficient_balance', dbUserId, balance: currentBalance });
+        socket.emit('session_error', {
+          message: 'Недостаточно средств. Минимальный баланс для аренды: ' + MIN_BALANCE_FOR_SESSION + ' RC.',
+          code: 'insufficient_balance',
+        });
+        return;
+      }
+      const carName = CARS.find((c) => c.id === carId)?.name || ('Машина #' + carId);
+      db.transaction(() => {
+        db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(HOLD_AMOUNT, dbUserId);
+        const afterHold = db.prepare('SELECT balance FROM users WHERE id = ?').get(dbUserId);
+        db.prepare(
+          `INSERT INTO transactions (user_id, type, amount, balance_after, description)
+           VALUES (?, 'hold', ?, ?, ?)`
+        ).run(dbUserId, -HOLD_AMOUNT, afterHold ? afterHold.balance : 0, 'Блокировка: ' + carName);
+      })();
+
       activeSessions.set(socket.id, {
         carId,
         userId: user.username,
         dbUserId,
         startTime: new Date(),
+        holdAmount: HOLD_AMOUNT,
       });
       socket.emit('session_started', {
         carId,
@@ -548,6 +614,7 @@ function setupSocketIo(io, deps) {
       const cost = durationMinutes * RATE_PER_MINUTE;
       activeSessions.delete(socket.id);
       saveRentalSession(session.dbUserId, session.carId, durationSeconds, cost);
+      processHoldDeduct(session.dbUserId, session.holdAmount, cost, session.carId, durationSeconds);
       socket.emit('session_ended', { carId: session.carId, durationSeconds, cost });
       broadcastCarsUpdate();
       metrics.log('info', 'session_end', {
@@ -565,8 +632,29 @@ function setupSocketIo(io, deps) {
       clearSessionDurationTimeout(socket.id);
       controlCommandCounters.delete(socket.id);
       metrics.clearLatency(socket.id);
-      const hadSession = activeSessions.has(socket.id);
-      activeSessions.delete(socket.id);
+      const session = activeSessions.get(socket.id);
+      const hadSession = !!session;
+      if (hadSession) {
+        const endTime = new Date();
+        const durationMs = endTime - session.startTime;
+        const durationSeconds = Math.floor(durationMs / 1000);
+        const durationMinutes = durationMs / 60000;
+        const cost = durationMinutes * RATE_PER_MINUTE;
+        activeSessions.delete(socket.id);
+        saveRentalSession(session.dbUserId, session.carId, durationSeconds, cost);
+        processHoldDeduct(session.dbUserId, session.holdAmount, cost, session.carId, durationSeconds);
+        broadcastCarsUpdate();
+        metrics.log('info', 'session_end', {
+          userId: session.userId,
+          dbUserId: session.dbUserId,
+          carId: session.carId,
+          durationSeconds,
+          cost: parseFloat(cost.toFixed(4)),
+          reason: 'disconnect',
+        });
+      } else {
+        activeSessions.delete(socket.id);
+      }
       removeFromRace(socket);
       if (hadSession) broadcastCarsUpdate();
       broadcastRacesUpdate();
@@ -757,6 +845,7 @@ function setupSocketIo(io, deps) {
     clearInactivityTimeout,
     clearSessionDurationTimeout,
     broadcastCarsUpdate,
+    processHoldDeduct,
   };
 }
 
