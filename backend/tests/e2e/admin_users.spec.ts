@@ -1,4 +1,9 @@
 import { test, expect } from '@playwright/test';
+import path from 'path';
+import Database from 'better-sqlite3';
+
+const DB_PATH = path.resolve(__dirname, '..', '..', 'riley.sqlite');
+const TEST_BASE_URL = process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:5000';
 
 /**
  * PR 2 — Admin user management e2e tests.
@@ -66,6 +71,27 @@ async function setUserRole(
 ): Promise<void> {
   const res = await page.request.post('/api/dev/set-user-role', { data: { username, role } });
   expect(res.status(), `set-user-role failed: ${await res.text()}`).toBe(200);
+}
+
+function getLatestAdminAuditRow(adminId: number, action: string, targetId: number): {
+  id: number;
+  admin_id: number;
+  action: string;
+  target_id: number;
+  details_json: string | null;
+} | undefined {
+  const db = new Database(DB_PATH, { readonly: true });
+  try {
+    return db.prepare(
+      `SELECT id, admin_id, action, target_id, details_json
+         FROM admin_audit_log
+        WHERE admin_id = ? AND action = ? AND target_id = ?
+        ORDER BY id DESC
+        LIMIT 1`
+    ).get(adminId, action, targetId);
+  } finally {
+    db.close();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -368,6 +394,99 @@ test.describe('POST /api/admin/users/:id/balance-adjust', () => {
     expect(body2.transaction.id).toBe(body1.transaction.id);
   });
 
+  test('reusing idempotency key for a different target returns conflict', async ({ page }) => {
+    await resetDb(page);
+
+    const targetOne = await registerUser(page, 'targetbalone', 'targetbalone@example.com');
+    await activateUser(page, targetOne.username);
+    const targetTwo = await registerUser(page, 'targetbaltwo', 'targetbaltwo@example.com');
+    await activateUser(page, targetTwo.username);
+
+    const admin = await registerUser(page, 'adminbalconflict', 'adminbalconflict@example.com');
+    await activateUser(page, admin.username);
+    await setUserRole(page, admin.username, 'admin');
+    await loginUser(page, 'adminbalconflict');
+
+    const idempotencyKey = `target-conflict-${Date.now()}`;
+
+    const csrfToken1 = await getCsrfToken(page);
+    const res1 = await page.request.post(`/api/admin/users/${targetOne.id}/balance-adjust`, {
+      data: { amount: 25, comment: 'first target', idempotency_key: idempotencyKey },
+      headers: { 'X-CSRF-Token': csrfToken1 },
+    });
+    expect(res1.status(), await res1.text()).toBe(200);
+
+    const csrfToken2 = await getCsrfToken(page);
+    const res2 = await page.request.post(`/api/admin/users/${targetTwo.id}/balance-adjust`, {
+      data: { amount: 25, comment: 'second target', idempotency_key: idempotencyKey },
+      headers: { 'X-CSRF-Token': csrfToken2 },
+    });
+    expect(res2.status(), await res2.text()).toBe(409);
+    const body2 = await res2.json();
+    expect(body2).toMatchObject({ error: 'idempotency_key_conflict' });
+  });
+
+  test('reusing idempotency key by a different admin returns conflict', async ({ page, browser }) => {
+    await resetDb(page);
+
+    const target = await registerUser(page, 'targetbalactor', 'targetbalactor@example.com');
+    await activateUser(page, target.username);
+
+    const adminOne = await registerUser(page, 'adminactorone', 'adminactorone@example.com');
+    await activateUser(page, adminOne.username);
+    await setUserRole(page, adminOne.username, 'admin');
+
+    const adminTwo = await registerUser(page, 'adminactortwo', 'adminactortwo@example.com');
+    await activateUser(page, adminTwo.username);
+    await setUserRole(page, adminTwo.username, 'admin');
+
+    await loginUser(page, 'adminactorone');
+
+    const idempotencyKey = `actor-conflict-${Date.now()}`;
+    const csrfToken1 = await getCsrfToken(page);
+    const res1 = await page.request.post(`/api/admin/users/${target.id}/balance-adjust`, {
+      data: { amount: 40, comment: 'first admin', idempotency_key: idempotencyKey },
+      headers: { 'X-CSRF-Token': csrfToken1 },
+    });
+    expect(res1.status(), await res1.text()).toBe(200);
+
+    const secondContext = await browser.newContext({ baseURL: TEST_BASE_URL });
+    const secondPage = await secondContext.newPage();
+    try {
+      await loginUser(secondPage, 'adminactortwo');
+      const csrfToken2 = await getCsrfToken(secondPage);
+      const res2 = await secondPage.request.post(`/api/admin/users/${target.id}/balance-adjust`, {
+        data: { amount: 40, comment: 'second admin', idempotency_key: idempotencyKey },
+        headers: { 'X-CSRF-Token': csrfToken2 },
+      });
+      expect(res2.status(), await res2.text()).toBe(409);
+      const body2 = await res2.json();
+      expect(body2).toMatchObject({ error: 'idempotency_key_conflict' });
+    } finally {
+      await secondContext.close();
+    }
+  });
+
+  test('moderator cannot balance-adjust admin', async ({ page }) => {
+    await resetDb(page);
+
+    const adminTarget = await registerUser(page, 'targetadminbal', 'targetadminbal@example.com');
+    await activateUser(page, adminTarget.username);
+    await setUserRole(page, adminTarget.username, 'admin');
+
+    const moderator = await registerUser(page, 'modbalance', 'modbalance@example.com');
+    await activateUser(page, moderator.username);
+    await setUserRole(page, moderator.username, 'moderator');
+    await loginUser(page, 'modbalance');
+
+    const csrfToken = await getCsrfToken(page);
+    const res = await page.request.post(`/api/admin/users/${adminTarget.id}/balance-adjust`, {
+      data: { amount: 50, comment: 'should fail', idempotency_key: `mod-admin-${Date.now()}` },
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+    expect(res.status(), await res.text()).toBe(403);
+  });
+
   test('balance adjust rejects if new balance would go negative', async ({ page }) => {
     await resetDb(page);
 
@@ -413,7 +532,7 @@ test.describe('POST /api/admin/users/:id/balance-adjust', () => {
 // ---------------------------------------------------------------------------
 
 test.describe('Admin audit log', () => {
-  test('audit log entry is written when admin bans a user', async ({ page }) => {
+  test('admin ban action writes its own audit row', async ({ page }) => {
     await resetDb(page);
 
     const target = await registerUser(page, 'auditbantarget', 'auditbantarget@example.com');
@@ -425,26 +544,18 @@ test.describe('Admin audit log', () => {
     await loginUser(page, 'auditbanadmin');
 
     const csrfToken = await getCsrfToken(page);
-    await page.request.post(`/api/admin/users/${target.id}/ban`, {
+    const banRes = await page.request.post(`/api/admin/users/${target.id}/ban`, {
       data: { reason: 'audit smoke test' },
       headers: { 'X-CSRF-Token': csrfToken },
     });
+    expect(banRes.status(), await banRes.text()).toBe(200);
 
-    // Use the existing dev audit-log write/read probe to confirm audit log is functional.
-    // We write a unique marker and verify it comes back, confirming the table is intact.
-    const csrfToken2 = await getCsrfToken(page);
-    const probeRes = await page.request.post('/api/dev/admin-audit-log/write', {
-      data: {
-        action: 'audit_log_smoke',
-        targetType: 'user',
-        targetId: target.id,
-        details: { marker: 'pr2-ban-audit-smoke' },
-      },
-      headers: { 'X-CSRF-Token': csrfToken2 },
-    });
-    expect(probeRes.status()).toBe(200);
-    const probeBody = await probeRes.json();
-    expect(probeBody.success).toBe(true);
-    expect(probeBody.row.action).toBe('audit_log_smoke');
+    const auditRow = getLatestAdminAuditRow(admin.id, 'ban_user', target.id);
+    expect(auditRow).toBeTruthy();
+    expect(auditRow?.admin_id).toBe(admin.id);
+    expect(auditRow?.action).toBe('ban_user');
+    expect(auditRow?.target_id).toBe(target.id);
+    expect(auditRow?.details_json).toContain('"reason":"audit smoke test"');
+    expect(auditRow?.details_json).toContain('"new_status":"banned"');
   });
 });

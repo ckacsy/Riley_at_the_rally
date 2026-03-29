@@ -18,7 +18,7 @@ const { canActOn } = require('../middleware/roles');
  * }} deps
  */
 module.exports = function mountAdminRoutes(app, db, deps) {
-  const { requireRole, csrfMiddleware, loadCurrentUser, logAdminAudit } = deps;
+  const { requireRole, csrfMiddleware, logAdminAudit } = deps;
 
   const adminReadLimiter = rateLimit({
     windowMs: 60 * 1000,
@@ -52,7 +52,6 @@ module.exports = function mountAdminRoutes(app, db, deps) {
     '/api/admin/users',
     adminReadLimiter,
     requireRole('moderator', 'admin'),
-    loadCurrentUser,
     (req, res) => {
       const users = db
         .prepare(
@@ -74,7 +73,6 @@ module.exports = function mountAdminRoutes(app, db, deps) {
     adminWriteLimiter,
     requireRole('moderator', 'admin'),
     csrfMiddleware,
-    loadCurrentUser,
     (req, res) => {
       const actor = req.user;
       const targetId = parseInt(req.params.id, 10);
@@ -123,7 +121,6 @@ module.exports = function mountAdminRoutes(app, db, deps) {
     adminWriteLimiter,
     requireRole('moderator', 'admin'),
     csrfMiddleware,
-    loadCurrentUser,
     (req, res) => {
       const actor = req.user;
       const targetId = parseInt(req.params.id, 10);
@@ -173,7 +170,6 @@ module.exports = function mountAdminRoutes(app, db, deps) {
     adminWriteLimiter,
     requireRole('admin'),
     csrfMiddleware,
-    loadCurrentUser,
     (req, res) => {
       const actor = req.user;
       const targetId = parseInt(req.params.id, 10);
@@ -249,7 +245,6 @@ module.exports = function mountAdminRoutes(app, db, deps) {
     adminWriteLimiter,
     requireRole('moderator', 'admin'),
     csrfMiddleware,
-    loadCurrentUser,
     (req, res) => {
       const actor = req.user;
       const targetId = parseInt(req.params.id, 10);
@@ -288,11 +283,22 @@ module.exports = function mountAdminRoutes(app, db, deps) {
       const result = db.transaction(() => {
         // Check for existing transaction with same idempotency key
         const existing = db
-          .prepare("SELECT * FROM transactions WHERE idempotency_key = ?")
+          .prepare(
+            `SELECT id, user_id, type, amount, balance_after, description, created_at, admin_id, idempotency_key
+               FROM transactions
+              WHERE idempotency_key = ?`
+          )
           .get(idempotency_key);
 
         if (existing) {
-          const currentUser = stmtGetUserById.get(targetId);
+          if (
+            existing.type !== 'admin_adjust' ||
+            existing.user_id !== targetId ||
+            existing.admin_id !== actor.id
+          ) {
+            return { conflict: true };
+          }
+          const currentUser = stmtGetUserById.get(existing.user_id);
           return { idempotent: true, transaction: existing, user: currentUser };
         }
 
@@ -325,6 +331,9 @@ module.exports = function mountAdminRoutes(app, db, deps) {
 
       if (result.error) {
         return res.status(400).json({ error: result.error, message: result.message });
+      }
+      if (result.conflict) {
+        return res.status(409).json({ error: 'idempotency_key_conflict' });
       }
 
       if (!result.idempotent) {
