@@ -69,6 +69,12 @@
 
         nav.appendChild(menu);
 
+        // Auth section (right side)
+        var authEl = document.createElement('div');
+        authEl.className = 'nav-auth';
+        authEl.id = 'nav-auth';
+        nav.appendChild(authEl);
+
         // Burger toggle handler
         burger.addEventListener('click', function () {
             var isOpen = menu.classList.toggle('open');
@@ -89,6 +95,54 @@
         return nav;
     }
 
+    function updateAuthSection(user) {
+        var authEl = document.getElementById('nav-auth');
+        if (!authEl) return;
+        authEl.innerHTML = '';
+        if (user) {
+            var span = document.createElement('span');
+            span.className = 'nav-auth-user';
+            span.textContent = user.username || user.email || 'Профиль';
+            var btn = document.createElement('button');
+            btn.className = 'nav-auth-logout';
+            btn.textContent = 'Выйти';
+            btn.addEventListener('click', function () {
+                fetch('/api/csrf-token', { credentials: 'same-origin' })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        return fetch('/api/auth/logout', {
+                            method: 'POST',
+                            credentials: 'same-origin',
+                            headers: { 'x-csrf-token': data.csrfToken || '' }
+                        });
+                    })
+                    .then(function () { window.location.href = '/login'; })
+                    .catch(function (err) {
+                        console.error('[nav] Logout error:', err);
+                        window.location.href = '/login';
+                    });
+            });
+            authEl.appendChild(span);
+            authEl.appendChild(btn);
+        } else {
+            var a = document.createElement('a');
+            a.href = '/login';
+            a.className = 'nav-auth-login';
+            a.textContent = 'Войти';
+            authEl.appendChild(a);
+        }
+    }
+
+    function loadAuthStatus() {
+        fetch('/api/auth/me', { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (data) { updateAuthSection(data.user || null); })
+            .catch(function (err) {
+                console.error('[nav] Auth check error:', err);
+                updateAuthSection(null);
+            });
+    }
+
     function init() {
         // Find or create the #main-nav container
         var container = document.getElementById('main-nav');
@@ -104,6 +158,9 @@
 
         // Mark body so pages can apply nav-aware layout adjustments
         document.body.classList.add('has-main-nav');
+
+        // Load and display auth status
+        loadAuthStatus();
     }
 
     if (document.readyState === 'loading') {

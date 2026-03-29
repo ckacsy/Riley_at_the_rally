@@ -1556,6 +1556,23 @@
         }
     </script>
 
+    <!-- TOP-UP MODAL -->
+    <div class="topup-overlay" id="topup-overlay">
+        <div class="topup-card">
+            <h2>Пополнение баланса</h2>
+            <p>Выберите сумму пополнения:</p>
+            <div class="topup-amounts">
+                <button class="topup-amount-btn" data-amount="50">50 ₽</button>
+                <button class="topup-amount-btn" data-amount="100">100 ₽</button>
+                <button class="topup-amount-btn" data-amount="150">150 ₽</button>
+                <button class="topup-amount-btn" data-amount="200">200 ₽</button>
+                <button class="topup-amount-btn" data-amount="500">500 ₽</button>
+            </div>
+            <p class="topup-status" id="topup-status" style="display:none;"></p>
+            <button class="topup-close-btn" id="topup-close">Закрыть</button>
+        </div>
+    </div>
+
     <!-- MAIN APP LOGIC (non-module) -->
     <script>
         var socket = io(window.location.origin);
@@ -2166,22 +2183,6 @@
             }
         });
     </script>
-    <!-- TOP-UP MODAL -->
-    <div class="topup-overlay" id="topup-overlay">
-        <div class="topup-card">
-            <h2>Пополнение баланса</h2>
-            <p>Выберите сумму пополнения:</p>
-            <div class="topup-amounts">
-                <button class="topup-amount-btn" data-amount="50">50 ₽</button>
-                <button class="topup-amount-btn" data-amount="100">100 ₽</button>
-                <button class="topup-amount-btn" data-amount="150">150 ₽</button>
-                <button class="topup-amount-btn" data-amount="200">200 ₽</button>
-                <button class="topup-amount-btn" data-amount="500">500 ₽</button>
-            </div>
-            <p class="topup-status" id="topup-status" style="display:none;"></p>
-            <button class="topup-close-btn" id="topup-close">Закрыть</button>
-        </div>
-    </div>
 
     <script src="js/nav.js"></script>
 </body>
