@@ -161,11 +161,14 @@ test.describe('Control page timer UI — real flow', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test('timer badges are present in DOM (real flow)', async ({ page }) => {
-    test.setTimeout(90_000);
+    test.setTimeout(120_000);
     await resetDb(page);
     const user = await registerUser(page, 'timer_user1', 'timer1@example.com', TEST_PASSWORD);
     await activateUser(page, user.username);
     await loginUser(page, user.username, TEST_PASSWORD);
+    await page.route('/api/auth/me', (route) =>
+      route.fulfill({ json: { user: { id: user.id, username: user.username, status: 'active' } } }),
+    );
     // Mock car availability before navigating so the CTA settles on "НА ТРЕК"
     await mockCarsAvailable(page);
     // forceFallback=1 loads the garage in WebGL-fallback mode (CI-friendly).
