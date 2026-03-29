@@ -360,6 +360,9 @@ app.locals.adminRouteDeps = adminRouteDeps;
 const mountPaymentRoutes = require('./routes/payment');
 mountPaymentRoutes(app, db, { requireAuth, requireActiveUser, csrfMiddleware, apiReadLimiter, getActiveSessions: () => socketState && socketState.activeSessions });
 
+const mountAdminRoutes = require('./routes/admin');
+mountAdminRoutes(app, db, adminRouteDeps);
+
 function saveRentalSession(dbUserId, carId, durationSeconds, cost) {
   if (!dbUserId) return;
   const carName = CARS.find((c) => c.id === carId)?.name || ('Машина #' + carId);
