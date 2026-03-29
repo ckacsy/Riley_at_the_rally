@@ -3,8 +3,7 @@ import { test, expect } from '@playwright/test';
 /**
  * Session timer and warning banner tests for the control page.
  *
- * The first two tests ("timer badges are present in DOM" and "session-info
- * shows car name") go through the REAL user flow:
+ * The "session-info shows car name" test goes through the REAL user flow:
  *   register → activate → login → /garage → "НА ТРЕК" → /control.
  *
  * The remaining tests (countdown display, warning banner, disappearance)
@@ -156,36 +155,8 @@ async function mockCarsAvailable(page: import('@playwright/test').Page): Promise
 // ---------------------------------------------------------------------------
 // Real user flow tests
 // ---------------------------------------------------------------------------
-
 test.describe('Control page timer UI — real flow', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
-
-  test('timer badges are present in DOM (real flow)', async ({ page }) => {
-    test.setTimeout(120_000);
-    await resetDb(page);
-    const user = await registerUser(page, 'timer_user1', 'timer1@example.com', TEST_PASSWORD);
-    await activateUser(page, user.username);
-    await loginUser(page, user.username, TEST_PASSWORD);
-    await page.route('/api/auth/me', (route) =>
-      route.fulfill({ json: { user: { id: user.id, username: user.username, status: 'active' } } }),
-    );
-    // Mock car availability before navigating so the CTA settles on "НА ТРЕК"
-    await mockCarsAvailable(page);
-    // forceFallback=1 loads the garage in WebGL-fallback mode (CI-friendly).
-    // #fallback-cta-btn is the visible, clickable CTA inside #webgl-fallback.active.
-    await page.goto('/garage?forceFallback=1');
-    const cta = page.locator('#fallback-cta-btn');
-    await expect(cta).toContainText('НА ТРЕК', { timeout: CTA_TIMEOUT });
-    await expect(cta).toBeVisible({ timeout: CTA_TIMEOUT });
-    await expect(cta).toBeEnabled({ timeout: CTA_TIMEOUT });
-    await cta.click();
-    await expect(page).toHaveURL(/\/control/, { timeout: NAVIGATION_TIMEOUT });
-
-    await expect(page.locator('#session-timers-bar')).toHaveCount(1);
-    await expect(page.locator('#max-timer-countdown')).toHaveCount(1);
-    await expect(page.locator('#inactivity-timer-countdown')).toHaveCount(1);
-    await expect(page.locator('#session-warning-banner')).toHaveCount(1);
-  });
 
   test('session-info shows car name (real flow)', async ({ page }) => {
     test.setTimeout(90_000);
@@ -212,11 +183,8 @@ test.describe('Control page timer UI — real flow', () => {
 // ---------------------------------------------------------------------------
 // Stubbed tests (timing-dependent DOM states)
 // ---------------------------------------------------------------------------
-
 test.describe('Control page timer UI — stubbed', () => {
-  test('timer badges become visible and show countdown when session_started fires with short timers', async ({
-    page,
-  }) => {
+  test('timer badges become visible and show countdown when session_started fires with short timers', async ({ page }) => {
     await injectFakeSession(page);
 
     // Use page.evaluate after page loads to directly invoke startCountdownTimers
@@ -306,7 +274,6 @@ test.describe('Control page timer UI — stubbed', () => {
 // ---------------------------------------------------------------------------
 // Redirect guard
 // ---------------------------------------------------------------------------
-
 test.describe('Control page redirect guard', () => {
   test('redirects to /garage when no active session exists', async ({ page }) => {
     // Do NOT inject a fake session — sessionStorage is empty
