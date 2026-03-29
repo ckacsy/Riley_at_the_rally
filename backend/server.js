@@ -723,6 +723,19 @@ app.get('/track', pageRateLimit, (req, res) => {
   res.redirect('/broadcast');
 });
 
+// Admin pages (frontend route guards handle role checks)
+app.get('/admin', pageRateLimit, (req, res) => {
+  res.sendFile(path.join(frontendDir, 'admin.html'));
+});
+
+app.get('/admin-users', pageRateLimit, (req, res) => {
+  res.sendFile(path.join(frontendDir, 'admin-users.html'));
+});
+
+app.get('/admin-news', pageRateLimit, (req, res) => {
+  res.sendFile(path.join(frontendDir, 'admin-news.html'));
+});
+
 // --- Dev-only: reset database (delete all users and sessions) ---
 // Accessible only when NODE_ENV !== 'production'
 if (process.env.NODE_ENV !== 'production') {

@@ -88,7 +88,7 @@ test('admin can open admin users page', async ({ page }) => {
   await setUserRole(page, 'adminui1', 'admin');
   await loginUser(page, 'adminui1');
 
-  await page.goto(TEST_BASE_URL + '/admin-users.html');
+  await page.goto(TEST_BASE_URL + '/admin-users');
   // Should not redirect — table should appear after auth check
   await expect(page.locator('#users-table')).toBeVisible({ timeout: 8000 });
   await expect(page.locator('#admin-content')).toBeVisible();
@@ -103,7 +103,7 @@ test('plain user is redirected from admin page', async ({ page }) => {
   await activateUser(page, 'plainui1');
   await loginUser(page, 'plainui1');
 
-  await page.goto(TEST_BASE_URL + '/admin-users.html');
+  await page.goto(TEST_BASE_URL + '/admin-users');
   // requireAdmin redirects plain users to /garage
   await expect(page).toHaveURL(/garage/, { timeout: 8000 });
 });
@@ -124,7 +124,7 @@ test('moderator can ban a user from UI', async ({ page }) => {
   await setUserRole(page, 'modui1', 'moderator');
   await loginUser(page, 'modui1');
 
-  await page.goto(TEST_BASE_URL + '/admin-users.html');
+  await page.goto(TEST_BASE_URL + '/admin-users');
   await expect(page.locator('#users-table')).toBeVisible({ timeout: 8000 });
 
   // Find the target user's row by scanning td cells
@@ -162,7 +162,7 @@ test('admin can adjust balance from UI', async ({ page }) => {
   await setUserRole(page, 'adminui2', 'admin');
   await loginUser(page, 'adminui2');
 
-  await page.goto(TEST_BASE_URL + '/admin-users.html');
+  await page.goto(TEST_BASE_URL + '/admin-users');
   await expect(page.locator('#users-table')).toBeVisible({ timeout: 8000 });
 
   const targetRow = page.locator('#users-tbody tr').filter({
@@ -200,7 +200,7 @@ test('moderator does not see delete button', async ({ page }) => {
   await setUserRole(page, 'modui2', 'moderator');
   await loginUser(page, 'modui2');
 
-  await page.goto(TEST_BASE_URL + '/admin-users.html');
+  await page.goto(TEST_BASE_URL + '/admin-users');
   await expect(page.locator('#users-table')).toBeVisible({ timeout: 8000 });
 
   // Moderator should not see any delete buttons
@@ -218,7 +218,7 @@ test('admin can open admin news page', async ({ page }) => {
   await setUserRole(page, 'newsadmin1', 'admin');
   await loginUser(page, 'newsadmin1');
 
-  await page.goto(TEST_BASE_URL + '/admin-news.html');
+  await page.goto(TEST_BASE_URL + '/admin-news');
   await expect(page.locator('#admin-content')).toBeVisible({ timeout: 8000 });
   await expect(page.locator('#btn-new-news')).toBeVisible();
 });
@@ -234,7 +234,7 @@ test('admin can create a draft news item from UI', async ({ page }) => {
   await setUserRole(page, 'newsadmin2', 'admin');
   await loginUser(page, 'newsadmin2');
 
-  await page.goto(TEST_BASE_URL + '/admin-news.html');
+  await page.goto(TEST_BASE_URL + '/admin-news');
   await expect(page.locator('#admin-content')).toBeVisible({ timeout: 8000 });
 
   // Click "create new"
@@ -267,7 +267,7 @@ test('markdown preview renders formatted output', async ({ page }) => {
   await setUserRole(page, 'previewadmin', 'admin');
   await loginUser(page, 'previewadmin');
 
-  await page.goto(TEST_BASE_URL + '/admin-news.html');
+  await page.goto(TEST_BASE_URL + '/admin-news');
   await expect(page.locator('#admin-content')).toBeVisible({ timeout: 8000 });
 
   // Open new editor

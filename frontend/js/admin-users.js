@@ -239,8 +239,8 @@
         var comment = adjustCommentEl.value.trim();
         var key = adjustKeyEl.value;
 
-        if (!amount || !isFinite(amount)) {
-            AdminUi.showFlash(modalFlashEl, 'Введите корректную сумму', 'error', 0);
+        if (isNaN(amount) || !isFinite(amount) || amount === 0) {
+            AdminUi.showFlash(modalFlashEl, 'Введите корректную сумму (не ноль)', 'error', 0);
             return;
         }
         if (!comment) {
