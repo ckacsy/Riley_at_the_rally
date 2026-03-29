@@ -25,7 +25,6 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const socketIo = require('socket.io');
-const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const Database = require('better-sqlite3');
 const session = require('express-session');
@@ -68,14 +67,8 @@ const {
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"],
-  },
-});
+const io = socketIo(server);
 
-app.use(cors());
 app.use(express.json());
 
 // Session middleware — uses connect-sqlite3 to persist sessions across server
