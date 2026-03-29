@@ -55,6 +55,8 @@ const SQLiteStore = require('connect-sqlite3')(session);
 
 const metrics = require('./metrics');
 const mailer = require('./mailer');
+const { isKnownRole, STATUSES } = require('./middleware/roles');
+const { logAdminAudit } = require('./utils/adminAudit');
 
 const {
   validateUsername,
@@ -241,6 +243,21 @@ db.exec(`
     try { db.exec('ALTER TABLE users ADD COLUMN balance REAL DEFAULT 0'); } catch (e) { /* already exists */ }
   }
 
+  // --- PR 1: role, soft-delete fields ---
+  if (!userCols.has('role')) {
+    // SQLite requires a constant DEFAULT for NOT NULL columns added via ALTER TABLE
+    db.exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'");
+  }
+  if (!userCols.has('deleted_at')) {
+    try { db.exec('ALTER TABLE users ADD COLUMN deleted_at TEXT'); } catch (e) { /* already exists */ }
+  }
+  if (!userCols.has('deleted_by')) {
+    try { db.exec('ALTER TABLE users ADD COLUMN deleted_by INTEGER'); } catch (e) { /* already exists */ }
+  }
+
+  // Normalize legacy 'disabled' status to 'banned'
+  db.exec("UPDATE users SET status = 'banned' WHERE status = 'disabled'");
+
   // Backfill normalized fields for existing rows
   db.prepare(
     `UPDATE users SET
@@ -256,6 +273,40 @@ db.exec(`
   try {
     db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_norm ON users(username_normalized)');
   } catch (e) { console.warn('Index warning (username_norm):', e.message); }
+
+  // --- PR 1: transactions — admin_id, idempotency_key ---
+  const transCols = new Set(db.pragma('table_info(transactions)').map((c) => c.name));
+  if (!transCols.has('admin_id')) {
+    try { db.exec('ALTER TABLE transactions ADD COLUMN admin_id INTEGER'); } catch (e) { /* already exists */ }
+  }
+  if (!transCols.has('idempotency_key')) {
+    try { db.exec('ALTER TABLE transactions ADD COLUMN idempotency_key TEXT'); } catch (e) { /* already exists */ }
+  }
+
+  // Indexes on transactions
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_transactions_reference_id ON transactions(reference_id)'); } catch (e) { /* ignore */ }
+  try {
+    // Partial unique index — SQLite supports WHERE clause in CREATE INDEX
+    db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_idempotency_key ON transactions(idempotency_key) WHERE idempotency_key IS NOT NULL');
+  } catch (e) { /* ignore */ }
+
+  // --- PR 1: admin_audit_log table ---
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS admin_audit_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      admin_id INTEGER NOT NULL,
+      action TEXT NOT NULL,
+      target_type TEXT NOT NULL,
+      target_id INTEGER,
+      details_json TEXT,
+      ip_address TEXT,
+      user_agent TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_audit_admin_id ON admin_audit_log(admin_id)'); } catch (e) { /* ignore */ }
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_audit_created_at ON admin_audit_log(created_at)'); } catch (e) { /* ignore */ }
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_audit_action ON admin_audit_log(action)'); } catch (e) { /* ignore */ }
 })();
 
 // --- File uploads (avatars) ---
@@ -289,12 +340,22 @@ const apiReadLimiter = rateLimit({
 
 // Mount all auth & profile routes; get back shared middleware and dev maps
 const mountAuthRoutes = require('./routes/auth');
-const { requireAuth, requireActiveUser, _devVerificationLinks, _devMagicLinks, _devResetLinks } = mountAuthRoutes(app, db, {
+const { requireAuth, requireActiveUser, loadCurrentUser, requireRole, _devVerificationLinks, _devMagicLinks, _devResetLinks } = mountAuthRoutes(app, db, {
   csrfMiddleware,
   generateCsrfToken,
   apiReadLimiter,
   PORT,
 });
+
+const adminRouteDeps = {
+  requireAuth,
+  requireActiveUser,
+  loadCurrentUser,
+  requireRole,
+  csrfMiddleware,
+  logAdminAudit: (auditData) => logAdminAudit(db, auditData),
+};
+app.locals.adminRouteDeps = adminRouteDeps;
 
 const mountPaymentRoutes = require('./routes/payment');
 mountPaymentRoutes(app, db, { requireAuth, requireActiveUser, csrfMiddleware, apiReadLimiter, getActiveSessions: () => socketState && socketState.activeSessions });
@@ -766,6 +827,79 @@ if (process.env.NODE_ENV !== 'production') {
       return res.status(404).json({ error: 'User not found' });
     }
     res.json({ success: true });
+  });
+
+  app.post('/api/dev/set-user-status', devLimiter, (req, res) => {
+    const { username, status } = req.body || {};
+    if (!username) return res.status(400).json({ error: 'username required' });
+    if (typeof status !== 'string' || (!Object.values(STATUSES).includes(status) && status !== 'disabled')) {
+      return res.status(400).json({ error: 'valid status required' });
+    }
+    const usernameNorm = normalizeUsername(username);
+    const result = db
+      .prepare('UPDATE users SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE username_normalized = ?')
+      .run(status, usernameNorm);
+    if (result.changes === 0) return res.status(404).json({ error: 'User not found' });
+    const user = db
+      .prepare('SELECT id, username, status, role FROM users WHERE username_normalized = ?')
+      .get(usernameNorm);
+    res.json({ success: true, user });
+  });
+
+  app.post('/api/dev/set-user-role', devLimiter, (req, res) => {
+    const { username, role } = req.body || {};
+    if (!username) return res.status(400).json({ error: 'username required' });
+    if (typeof role !== 'string' || !isKnownRole(role)) {
+      return res.status(400).json({ error: 'valid role required' });
+    }
+    const usernameNorm = normalizeUsername(username);
+    const result = db
+      .prepare('UPDATE users SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE username_normalized = ?')
+      .run(role, usernameNorm);
+    if (result.changes === 0) return res.status(404).json({ error: 'User not found' });
+    const user = db
+      .prepare('SELECT id, username, status, role FROM users WHERE username_normalized = ?')
+      .get(usernameNorm);
+    res.json({ success: true, user });
+  });
+
+  app.get('/api/dev/role-probe/admin', devLimiter, adminRouteDeps.requireRole('admin'), (req, res) => {
+    res.json({
+      success: true,
+      user: req.user ? {
+        id: req.user.id,
+        username: req.user.username,
+        status: req.user.status,
+        role: req.user.role,
+      } : null,
+    });
+  });
+
+  app.post('/api/dev/admin-audit-log/write', devLimiter, adminRouteDeps.requireRole('admin'), csrfMiddleware, (req, res) => {
+    const { action, targetType, targetId, details } = req.body || {};
+    if (!action || typeof action !== 'string') return res.status(400).json({ error: 'action required' });
+    if (!targetType || typeof targetType !== 'string') return res.status(400).json({ error: 'targetType required' });
+    const targetIdAsNumber = Number(targetId);
+
+    adminRouteDeps.logAdminAudit({
+      adminId: req.user.id,
+      action,
+      targetType,
+      targetId: Number.isInteger(targetIdAsNumber) ? targetIdAsNumber : null,
+      details: details && typeof details === 'object' ? details : null,
+      ipAddress: req.ip || null,
+      userAgent: req.get('user-agent') || null,
+    });
+
+    const row = db.prepare(
+      `SELECT id, admin_id, action, target_type, target_id, details_json, ip_address, user_agent, created_at
+         FROM admin_audit_log
+        WHERE admin_id = ? AND action = ? AND target_type = ?
+        ORDER BY id DESC
+        LIMIT 1`
+    ).get(req.user.id, action, targetType);
+
+    res.json({ success: true, row });
   });
 
   // Dev helper: insert a password reset token directly (bypasses email flow).
