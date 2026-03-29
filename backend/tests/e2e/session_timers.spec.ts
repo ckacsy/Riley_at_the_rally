@@ -78,6 +78,10 @@ test.describe('Control page timer UI — stubbed', () => {
     await page.goto('/control');
     await expect(page).toHaveURL(/\/control/, { timeout: 5_000 });
 
+    // Wait for the element to be in the DOM before mutating it, otherwise
+    // document.getElementById returns null if the parser hasn't reached it yet.
+    await page.locator('#session-timers-bar').waitFor({ state: 'attached', timeout: TIMER_TIMEOUT });
+
     // Directly call the timer functions exposed in window scope via page.evaluate
     await page.evaluate(() => {
       // Access the countdown-start function by simulating what session_started does
