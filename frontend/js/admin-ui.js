@@ -125,6 +125,23 @@
         return div.innerHTML;
     }
 
+    /**
+     * Format a duration in seconds to a human-readable string.
+     * Example: formatDuration(150) → '2м 30с'
+     * @param {number|null} seconds
+     * @returns {string}
+     */
+    function formatDuration(seconds) {
+        if (seconds == null || isNaN(seconds)) return '—';
+        var s = Math.floor(seconds);
+        var m = Math.floor(s / 60);
+        var rem = s % 60;
+        if (m > 0) {
+            return m + 'м ' + rem + 'с';
+        }
+        return rem + 'с';
+    }
+
     global.AdminUi = {
         showFlash: showFlash,
         clearFlash: clearFlash,
@@ -135,5 +152,6 @@
         showLoading: showLoading,
         hideLoading: hideLoading,
         esc: esc,
+        formatDuration: formatDuration,
     };
 })(window);

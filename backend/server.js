@@ -331,6 +331,11 @@ db.exec(`
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_news_status ON news(status)'); } catch (e) { /* ignore */ }
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_news_published_at ON news(published_at)'); } catch (e) { /* ignore */ }
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_news_pinned ON news(pinned)'); } catch (e) { /* ignore */ }
+
+  // --- PR 6: rental_sessions indexes ---
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_rental_sessions_user_id ON rental_sessions(user_id)'); } catch (e) { /* ignore */ }
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_rental_sessions_car_id ON rental_sessions(car_id)'); } catch (e) { /* ignore */ }
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_rental_sessions_created_at ON rental_sessions(created_at)'); } catch (e) { /* ignore */ }
 })();
 
 // --- File uploads (avatars) ---
@@ -390,6 +395,9 @@ mountAdminRoutes(app, db, adminRouteDeps);
 const mountNewsRoutes = require('./routes/news');
 mountNewsRoutes(app, db, adminRouteDeps);
 
+const mountAdminSessionRoutes = require('./routes/admin-sessions');
+mountAdminSessionRoutes(app, db, adminRouteDeps);
+
 function saveRentalSession(dbUserId, carId, durationSeconds, cost) {
   if (!dbUserId) return;
   const carName = CARS.find((c) => c.id === carId)?.name || ('Машина #' + carId);
@@ -434,6 +442,11 @@ const socketState = setupSocketIo(io, {
   saveRentalSession,
   ADMIN_USERNAMES,
 });
+
+// Expose session state and constants for admin-sessions route (lazy access)
+app.locals.getActiveSessions = () => socketState.activeSessions;
+app.locals.getCars = () => CARS;
+app.locals.getRatePerMinute = () => RATE_PER_MINUTE;
 
 // Car availability status tracking
 let carStatusLastUpdated = new Date().toISOString();
@@ -741,6 +754,10 @@ app.get('/admin-audit', pageRateLimit, (req, res) => {
   res.sendFile(path.join(frontendDir, 'admin-audit.html'));
 });
 
+app.get('/admin-sessions', pageRateLimit, (req, res) => {
+  res.sendFile(path.join(frontendDir, 'admin-sessions.html'));
+});
+
 // --- Dev-only: reset database (delete all users and sessions) ---
 // Accessible only when NODE_ENV !== 'production'
 if (process.env.NODE_ENV !== 'production') {
@@ -860,7 +877,24 @@ if (process.env.NODE_ENV !== 'production') {
     }
   });
 
-  // Dev helper: activate a user by username (bypasses email verification).
+  // Dev helper: insert a rental session directly for testing.
+  app.post('/api/dev/rental-sessions/insert', devLimiter, (req, res) => {
+    const { user_id, car_id, car_name, duration_seconds, cost } = req.body || {};
+    if (!user_id || !car_id) return res.status(400).json({ error: 'user_id and car_id required' });
+    const result = db.prepare(
+      'INSERT INTO rental_sessions (user_id, car_id, car_name, duration_seconds, cost) VALUES (?, ?, ?, ?, ?)'
+    ).run(
+      Number(user_id),
+      Number(car_id),
+      car_name || ('Машина #' + car_id),
+      Number(duration_seconds) || 0,
+      Number(cost) || 0
+    );
+    const row = db.prepare('SELECT * FROM rental_sessions WHERE id = ?').get(result.lastInsertRowid);
+    res.json({ success: true, session: row });
+  });
+
+
   // Only available in non-production environments.
   app.post('/api/dev/activate-user', devLimiter, (req, res) => {
     const { username } = req.body || {};
