@@ -8,6 +8,7 @@ const rateLimit = require('express-rate-limit');
 const mailer = require('../mailer');
 const metrics = require('../metrics');
 const { upload, uploadsDir } = require('../middleware/upload');
+const { hasRequiredRole } = require('../middleware/roles');
 const {
   validateUsername,
   validateEmail,
@@ -23,7 +24,15 @@ const {
  * @param {import('express').Application} app
  * @param {import('better-sqlite3').Database} db
  * @param {{ csrfMiddleware: Function, generateCsrfToken: Function, apiReadLimiter: Function, PORT: number|string }} deps
- * @returns {{ requireAuth: Function, requireActiveUser: Function, _devVerificationLinks: Map|null, _devMagicLinks: Map|null, _devResetLinks: Map|null }}
+ * @returns {{
+ *   requireAuth: Function,
+ *   requireActiveUser: Function,
+ *   loadCurrentUser: Function,
+ *   requireRole: (...roles: string[]) => Function,
+ *   _devVerificationLinks: Map|null,
+ *   _devMagicLinks: Map|null,
+ *   _devResetLinks: Map|null
+ * }}
  */
 module.exports = function mountAuthRoutes(app, db, deps) {
   const { csrfMiddleware, generateCsrfToken, apiReadLimiter, PORT } = deps;
@@ -120,6 +129,23 @@ module.exports = function mountAuthRoutes(app, db, deps) {
   });
 
   // --- Auth middleware ---
+
+  // Prepared statement reused across all auth middleware invocations
+  const stmtGetUserForAuth = db.prepare('SELECT id, username, email, status, role FROM users WHERE id = ?');
+
+  /**
+   * Loads the current user from the database (if not already loaded) and
+   * stores it on `req.user`.  Does NOT reject unauthenticated requests —
+   * use `requireAuth` / `requireActiveUser` / `requireRole` for that.
+   */
+  function loadCurrentUser(req, res, next) {
+    if (req.user) return next(); // already loaded upstream
+    if (!req.session.userId) return next();
+    const user = stmtGetUserForAuth.get(req.session.userId);
+    if (user) req.user = user;
+    next();
+  }
+
   function requireAuth(req, res, next) {
     if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
     next();
@@ -127,19 +153,57 @@ module.exports = function mountAuthRoutes(app, db, deps) {
 
   function requireActiveUser(req, res, next) {
     if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
-    const user = db.prepare('SELECT status FROM users WHERE id = ?').get(req.session.userId);
+    // Reuse req.user if already loaded to avoid a redundant DB query
+    const user = req.user || stmtGetUserForAuth.get(req.session.userId);
     if (!user) {
       req.session.destroy(() => {});
       return res.status(401).json({ error: 'Не авторизован' });
     }
+    // Attach to req so downstream middleware can reuse without re-querying
+    if (!req.user) req.user = user;
     if (user.status === 'pending') {
       return res.status(403).json({ error: 'pending_verification', message: 'Подтвердите email для доступа к этой функции' });
     }
-    if (user.status === 'disabled') {
-      return res.status(403).json({ error: 'account_disabled', message: 'Аккаунт заблокирован' });
+    if (user.status === 'banned') {
+      return res.status(403).json({ error: 'account_banned', message: 'Аккаунт заблокирован' });
+    }
+    if (user.status === 'deleted') {
+      req.session.destroy(() => {});
+      return res.status(401).json({ error: 'Не авторизован' });
     }
     next();
   }
+
+  /**
+   * Returns a middleware that requires the current user to be authenticated,
+   * active, and to hold at least one of the given roles.
+   *
+   * @param {...string} roles - One or more acceptable role strings (e.g. 'admin', 'moderator').
+   * @returns {import('express').RequestHandler}
+   */
+  function requireRole(...roles) {
+    return function checkRole(req, res, next) {
+      if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
+      const user = req.user || stmtGetUserForAuth.get(req.session.userId);
+      if (!user) {
+        req.session.destroy(() => {});
+        return res.status(401).json({ error: 'Не авторизован' });
+      }
+      if (!req.user) req.user = user;
+      if (user.status === 'deleted') {
+        req.session.destroy(() => {});
+        return res.status(401).json({ error: 'Не авторизован' });
+      }
+      if (user.status === 'banned') {
+        return res.status(403).json({ error: 'account_banned', message: 'Аккаунт заблокирован' });
+      }
+      if (!hasRequiredRole(user.role, roles)) {
+        return res.status(403).json({ error: 'forbidden', message: 'Недостаточно прав' });
+      }
+      next();
+    };
+  }
+
 
   // --- Login failure lockout (in-memory per IP) ---
   // NOTE: Resets on server restart. Sufficient for single-process Pi deployment.
@@ -498,7 +562,7 @@ module.exports = function mountAuthRoutes(app, db, deps) {
   app.get('/api/auth/me', apiReadLimiter, (req, res) => {
     if (!req.session.userId) return res.json({ user: null });
     const user = db
-      .prepare('SELECT id, username, email, avatar_path, status, created_at FROM users WHERE id = ?')
+      .prepare('SELECT id, username, email, avatar_path, status, role, created_at FROM users WHERE id = ?')
       .get(req.session.userId);
     if (!user) {
       req.session.destroy(() => {});
@@ -680,5 +744,5 @@ module.exports = function mountAuthRoutes(app, db, deps) {
     res.json({ success: true, username: newUsername });
   });
 
-  return { requireAuth, requireActiveUser, _devVerificationLinks, _devMagicLinks, _devResetLinks };
+  return { requireAuth, requireActiveUser, loadCurrentUser, requireRole, _devVerificationLinks, _devMagicLinks, _devResetLinks };
 };

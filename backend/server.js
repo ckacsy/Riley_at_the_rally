@@ -241,6 +241,21 @@ db.exec(`
     try { db.exec('ALTER TABLE users ADD COLUMN balance REAL DEFAULT 0'); } catch (e) { /* already exists */ }
   }
 
+  // --- PR 1: role, soft-delete fields ---
+  if (!userCols.has('role')) {
+    // SQLite requires a constant DEFAULT for NOT NULL columns added via ALTER TABLE
+    db.exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'");
+  }
+  if (!userCols.has('deleted_at')) {
+    try { db.exec('ALTER TABLE users ADD COLUMN deleted_at TEXT'); } catch (e) { /* already exists */ }
+  }
+  if (!userCols.has('deleted_by')) {
+    try { db.exec('ALTER TABLE users ADD COLUMN deleted_by INTEGER'); } catch (e) { /* already exists */ }
+  }
+
+  // Normalize legacy 'disabled' status to 'banned'
+  db.exec("UPDATE users SET status = 'banned' WHERE status = 'disabled'");
+
   // Backfill normalized fields for existing rows
   db.prepare(
     `UPDATE users SET
@@ -256,6 +271,40 @@ db.exec(`
   try {
     db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_norm ON users(username_normalized)');
   } catch (e) { console.warn('Index warning (username_norm):', e.message); }
+
+  // --- PR 1: transactions — admin_id, idempotency_key ---
+  const transCols = new Set(db.pragma('table_info(transactions)').map((c) => c.name));
+  if (!transCols.has('admin_id')) {
+    try { db.exec('ALTER TABLE transactions ADD COLUMN admin_id INTEGER'); } catch (e) { /* already exists */ }
+  }
+  if (!transCols.has('idempotency_key')) {
+    try { db.exec('ALTER TABLE transactions ADD COLUMN idempotency_key TEXT'); } catch (e) { /* already exists */ }
+  }
+
+  // Indexes on transactions
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_transactions_reference_id ON transactions(reference_id)'); } catch (e) { /* ignore */ }
+  try {
+    // Partial unique index — SQLite supports WHERE clause in CREATE INDEX
+    db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_idempotency_key ON transactions(idempotency_key) WHERE idempotency_key IS NOT NULL');
+  } catch (e) { /* ignore */ }
+
+  // --- PR 1: admin_audit_log table ---
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS admin_audit_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      admin_id INTEGER NOT NULL,
+      action TEXT NOT NULL,
+      target_type TEXT NOT NULL,
+      target_id INTEGER,
+      details_json TEXT,
+      ip_address TEXT,
+      user_agent TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_audit_admin_id ON admin_audit_log(admin_id)'); } catch (e) { /* ignore */ }
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_audit_created_at ON admin_audit_log(created_at)'); } catch (e) { /* ignore */ }
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_audit_action ON admin_audit_log(action)'); } catch (e) { /* ignore */ }
 })();
 
 // --- File uploads (avatars) ---
@@ -289,7 +338,7 @@ const apiReadLimiter = rateLimit({
 
 // Mount all auth & profile routes; get back shared middleware and dev maps
 const mountAuthRoutes = require('./routes/auth');
-const { requireAuth, requireActiveUser, _devVerificationLinks, _devMagicLinks, _devResetLinks } = mountAuthRoutes(app, db, {
+const { requireAuth, requireActiveUser, loadCurrentUser, requireRole, _devVerificationLinks, _devMagicLinks, _devResetLinks } = mountAuthRoutes(app, db, {
   csrfMiddleware,
   generateCsrfToken,
   apiReadLimiter,
