@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Сессии аренды — Riley at the Rally</title>
+    <link rel="stylesheet" href="styles/common.css">
+    <link rel="stylesheet" href="styles/nav.css">
+    <style>
+        body { background: #0a0e1a; color: #fff; font-family: Arial, sans-serif; min-height: 100vh; }
+        .admin-container { max-width: 1300px; margin: 0 auto; padding: 32px 20px; }
+        .admin-header { margin-bottom: 24px; }
+        .admin-header h1 { font-size: 26px; font-weight: bold; color: #fff; margin-bottom: 6px; }
+        .admin-header p { color: rgba(255,255,255,0.6); font-size: 14px; }
+
+        /* Tabs */
+        .tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .tab-btn {
+            padding: 10px 20px;
+            border: none;
+            background: none;
+            color: rgba(255,255,255,0.5);
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+            transition: color 0.15s, border-color 0.15s;
+        }
+        .tab-btn:hover { color: rgba(255,255,255,0.8); }
+        .tab-btn.active { color: #fff; border-bottom-color: #3b82f6; }
+
+        /* Filters */
+        .filters-section {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 18px 20px;
+            margin-bottom: 20px;
+        }
+        .filters-section h2 { font-size: 15px; font-weight: bold; margin-bottom: 14px; color: rgba(255,255,255,0.8); }
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        .filter-group { display: flex; flex-direction: column; gap: 4px; }
+        .filter-group label { font-size: 12px; color: rgba(255,255,255,0.5); }
+        .filter-group input,
+        .filter-group select {
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 6px;
+            color: #fff;
+            padding: 7px 10px;
+            font-size: 13px;
+        }
+        .filter-group input::placeholder { color: rgba(255,255,255,0.3); }
+        .filter-actions { display: flex; gap: 10px; }
+        .btn { padding: 8px 18px; border-radius: 7px; border: none; cursor: pointer; font-size: 13px; font-weight: bold; transition: opacity 0.15s; }
+        .btn:hover { opacity: 0.85; }
+        .btn-primary { background: #3b82f6; color: #fff; }
+        .btn-secondary { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); }
+
+        /* Flash */
+        #flash-container { margin-bottom: 16px; }
+        .admin-flash { padding: 10px 14px; border-radius: 7px; font-size: 14px; }
+        .admin-flash--error { background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.4); color: #fca5a5; }
+        .admin-flash--success { background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.3); color: #86efac; }
+        .admin-flash--info { background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3); color: #93c5fd; }
+
+        /* Summary */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .summary-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 14px 16px;
+        }
+        .summary-card-label { font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 6px; }
+        .summary-card-value { font-size: 20px; font-weight: bold; color: #fff; }
+
+        /* Table */
+        .table-wrapper { overflow-x: auto; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        thead th {
+            background: rgba(255,255,255,0.07);
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: bold;
+            color: rgba(255,255,255,0.7);
+            white-space: nowrap;
+        }
+        tbody tr { border-top: 1px solid rgba(255,255,255,0.06); transition: background 0.1s; }
+        tbody tr:hover { background: rgba(255,255,255,0.03); }
+        td { padding: 9px 12px; vertical-align: middle; color: rgba(255,255,255,0.85); }
+        td.nowrap { white-space: nowrap; }
+
+        /* Empty / loading */
+        .state-msg { text-align: center; padding: 40px 20px; color: rgba(255,255,255,0.4); font-size: 15px; }
+
+        /* Pagination */
+        .pagination { display: flex; align-items: center; gap: 10px; margin-top: 18px; font-size: 13px; }
+        .pagination button { padding: 6px 14px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.8); cursor: pointer; }
+        .pagination button:disabled { opacity: 0.35; cursor: default; }
+        .pagination button:not(:disabled):hover { background: rgba(255,255,255,0.14); }
+        .pagination-info { color: rgba(255,255,255,0.5); }
+
+        /* Active sessions */
+        .active-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+        .active-header h2 { font-size: 16px; font-weight: bold; color: rgba(255,255,255,0.9); margin: 0; }
+        .refresh-info { font-size: 12px; color: rgba(255,255,255,0.4); }
+        .live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #22c55e; margin-right: 6px; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+        [hidden] { display: none !important; }
+        #admin-loading {
+            position: fixed; inset: 0; background: #0a0e1a;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; color: rgba(255,255,255,0.7);
+        }
+    </style>
+</head>
+<body>
+<div id="main-nav"></div>
+<div id="admin-loading">Загрузка…</div>
+
+<div class="admin-container" id="admin-content" hidden>
+    <div class="admin-header">
+        <h1>🏎️ Сессии аренды</h1>
+        <p>Завершённые сессии и активные аренды в реальном времени</p>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn active" id="tab-completed">📋 Завершённые</button>
+        <button class="tab-btn" id="tab-active">🔴 Активные <span id="active-count-badge"></span></button>
+    </div>
+
+    <!-- Completed sessions tab -->
+    <div id="panel-completed">
+        <div class="filters-section">
+            <h2>Фильтры</h2>
+            <div class="filters-grid">
+                <div class="filter-group">
+                    <label for="f-car-id">Автомобиль</label>
+                    <select id="f-car-id">
+                        <option value="">— Все —</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="f-user-id">ID пользователя</label>
+                    <input type="text" id="f-user-id" placeholder="например, 5">
+                </div>
+                <div class="filter-group">
+                    <label for="f-date-from">Дата с (YYYY-MM-DD)</label>
+                    <input type="date" id="f-date-from">
+                </div>
+                <div class="filter-group">
+                    <label for="f-date-to">Дата по (YYYY-MM-DD)</label>
+                    <input type="date" id="f-date-to">
+                </div>
+                <div class="filter-group">
+                    <label for="f-min-cost">Стоимость от</label>
+                    <input type="text" id="f-min-cost" placeholder="например, 10">
+                </div>
+                <div class="filter-group">
+                    <label for="f-max-cost">Стоимость до</label>
+                    <input type="text" id="f-max-cost" placeholder="например, 100">
+                </div>
+            </div>
+            <div class="filter-actions">
+                <button class="btn btn-primary" id="btn-apply">Применить</button>
+                <button class="btn btn-secondary" id="btn-reset">Сбросить</button>
+            </div>
+        </div>
+
+        <div id="flash-container"></div>
+
+        <!-- Summary stats -->
+        <div class="summary-grid" id="summary-grid" hidden>
+            <div class="summary-card">
+                <div class="summary-card-label">Всего сессий</div>
+                <div class="summary-card-value" id="summary-total">—</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-card-label">Общая выручка</div>
+                <div class="summary-card-value" id="summary-revenue">—</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-card-label">Средняя длительность</div>
+                <div class="summary-card-value" id="summary-avg-duration">—</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-card-label">Средняя стоимость</div>
+                <div class="summary-card-value" id="summary-avg-cost">—</div>
+            </div>
+        </div>
+
+        <div id="table-area">
+            <div class="table-wrapper" id="table-wrapper" hidden>
+                <table id="sessions-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Пользователь</th>
+                            <th>Автомобиль</th>
+                            <th>Длительность</th>
+                            <th>Стоимость</th>
+                            <th>Дата</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sessions-tbody"></tbody>
+                </table>
+            </div>
+            <div id="state-empty" class="state-msg" hidden>Нет сессий, соответствующих фильтрам</div>
+            <div id="state-loading" class="state-msg">Загрузка данных…</div>
+        </div>
+
+        <div class="pagination" id="pagination" hidden>
+            <button id="btn-prev" disabled>← Назад</button>
+            <span class="pagination-info" id="pagination-info"></span>
+            <button id="btn-next" disabled>Вперёд →</button>
+        </div>
+    </div>
+
+    <!-- Active sessions tab -->
+    <div id="panel-active" hidden>
+        <div class="active-header">
+            <h2><span class="live-dot"></span>Активные сессии</h2>
+            <span class="refresh-info" id="refresh-info">Обновление каждые 10 сек</span>
+        </div>
+        <div id="flash-active-container"></div>
+        <div id="active-table-area">
+            <div class="table-wrapper" id="active-table-wrapper" hidden>
+                <table id="active-table">
+                    <thead>
+                        <tr>
+                            <th>Пользователь</th>
+                            <th>Автомобиль</th>
+                            <th>Начало</th>
+                            <th>Длительность</th>
+                            <th>Заблокировано</th>
+                            <th>Текущая стоимость</th>
+                        </tr>
+                    </thead>
+                    <tbody id="active-tbody"></tbody>
+                </table>
+            </div>
+            <div id="active-state-empty" class="state-msg" hidden>Сейчас никто не катается 🏎️</div>
+            <div id="active-state-loading" class="state-msg" hidden>Загрузка…</div>
+        </div>
+    </div>
+</div>
+
+<script src="js/nav.js"></script>
+<script src="js/admin-api.js"></script>
+<script src="js/admin-ui.js"></script>
+<script src="js/admin-sessions.js"></script>
+</body>
+</html>
