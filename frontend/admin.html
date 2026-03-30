@@ -95,6 +95,12 @@
             <span class="admin-card-title">Транзакции</span>
             <span class="admin-card-desc">Финансовые операции пользователей: пополнения, холды, списания, корректировки</span>
         </a>
+        <!-- CARD: Analytics (ADMIN ONLY - hidden by default) -->
+        <a href="/admin-analytics" class="admin-card" id="card-analytics" hidden>
+            <span class="admin-card-icon">📊</span>
+            <span class="admin-card-title">Аналитика</span>
+            <span class="admin-card-desc">Обзор KPI, разбивка по машинам, топ пользователей и динамика по дням</span>
+        </a>
     </div>
 </div>
 
@@ -110,6 +116,7 @@
             if (user.role === 'admin') {
                 document.getElementById('card-audit').hidden = false;
                 document.getElementById('card-transactions').hidden = false;
+                document.getElementById('card-analytics').hidden = false;
             }
         })
         .catch(function () { /* requireAdmin handles redirects */ });

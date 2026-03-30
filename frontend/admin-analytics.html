@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Аналитика — Riley at the Rally</title>
+    <link rel="stylesheet" href="styles/common.css">
+    <link rel="stylesheet" href="styles/nav.css">
+    <style>
+        body { background: #0a0e1a; color: #fff; font-family: Arial, sans-serif; min-height: 100vh; }
+        .admin-container { max-width: 1200px; margin: 0 auto; padding: 32px 20px; }
+        .admin-header { margin-bottom: 24px; }
+        .admin-header h1 { font-size: 26px; font-weight: bold; color: #fff; margin-bottom: 6px; }
+        .admin-header p { color: rgba(255,255,255,0.6); font-size: 14px; }
+
+        /* Period selector */
+        .period-section {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin-bottom: 20px;
+        }
+        .period-section h2 { font-size: 14px; font-weight: bold; color: rgba(255,255,255,0.7); margin-bottom: 12px; }
+        .period-presets { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+        .btn-preset {
+            padding: 6px 16px;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.06);
+            color: rgba(255,255,255,0.8);
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .btn-preset:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.35); }
+        .btn-preset.active { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+        .custom-range {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: flex-end;
+        }
+        .custom-range-group { display: flex; flex-direction: column; gap: 4px; }
+        .custom-range-group label { font-size: 12px; color: rgba(255,255,255,0.5); }
+        .custom-range-group input {
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 6px;
+            color: #fff;
+            padding: 7px 10px;
+            font-size: 13px;
+        }
+        .btn {
+            padding: 8px 18px;
+            border-radius: 7px;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+            transition: opacity 0.15s;
+        }
+        .btn:hover { opacity: 0.85; }
+        .btn-primary { background: #3b82f6; color: #fff; }
+
+        /* Flash */
+        #flash-container { margin-bottom: 16px; }
+        .admin-flash { padding: 10px 14px; border-radius: 7px; font-size: 14px; margin-bottom: 8px; }
+        .admin-flash--error { background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.4); color: #fca5a5; }
+        .admin-flash--info { background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3); color: #93c5fd; }
+
+        /* States */
+        .state-loading { text-align: center; padding: 40px 20px; color: rgba(255,255,255,0.5); font-size: 15px; }
+        .state-empty { text-align: center; padding: 40px 20px; color: rgba(255,255,255,0.4); font-size: 14px; }
+        [hidden] { display: none !important; }
+
+        /* KPI cards */
+        .section { margin-bottom: 28px; }
+        .section-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: rgba(255,255,255,0.6);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 12px;
+        }
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 12px;
+        }
+        .kpi-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 16px 18px;
+        }
+        .kpi-card-label { font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 6px; }
+        .kpi-card-value { font-size: 22px; font-weight: bold; color: #fff; }
+
+        /* Breakdown section */
+        .breakdown-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 10px;
+        }
+        .breakdown-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px;
+            padding: 12px 14px;
+        }
+        .breakdown-card-label { font-size: 11px; color: rgba(255,255,255,0.45); margin-bottom: 4px; }
+        .breakdown-card-value { font-size: 16px; font-weight: bold; color: #fff; }
+        .breakdown-card-sub { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 3px; }
+
+        /* Bar rows */
+        .bar-list { display: flex; flex-direction: column; gap: 8px; }
+        .bar-row {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 8px;
+            padding: 10px 14px;
+        }
+        .bar-row-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+            gap: 8px;
+        }
+        .bar-row-name { font-size: 13px; color: rgba(255,255,255,0.85); font-weight: bold; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .bar-row-meta { font-size: 12px; color: rgba(255,255,255,0.55); white-space: nowrap; flex-shrink: 0; }
+        .bar-track { height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; }
+        .bar-fill { height: 100%; border-radius: 3px; background: #3b82f6; transition: width 0.3s; min-width: 2px; }
+        .bar-fill--green { background: #22c55e; }
+        .bar-fill--amber { background: #f59e0b; }
+
+        /* Transaction type badge */
+        .badge-type {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .badge-type--topup       { background: rgba(34,197,94,0.2);  color: #86efac; border: 1px solid rgba(34,197,94,0.3); }
+        .badge-type--hold        { background: rgba(245,158,11,0.2); color: #fde68a; border: 1px solid rgba(245,158,11,0.3); }
+        .badge-type--release     { background: rgba(59,130,246,0.2); color: #93c5fd; border: 1px solid rgba(59,130,246,0.3); }
+        .badge-type--deduct      { background: rgba(239,68,68,0.2);  color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); }
+        .badge-type--admin_adjust { background: rgba(168,85,247,0.2); color: #d8b4fe; border: 1px solid rgba(168,85,247,0.3); }
+
+        /* Timeseries table */
+        .table-wrapper { overflow-x: auto; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        thead th {
+            background: rgba(255,255,255,0.07);
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: bold;
+            color: rgba(255,255,255,0.7);
+            white-space: nowrap;
+        }
+        tbody tr { border-top: 1px solid rgba(255,255,255,0.06); transition: background 0.1s; }
+        tbody tr:hover { background: rgba(255,255,255,0.03); }
+        td { padding: 9px 12px; vertical-align: middle; color: rgba(255,255,255,0.85); }
+        .amount-positive { color: #86efac; }
+        .amount-negative { color: #fca5a5; }
+
+        /* Loading overlay */
+        #page-loading {
+            position: fixed; inset: 0; background: #0a0e1a;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; color: rgba(255,255,255,0.7);
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+<div id="main-nav"></div>
+<div id="page-loading">Загрузка…</div>
+
+<div class="admin-container" id="main-content" hidden>
+    <div class="admin-header">
+        <h1>📊 Аналитика</h1>
+        <p>Обзор KPI, разбивка по машинам, топ пользователей и динамика по дням</p>
+    </div>
+
+    <!-- Period selector -->
+    <div class="period-section">
+        <h2>Период</h2>
+        <div class="period-presets">
+            <button class="btn-preset" data-preset="7d">7 дней</button>
+            <button class="btn-preset active" data-preset="30d">30 дней</button>
+            <button class="btn-preset" data-preset="90d">90 дней</button>
+            <button class="btn-preset" data-preset="all">Всё время</button>
+            <button class="btn-preset" data-preset="custom">Произвольный</button>
+        </div>
+        <div class="custom-range" id="custom-range" hidden>
+            <div class="custom-range-group">
+                <label for="date-from">С (включительно)</label>
+                <input type="date" id="date-from">
+            </div>
+            <div class="custom-range-group">
+                <label for="date-to">По (включительно)</label>
+                <input type="date" id="date-to">
+            </div>
+            <button class="btn btn-primary" id="btn-apply-custom">Применить</button>
+        </div>
+    </div>
+
+    <div id="flash-container"></div>
+
+    <!-- Analytics content -->
+    <div id="analytics-content" hidden>
+
+        <!-- A. KPI cards -->
+        <div class="section" id="section-kpi">
+            <div class="section-title">Ключевые показатели</div>
+            <div class="kpi-grid" id="kpi-grid"></div>
+        </div>
+
+        <!-- B. Transaction type breakdown -->
+        <div class="section" id="section-txtype">
+            <div class="section-title">Транзакции по типам</div>
+            <div class="breakdown-grid" id="txtype-grid"></div>
+        </div>
+
+        <!-- C. Car breakdown -->
+        <div class="section" id="section-cars">
+            <div class="section-title">По машинам</div>
+            <div class="bar-list" id="cars-bar-list"></div>
+        </div>
+
+        <!-- D. Top users by spend -->
+        <div class="section" id="section-topusers">
+            <div class="section-title">Топ пользователей по расходам</div>
+            <div class="bar-list" id="topusers-bar-list"></div>
+        </div>
+
+        <!-- E. Daily timeseries -->
+        <div class="section" id="section-timeseries">
+            <div class="section-title">Динамика по дням</div>
+            <div class="bar-list" id="timeseries-bar-list"></div>
+        </div>
+    </div>
+
+    <div id="state-loading" class="state-loading" hidden>Загрузка данных…</div>
+    <div id="state-empty" class="state-empty" hidden>Нет данных за выбранный период</div>
+</div>
+
+<script src="js/nav.js"></script>
+<script src="js/admin-api.js"></script>
+<script src="js/admin-analytics.js"></script>
+</body>
+</html>

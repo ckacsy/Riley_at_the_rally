@@ -339,6 +339,9 @@ db.exec(`
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_rental_sessions_user_id ON rental_sessions(user_id)'); } catch (e) { /* ignore */ }
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_rental_sessions_car_id ON rental_sessions(car_id)'); } catch (e) { /* ignore */ }
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_rental_sessions_created_at ON rental_sessions(created_at)'); } catch (e) { /* ignore */ }
+
+  // --- PR 8: analytics index ---
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_rental_sessions_car_created ON rental_sessions(car_id, created_at)'); } catch (e) { /* ignore */ }
 })();
 
 // --- File uploads (avatars) ---
@@ -403,6 +406,9 @@ mountAdminSessionRoutes(app, db, adminRouteDeps);
 
 const mountAdminTransactionRoutes = require('./routes/admin-transactions');
 mountAdminTransactionRoutes(app, db, adminRouteDeps);
+
+const mountAdminAnalyticsRoutes = require('./routes/admin-analytics');
+mountAdminAnalyticsRoutes(app, db, adminRouteDeps);
 
 function saveRentalSession(dbUserId, carId, durationSeconds, cost) {
   if (!dbUserId) return;
@@ -766,6 +772,10 @@ app.get('/admin-sessions', pageRateLimit, (req, res) => {
 
 app.get('/admin-transactions', pageRateLimit, (req, res) => {
   res.sendFile(path.join(frontendDir, 'admin-transactions.html'));
+});
+
+app.get('/admin-analytics', pageRateLimit, (req, res) => {
+  res.sendFile(path.join(frontendDir, 'admin-analytics.html'));
 });
 
 // --- Dev-only: reset database (delete all users and sessions) ---
