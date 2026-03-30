@@ -1759,9 +1759,10 @@
 
         function updateCarStateLabel() {
             var map = {
-                available: '🟢 Свободна',
-                busy:      '🟡 Занята',
-                offline:   '🔴 Недоступна'
+                available:   '🟢 Свободна',
+                busy:        '🟡 Занята',
+                offline:     '🔴 Недоступна',
+                maintenance: '🔧 На обслуживании'
             };
             sbCarState.textContent = map[carAvailabilityStatus] || carAvailabilityStatus;
         }
