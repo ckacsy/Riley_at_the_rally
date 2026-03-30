@@ -311,6 +311,166 @@ test.describe('GET /api/admin/transactions/orphaned-holds', () => {
 });
 
 // ---------------------------------------------------------------------------
+// POST /api/admin/transactions/orphaned-holds/:holdId/release
+// ---------------------------------------------------------------------------
+
+test.describe('POST /api/admin/transactions/orphaned-holds/:holdId/release', () => {
+  test('unauthenticated → 401', async ({ page }) => {
+    await resetDb(page);
+    const csrfToken = await getCsrfToken(page);
+    const res = await page.request.post('/api/admin/transactions/orphaned-holds/1/release', {
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test('non-admin user → 403', async ({ page }) => {
+    await resetDb(page);
+    await registerUser(page, 'release_user1', 'release_user1@test.com');
+    await activateUser(page, 'release_user1');
+    await loginUser(page, 'release_user1');
+    const csrfToken = await getCsrfToken(page);
+    const res = await page.request.post('/api/admin/transactions/orphaned-holds/1/release', {
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+    expect(res.status()).toBe(403);
+  });
+
+  test('moderator → 403', async ({ page }) => {
+    await resetDb(page);
+    await registerUser(page, 'release_mod1', 'release_mod1@test.com');
+    await activateUser(page, 'release_mod1');
+    await setUserRole(page, 'release_mod1', 'moderator');
+    await loginUser(page, 'release_mod1');
+    const csrfToken = await getCsrfToken(page);
+    const res = await page.request.post('/api/admin/transactions/orphaned-holds/1/release', {
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+    expect(res.status()).toBe(403);
+  });
+
+  test('invalid holdId (non-integer) → 400', async ({ page }) => {
+    await resetDb(page);
+    await registerUser(page, 'release_adm_badid', 'release_adm_badid@test.com');
+    await activateUser(page, 'release_adm_badid');
+    await setUserRole(page, 'release_adm_badid', 'admin');
+    await loginUser(page, 'release_adm_badid');
+    const csrfToken = await getCsrfToken(page);
+    const res = await page.request.post('/api/admin/transactions/orphaned-holds/abc/release', {
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+    expect(res.status()).toBe(400);
+  });
+
+  test('hold not found → 404', async ({ page }) => {
+    await resetDb(page);
+    await registerUser(page, 'release_adm_404', 'release_adm_404@test.com');
+    await activateUser(page, 'release_adm_404');
+    await setUserRole(page, 'release_adm_404', 'admin');
+    await loginUser(page, 'release_adm_404');
+    const csrfToken = await getCsrfToken(page);
+    const res = await page.request.post('/api/admin/transactions/orphaned-holds/999999/release', {
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+    expect(res.status()).toBe(404);
+  });
+
+  test('hold without reference_id → 400', async ({ page }) => {
+    await resetDb(page);
+    const user = await registerUser(page, 'release_adm_noref', 'release_adm_noref@test.com');
+    await activateUser(page, 'release_adm_noref');
+    await setUserRole(page, 'release_adm_noref', 'admin');
+    await loginUser(page, 'release_adm_noref');
+
+    // Insert a hold without reference_id
+    const oldTs = new Date(Date.now() - 15 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19);
+    const tx = await insertTransaction(page, user.id, 'hold', -100, 100, { created_at: oldTs });
+
+    const csrfToken = await getCsrfToken(page);
+    const res = await page.request.post(
+      `/api/admin/transactions/orphaned-holds/${tx.id}/release`,
+      { headers: { 'X-CSRF-Token': csrfToken } },
+    );
+    expect(res.status()).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/reference_id/);
+  });
+
+  test('already resolved hold → 409', async ({ page }) => {
+    await resetDb(page);
+    const user = await registerUser(page, 'release_adm_resolved', 'release_adm_resolved@test.com');
+    await activateUser(page, 'release_adm_resolved');
+    await setUserRole(page, 'release_adm_resolved', 'admin');
+    await loginUser(page, 'release_adm_resolved');
+
+    const ref = 'resolved-ref-' + Date.now();
+    const oldTs = new Date(Date.now() - 15 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19);
+    const hold = await insertTransaction(page, user.id, 'hold', -100, 100, {
+      reference_id: ref,
+      created_at: oldTs,
+    });
+    // Insert a matching deduct so the hold is already resolved
+    await insertTransaction(page, user.id, 'deduct', -80, 20, { reference_id: ref });
+
+    const csrfToken = await getCsrfToken(page);
+    const res = await page.request.post(
+      `/api/admin/transactions/orphaned-holds/${hold.id}/release`,
+      { headers: { 'X-CSRF-Token': csrfToken } },
+    );
+    expect(res.status()).toBe(409);
+    const body = await res.json();
+    expect(body.error).toMatch(/already resolved/i);
+  });
+
+  test('valid orphaned hold → 200, releases hold and credits user balance', async ({ page }) => {
+    await resetDb(page);
+    const user = await registerUser(page, 'release_adm_ok', 'release_adm_ok@test.com');
+    await activateUser(page, 'release_adm_ok');
+    await setUserRole(page, 'release_adm_ok', 'admin');
+    await loginUser(page, 'release_adm_ok');
+
+    const ref = 'orphan-ok-ref-' + Date.now();
+    const oldTs = new Date(Date.now() - 15 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19);
+    // Simulate a hold of 50 units
+    const hold = await insertTransaction(page, user.id, 'hold', -50, 150, {
+      reference_id: ref,
+      created_at: oldTs,
+    });
+
+    const csrfToken = await getCsrfToken(page);
+    const releaseRes = await page.request.post(
+      `/api/admin/transactions/orphaned-holds/${hold.id}/release`,
+      { headers: { 'X-CSRF-Token': csrfToken } },
+    );
+    expect(releaseRes.status(), `release failed: ${await releaseRes.text()}`).toBe(200);
+    const releaseBody = await releaseRes.json();
+    expect(releaseBody.success).toBe(true);
+    expect(releaseBody.released).toBeDefined();
+    expect(releaseBody.released.holdId).toBe(hold.id);
+    expect(releaseBody.released.amount).toBeGreaterThan(0);
+
+    // Verify the hold no longer appears in orphaned holds
+    const orphanRes = await page.request.get('/api/admin/transactions/orphaned-holds');
+    expect(orphanRes.status()).toBe(200);
+    const orphanBody = await orphanRes.json();
+    const stillOrphaned = orphanBody.items.find((i: any) => i.id === hold.id);
+    expect(stillOrphaned).toBeUndefined();
+
+    // Verify a release transaction was created for the user
+    const txRes = await page.request.get(
+      `/api/admin/transactions?user_id=${user.id}&type=release`,
+    );
+    expect(txRes.status()).toBe(200);
+    const txBody = await txRes.json();
+    const releaseTx = txBody.items.find(
+      (t: any) => t.type === 'release' && t.reference_id === ref,
+    );
+    expect(releaseTx).toBeTruthy();
+    expect(releaseTx.amount).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Integration: real session via socket — reference_id propagation
 // ---------------------------------------------------------------------------
 

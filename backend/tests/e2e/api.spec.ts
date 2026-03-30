@@ -87,6 +87,23 @@ test.describe('Static page routes', () => {
     expect(body).toMatch(/<!DOCTYPE html>/i);
     expect(body).toContain('garage-canvas');
   });
+
+  test('GET /control responds with Content-Type text/html', async ({ request }) => {
+    const res = await request.get('/control');
+    expect(res.status()).toBe(200);
+    expect(res.headers()['content-type']).toMatch(/text\/html/);
+  });
+
+  test('GET /control serves complete HTML document with control-panel elements', async ({ request }) => {
+    const res = await request.get('/control');
+    expect(res.status()).toBe(200);
+    const body = await res.text();
+    expect(body).toMatch(/<!DOCTYPE html>/i);
+    expect(body).toContain('car-name');
+    expect(body).toContain('session-timer');
+    expect(body).toContain('chat-toggle-btn');
+    expect(body).toContain('Управление RC-машиной');
+  });
 });
 
 test.describe('API health & leaderboard', () => {
@@ -226,5 +243,38 @@ test.describe('Profile page', () => {
     //    (don't rely on networkidle — nav.js manipulates DOM, not network)
     const garageLink = page.locator('a[href="/garage"]');
     await expect(garageLink.first()).toBeVisible({ timeout: 10_000 });
+  });
+});
+
+test.describe('Control page (content smoke)', () => {
+  test('control page has keyboard hint', async ({ page }) => {
+    await page.goto('/control');
+    const body = await page.content();
+    expect(body).toContain('keyboard-hint');
+  });
+
+  test('control page has speed slider', async ({ page }) => {
+    await page.goto('/control');
+    const slider = page.locator('#speed-slider');
+    await expect(slider).toBeAttached();
+  });
+
+  test('control page has directional control buttons', async ({ page }) => {
+    await page.goto('/control');
+    await expect(page.locator('#forward')).toBeAttached();
+    await expect(page.locator('#backward')).toBeAttached();
+    await expect(page.locator('#left')).toBeAttached();
+    await expect(page.locator('#right')).toBeAttached();
+  });
+
+  test('control page has end-rental button', async ({ page }) => {
+    await page.goto('/control');
+    await expect(page.locator('#end-rental')).toBeAttached();
+  });
+
+  test('control page has chat drawer with input', async ({ page }) => {
+    await page.goto('/control');
+    await expect(page.locator('#chat-input')).toBeAttached();
+    await expect(page.locator('#chat-toggle-btn')).toBeAttached();
   });
 });
