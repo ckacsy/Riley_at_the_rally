@@ -170,6 +170,7 @@
             release: 'Возврат',
             deduct: 'Списание',
             admin_adjust: 'Корректировка',
+            admin_compensation: 'Компенсация',
         };
         return labels[type] || type || '—';
     }
