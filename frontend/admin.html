@@ -180,6 +180,12 @@
             <span class="admin-card-title">Машины</span>
             <span class="admin-card-desc">Управление режимом технического обслуживания машин</span>
         </a>
+        <!-- CARD: Investigation (ADMIN ONLY - hidden by default) -->
+        <a href="/admin-investigation" class="admin-card" id="card-investigation" hidden>
+            <span class="admin-card-icon">🔍</span>
+            <span class="admin-card-title">Расследование</span>
+            <span class="admin-card-desc">Единый таймлайн событий по пользователю, сессии или машине</span>
+        </a>
     </div>
 </div>
 
@@ -198,6 +204,7 @@
                 document.getElementById('card-transactions').hidden = false;
                 document.getElementById('card-analytics').hidden = false;
                 document.getElementById('card-cars').hidden = false;
+                document.getElementById('card-investigation').hidden = false;
             }
             // Initialise Operations Hub dashboard
             AdminDashboard.init(user);

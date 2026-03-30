@@ -353,6 +353,13 @@ db.exec(`
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
   `);
+
+  // --- Investigation: session_ref for deterministic join ---
+  const sessionCols = new Set(db.pragma('table_info(rental_sessions)').map((c) => c.name));
+  if (!sessionCols.has('session_ref')) {
+    try { db.exec('ALTER TABLE rental_sessions ADD COLUMN session_ref TEXT'); } catch (e) { /* already exists */ }
+  }
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_rental_sessions_session_ref ON rental_sessions(session_ref)'); } catch (e) { /* ignore */ }
 })();
 
 // --- File uploads (avatars) ---
@@ -427,6 +434,9 @@ mountAdminAnalyticsRoutes(app, db, adminRouteDeps);
 const mountAdminCarsRoutes = require('./routes/admin-cars');
 mountAdminCarsRoutes(app, db, adminRouteDeps, { CARS });
 
+const mountAdminInvestigationRoutes = require('./routes/admin-investigation');
+mountAdminInvestigationRoutes(app, db, adminRouteDeps);
+
 const mountAdminDashboardRoutes = require('./routes/admin-dashboard');
 mountAdminDashboardRoutes(app, db, {
   requireRole,
@@ -434,13 +444,13 @@ mountAdminDashboardRoutes(app, db, {
   CARS,
 });
 
-function saveRentalSession(dbUserId, carId, durationSeconds, cost) {
+function saveRentalSession(dbUserId, carId, durationSeconds, cost, sessionRef) {
   if (!dbUserId) return;
   const carName = CARS.find((c) => c.id === carId)?.name || ('Машина #' + carId);
   try {
     db.prepare(
-      'INSERT INTO rental_sessions (user_id, car_id, car_name, duration_seconds, cost) VALUES (?, ?, ?, ?, ?)'
-    ).run(dbUserId, carId, carName, durationSeconds, cost);
+      'INSERT INTO rental_sessions (user_id, car_id, car_name, duration_seconds, cost, session_ref) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(dbUserId, carId, carName, durationSeconds, cost, sessionRef || null);
   } catch (e) {
     console.error('Failed to save rental session:', e.message);
   }
@@ -720,7 +730,7 @@ app.post('/api/session/end', (req, res) => {
   socketState.activeSessions.delete(sessionId);
   const effectiveDbUserId = session.dbUserId || (Number.isInteger(dbUserId) ? dbUserId : null);
   const effectiveSessionRef = session.sessionRef || (typeof bodySessionRef === 'string' ? bodySessionRef : null);
-  saveRentalSession(effectiveDbUserId, session.carId, durationSeconds, cost);
+  saveRentalSession(effectiveDbUserId, session.carId, durationSeconds, cost, effectiveSessionRef);
   socketState.processHoldDeduct(effectiveDbUserId, session.holdAmount, cost, session.carId, durationSeconds, effectiveSessionRef);
   socketState.broadcastCarsUpdate();
   metrics.log('info', 'session_end', {
@@ -819,6 +829,10 @@ app.get('/admin-analytics', pageRateLimit, (req, res) => {
 
 app.get('/admin-cars', pageRateLimit, (req, res) => {
   res.sendFile(path.join(frontendDir, 'admin-cars.html'));
+});
+
+app.get('/admin-investigation', pageRateLimit, (req, res) => {
+  res.sendFile(path.join(frontendDir, 'admin-investigation.html'));
 });
 
 // --- Dev-only: reset database (delete all users and sessions) ---
@@ -943,16 +957,17 @@ if (process.env.NODE_ENV !== 'production') {
 
   // Dev helper: insert a rental session directly for testing.
   app.post('/api/dev/rental-sessions/insert', devLimiter, (req, res) => {
-    const { user_id, car_id, car_name, duration_seconds, cost } = req.body || {};
+    const { user_id, car_id, car_name, duration_seconds, cost, session_ref } = req.body || {};
     if (!user_id || !car_id) return res.status(400).json({ error: 'user_id and car_id required' });
     const result = db.prepare(
-      'INSERT INTO rental_sessions (user_id, car_id, car_name, duration_seconds, cost) VALUES (?, ?, ?, ?, ?)'
+      'INSERT INTO rental_sessions (user_id, car_id, car_name, duration_seconds, cost, session_ref) VALUES (?, ?, ?, ?, ?, ?)'
     ).run(
       Number(user_id),
       Number(car_id),
       car_name || ('Машина #' + car_id),
       Number(duration_seconds) || 0,
-      Number(cost) || 0
+      Number(cost) || 0,
+      session_ref || null
     );
     const row = db.prepare('SELECT * FROM rental_sessions WHERE id = ?').get(result.lastInsertRowid);
     res.json({ success: true, session: row });
