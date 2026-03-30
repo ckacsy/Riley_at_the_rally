@@ -1,0 +1,441 @@
+/*
+ * Shared admin UI stylesheet.
+ * Extracted from repeated inline styles in admin-sessions, admin-transactions,
+ * admin-analytics, and admin-audit pages.
+ */
+
+/* -------------------------------------------------------------------------
+   Base
+   --------------------------------------------------------------------- */
+
+body {
+    background: #0a0e1a;
+    color: #fff;
+    font-family: Arial, sans-serif;
+    min-height: 100vh;
+}
+
+/* -------------------------------------------------------------------------
+   Page container / header
+   --------------------------------------------------------------------- */
+
+.admin-container {
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 32px 20px;
+}
+
+.admin-header {
+    margin-bottom: 24px;
+}
+
+.admin-header h1 {
+    font-size: 26px;
+    font-weight: bold;
+    color: #fff;
+    margin-bottom: 6px;
+}
+
+.admin-header p {
+    color: rgba(255,255,255,0.6);
+    font-size: 14px;
+}
+
+/* -------------------------------------------------------------------------
+   Full-page loading overlay (shared between #admin-loading and #page-loading)
+   --------------------------------------------------------------------- */
+
+#admin-loading,
+#page-loading {
+    position: fixed;
+    inset: 0;
+    background: #0a0e1a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: rgba(255,255,255,0.7);
+    z-index: 100;
+}
+
+/* -------------------------------------------------------------------------
+   Filters section
+   --------------------------------------------------------------------- */
+
+.filters-section {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-bottom: 20px;
+}
+
+.filters-section h2 {
+    font-size: 15px;
+    font-weight: bold;
+    margin-bottom: 14px;
+    color: rgba(255,255,255,0.8);
+}
+
+.filters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.filter-group label {
+    font-size: 12px;
+    color: rgba(255,255,255,0.5);
+}
+
+.filter-group input,
+.filter-group select {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 6px;
+    color: #fff;
+    padding: 7px 10px;
+    font-size: 13px;
+}
+
+.filter-group input::placeholder {
+    color: rgba(255,255,255,0.3);
+}
+
+.filter-actions {
+    display: flex;
+    gap: 10px;
+}
+
+/* -------------------------------------------------------------------------
+   Buttons
+   --------------------------------------------------------------------- */
+
+.btn {
+    padding: 8px 18px;
+    border-radius: 7px;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: bold;
+    transition: opacity 0.15s;
+}
+
+.btn:hover {
+    opacity: 0.85;
+}
+
+.btn-primary {
+    background: #3b82f6;
+    color: #fff;
+}
+
+.btn-secondary {
+    background: rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.8);
+}
+
+.btn-danger {
+    background: rgba(239,68,68,0.2);
+    color: #fca5a5;
+    border: 1px solid rgba(239,68,68,0.4);
+}
+
+.btn-danger:hover {
+    background: rgba(239,68,68,0.35);
+}
+
+.btn-sm {
+    padding: 5px 12px;
+    font-size: 12px;
+}
+
+/* -------------------------------------------------------------------------
+   Flash messages
+   --------------------------------------------------------------------- */
+
+#flash-container {
+    margin-bottom: 16px;
+}
+
+.admin-flash {
+    padding: 10px 14px;
+    border-radius: 7px;
+    font-size: 14px;
+}
+
+.admin-flash--error {
+    background: rgba(239,68,68,0.2);
+    border: 1px solid rgba(239,68,68,0.4);
+    color: #fca5a5;
+}
+
+.admin-flash--success {
+    background: rgba(34,197,94,0.15);
+    border: 1px solid rgba(34,197,94,0.3);
+    color: #86efac;
+}
+
+.admin-flash--info {
+    background: rgba(59,130,246,0.15);
+    border: 1px solid rgba(59,130,246,0.3);
+    color: #93c5fd;
+}
+
+/* -------------------------------------------------------------------------
+   Summary cards
+   --------------------------------------------------------------------- */
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.summary-card {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 14px 16px;
+}
+
+.summary-card-label {
+    font-size: 12px;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 6px;
+}
+
+.summary-card-value {
+    font-size: 20px;
+    font-weight: bold;
+    color: #fff;
+}
+
+/* -------------------------------------------------------------------------
+   Table
+   --------------------------------------------------------------------- */
+
+.table-wrapper {
+    overflow-x: auto;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+thead th {
+    background: rgba(255,255,255,0.07);
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: bold;
+    color: rgba(255,255,255,0.7);
+    white-space: nowrap;
+}
+
+tbody tr {
+    border-top: 1px solid rgba(255,255,255,0.06);
+    transition: background 0.1s;
+}
+
+tbody tr:hover {
+    background: rgba(255,255,255,0.03);
+}
+
+td {
+    padding: 9px 12px;
+    vertical-align: middle;
+    color: rgba(255,255,255,0.85);
+}
+
+td.nowrap {
+    white-space: nowrap;
+}
+
+/* -------------------------------------------------------------------------
+   State messages (empty / loading)
+   --------------------------------------------------------------------- */
+
+.state-msg,
+.state-loading,
+.state-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: rgba(255,255,255,0.4);
+    font-size: 14px;
+}
+
+/* -------------------------------------------------------------------------
+   Pagination
+   --------------------------------------------------------------------- */
+
+.pagination {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 18px;
+    font-size: 13px;
+}
+
+.pagination button {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.07);
+    color: rgba(255,255,255,0.8);
+    cursor: pointer;
+}
+
+.pagination button:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.pagination button:not(:disabled):hover {
+    background: rgba(255,255,255,0.14);
+}
+
+.pagination-info {
+    color: rgba(255,255,255,0.5);
+}
+
+/* -------------------------------------------------------------------------
+   Transaction type badges
+   --------------------------------------------------------------------- */
+
+.badge-type {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.badge-type--topup        { background: rgba(34,197,94,0.2);   color: #86efac; border: 1px solid rgba(34,197,94,0.3); }
+.badge-type--hold         { background: rgba(245,158,11,0.2);  color: #fde68a; border: 1px solid rgba(245,158,11,0.3); }
+.badge-type--release      { background: rgba(59,130,246,0.2);  color: #93c5fd; border: 1px solid rgba(59,130,246,0.3); }
+.badge-type--deduct       { background: rgba(239,68,68,0.2);   color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); }
+.badge-type--admin_adjust { background: rgba(168,85,247,0.2);  color: #d8b4fe; border: 1px solid rgba(168,85,247,0.3); }
+
+/* -------------------------------------------------------------------------
+   Amount colors
+   --------------------------------------------------------------------- */
+
+.amount-positive { color: #86efac; }
+.amount-negative { color: #fca5a5; }
+
+/* -------------------------------------------------------------------------
+   Modal backdrop / box / actions
+   --------------------------------------------------------------------- */
+
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-box {
+    background: #131829;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 12px;
+    padding: 28px 28px 24px;
+    max-width: 480px;
+    width: 100%;
+}
+
+.modal-box h3 {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 16px;
+    color: #fff;
+}
+
+.modal-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.modal-info-item {
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
+.modal-info-label {
+    font-size: 11px;
+    color: rgba(255,255,255,0.45);
+    margin-bottom: 3px;
+}
+
+.modal-info-value {
+    font-size: 14px;
+    color: #fff;
+    font-weight: bold;
+}
+
+.modal-field {
+    margin-bottom: 14px;
+}
+
+.modal-field label {
+    display: block;
+    font-size: 12px;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 5px;
+}
+
+.modal-field select,
+.modal-field textarea {
+    width: 100%;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 6px;
+    color: #fff;
+    padding: 8px 10px;
+    font-size: 13px;
+    box-sizing: border-box;
+}
+
+.modal-field select option {
+    background: #131829;
+}
+
+.modal-field textarea {
+    resize: vertical;
+    min-height: 60px;
+    font-family: inherit;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+
+/* -------------------------------------------------------------------------
+   Utility
+   --------------------------------------------------------------------- */
+
+[hidden] {
+    display: none !important;
+}

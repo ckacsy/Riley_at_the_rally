@@ -6,12 +6,10 @@
     <title>Аналитика — Riley at the Rally</title>
     <link rel="stylesheet" href="styles/common.css">
     <link rel="stylesheet" href="styles/nav.css">
+    <link rel="stylesheet" href="styles/admin.css">
     <style>
-        body { background: #0a0e1a; color: #fff; font-family: Arial, sans-serif; min-height: 100vh; }
-        .admin-container { max-width: 1200px; margin: 0 auto; padding: 32px 20px; }
-        .admin-header { margin-bottom: 24px; }
-        .admin-header h1 { font-size: 26px; font-weight: bold; color: #fff; margin-bottom: 6px; }
-        .admin-header p { color: rgba(255,255,255,0.6); font-size: 14px; }
+        /* Analytics page uses a narrower container */
+        .admin-container { max-width: 1200px; }
 
         /* Period selector */
         .period-section {
@@ -51,30 +49,8 @@
             padding: 7px 10px;
             font-size: 13px;
         }
-        .btn {
-            padding: 8px 18px;
-            border-radius: 7px;
-            border: none;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: bold;
-            transition: opacity 0.15s;
-        }
-        .btn:hover { opacity: 0.85; }
-        .btn-primary { background: #3b82f6; color: #fff; }
 
-        /* Flash */
-        #flash-container { margin-bottom: 16px; }
-        .admin-flash { padding: 10px 14px; border-radius: 7px; font-size: 14px; margin-bottom: 8px; }
-        .admin-flash--error { background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.4); color: #fca5a5; }
-        .admin-flash--info { background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3); color: #93c5fd; }
-
-        /* States */
-        .state-loading { text-align: center; padding: 40px 20px; color: rgba(255,255,255,0.5); font-size: 15px; }
-        .state-empty { text-align: center; padding: 40px 20px; color: rgba(255,255,255,0.4); font-size: 14px; }
-        [hidden] { display: none !important; }
-
-        /* KPI cards */
+        /* Sections */
         .section { margin-bottom: 28px; }
         .section-title {
             font-size: 14px;
@@ -84,6 +60,8 @@
             letter-spacing: 0.05em;
             margin-bottom: 12px;
         }
+
+        /* KPI cards */
         .kpi-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -98,7 +76,7 @@
         .kpi-card-label { font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 6px; }
         .kpi-card-value { font-size: 22px; font-weight: bold; color: #fff; }
 
-        /* Breakdown section */
+        /* Breakdown cards */
         .breakdown-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -135,47 +113,6 @@
         .bar-fill { height: 100%; border-radius: 3px; background: #3b82f6; transition: width 0.3s; min-width: 2px; }
         .bar-fill--green { background: #22c55e; }
         .bar-fill--amber { background: #f59e0b; }
-
-        /* Transaction type badge */
-        .badge-type {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 11px;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-        }
-        .badge-type--topup       { background: rgba(34,197,94,0.2);  color: #86efac; border: 1px solid rgba(34,197,94,0.3); }
-        .badge-type--hold        { background: rgba(245,158,11,0.2); color: #fde68a; border: 1px solid rgba(245,158,11,0.3); }
-        .badge-type--release     { background: rgba(59,130,246,0.2); color: #93c5fd; border: 1px solid rgba(59,130,246,0.3); }
-        .badge-type--deduct      { background: rgba(239,68,68,0.2);  color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); }
-        .badge-type--admin_adjust { background: rgba(168,85,247,0.2); color: #d8b4fe; border: 1px solid rgba(168,85,247,0.3); }
-
-        /* Timeseries table */
-        .table-wrapper { overflow-x: auto; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); }
-        table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        thead th {
-            background: rgba(255,255,255,0.07);
-            padding: 10px 12px;
-            text-align: left;
-            font-weight: bold;
-            color: rgba(255,255,255,0.7);
-            white-space: nowrap;
-        }
-        tbody tr { border-top: 1px solid rgba(255,255,255,0.06); transition: background 0.1s; }
-        tbody tr:hover { background: rgba(255,255,255,0.03); }
-        td { padding: 9px 12px; vertical-align: middle; color: rgba(255,255,255,0.85); }
-        .amount-positive { color: #86efac; }
-        .amount-negative { color: #fca5a5; }
-
-        /* Loading overlay */
-        #page-loading {
-            position: fixed; inset: 0; background: #0a0e1a;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 18px; color: rgba(255,255,255,0.7);
-            z-index: 100;
-        }
     </style>
 </head>
 <body>
@@ -253,6 +190,7 @@
 
 <script src="js/nav.js"></script>
 <script src="js/admin-api.js"></script>
+<script src="js/admin-ui.js"></script>
 <script src="js/admin-analytics.js"></script>
 </body>
 </html>
