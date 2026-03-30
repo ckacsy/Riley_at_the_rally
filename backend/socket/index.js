@@ -216,7 +216,7 @@ function setupSocketIo(io, deps) {
       activeSessions.delete(socket.id);
       inactivityTimeouts.delete(socket.id);
       clearSessionDurationTimeout(socket.id);
-      saveRentalSession(session.dbUserId, session.carId, durationSeconds, cost);
+      saveRentalSession(session.dbUserId, session.carId, durationSeconds, cost, session.sessionRef);
       processHoldDeduct(session.dbUserId, session.holdAmount, cost, session.carId, durationSeconds, session.sessionRef);
       socket.emit('session_ended', { carId: session.carId, durationSeconds, cost, reason: 'inactivity' });
       broadcastCarsUpdate();
@@ -252,7 +252,7 @@ function setupSocketIo(io, deps) {
       activeSessions.delete(socket.id);
       sessionDurationTimeouts.delete(socket.id);
       clearInactivityTimeout(socket.id);
-      saveRentalSession(session.dbUserId, session.carId, durationSeconds, cost);
+      saveRentalSession(session.dbUserId, session.carId, durationSeconds, cost, session.sessionRef);
       processHoldDeduct(session.dbUserId, session.holdAmount, cost, session.carId, durationSeconds, session.sessionRef);
       socket.emit('session_ended', { carId: session.carId, durationSeconds, cost, reason: 'time_limit' });
       broadcastCarsUpdate();
@@ -637,7 +637,7 @@ function setupSocketIo(io, deps) {
       const durationMinutes = durationMs / 60000;
       const cost = durationMinutes * RATE_PER_MINUTE;
       activeSessions.delete(socket.id);
-      saveRentalSession(session.dbUserId, session.carId, durationSeconds, cost);
+      saveRentalSession(session.dbUserId, session.carId, durationSeconds, cost, session.sessionRef);
       processHoldDeduct(session.dbUserId, session.holdAmount, cost, session.carId, durationSeconds, session.sessionRef);
       socket.emit('session_ended', { carId: session.carId, durationSeconds, cost });
       broadcastCarsUpdate();
@@ -665,7 +665,7 @@ function setupSocketIo(io, deps) {
         const durationMinutes = durationMs / 60000;
         const cost = durationMinutes * RATE_PER_MINUTE;
         activeSessions.delete(socket.id);
-        saveRentalSession(session.dbUserId, session.carId, durationSeconds, cost);
+        saveRentalSession(session.dbUserId, session.carId, durationSeconds, cost, session.sessionRef);
         processHoldDeduct(session.dbUserId, session.holdAmount, cost, session.carId, durationSeconds, session.sessionRef);
         broadcastCarsUpdate();
         metrics.log('info', 'session_end', {
@@ -898,7 +898,7 @@ function setupSocketIo(io, deps) {
     activeSessions.delete(targetSocketId);
 
     // Persist rental session and process balance
-    saveRentalSession(targetSession.dbUserId, targetSession.carId, durationSeconds, cost);
+    saveRentalSession(targetSession.dbUserId, targetSession.carId, durationSeconds, cost, targetSession.sessionRef);
     processHoldDeduct(targetSession.dbUserId, targetSession.holdAmount, cost, targetSession.carId, durationSeconds, targetSession.sessionRef);
 
     // Notify the client socket
