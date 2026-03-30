@@ -166,8 +166,20 @@ function setupSocketIo(io, deps) {
 
   function broadcastCarsUpdate() {
     const activeCars = new Set([...activeSessions.values()].map((s) => s.carId));
+    const maintRows = db.prepare('SELECT car_id FROM car_maintenance WHERE enabled = 1').all();
+    const maintenanceCars = new Set(maintRows.map((r) => r.car_id));
     io.emit('cars_updated', {
-      cars: CARS.map((c) => ({ ...c, status: activeCars.has(c.id) ? 'unavailable' : 'available' })),
+      cars: CARS.map((c) => {
+        let status;
+        if (maintenanceCars.has(c.id)) {
+          status = 'maintenance';
+        } else if (activeCars.has(c.id)) {
+          status = 'unavailable';
+        } else {
+          status = 'available';
+        }
+        return { ...c, status };
+      }),
     });
   }
 
@@ -526,6 +538,13 @@ function setupSocketIo(io, deps) {
       // Validate that the requested car exists
       if (!CARS.some((c) => c.id === carId)) {
         socket.emit('session_error', { message: 'Неверный идентификатор машины.' });
+        return;
+      }
+
+      // Check if car is in maintenance
+      const maintRow = db.prepare('SELECT enabled FROM car_maintenance WHERE car_id = ? AND enabled = 1').get(carId);
+      if (maintRow) {
+        socket.emit('session_error', { message: 'Машина находится на техническом обслуживании.', code: 'car_maintenance' });
         return;
       }
 

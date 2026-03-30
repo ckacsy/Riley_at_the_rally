@@ -101,6 +101,12 @@
             <span class="admin-card-title">Аналитика</span>
             <span class="admin-card-desc">Обзор KPI, разбивка по машинам, топ пользователей и динамика по дням</span>
         </a>
+        <!-- CARD: Cars (ADMIN ONLY - hidden by default) -->
+        <a href="/admin-cars" class="admin-card" id="card-cars" hidden>
+            <span class="admin-card-icon">🔧</span>
+            <span class="admin-card-title">Машины</span>
+            <span class="admin-card-desc">Управление режимом технического обслуживания машин</span>
+        </a>
     </div>
 </div>
 
@@ -117,6 +123,7 @@
                 document.getElementById('card-audit').hidden = false;
                 document.getElementById('card-transactions').hidden = false;
                 document.getElementById('card-analytics').hidden = false;
+                document.getElementById('card-cars').hidden = false;
             }
         })
         .catch(function () { /* requireAdmin handles redirects */ });

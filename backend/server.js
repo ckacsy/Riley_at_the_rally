@@ -342,6 +342,17 @@ db.exec(`
 
   // --- PR 8: analytics index ---
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_rental_sessions_car_created ON rental_sessions(car_id, created_at)'); } catch (e) { /* ignore */ }
+
+  // --- PR 11: car_maintenance table ---
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS car_maintenance (
+      car_id INTEGER PRIMARY KEY,
+      enabled INTEGER NOT NULL DEFAULT 0,
+      reason TEXT,
+      admin_id INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
 })();
 
 // --- File uploads (avatars) ---
@@ -410,6 +421,9 @@ mountAdminTransactionRoutes(app, db, adminRouteDeps);
 const mountAdminAnalyticsRoutes = require('./routes/admin-analytics');
 mountAdminAnalyticsRoutes(app, db, adminRouteDeps);
 
+const mountAdminCarsRoutes = require('./routes/admin-cars');
+mountAdminCarsRoutes(app, db, adminRouteDeps, { CARS });
+
 function saveRentalSession(dbUserId, carId, durationSeconds, cost) {
   if (!dbUserId) return;
   const carName = CARS.find((c) => c.id === carId)?.name || ('Машина #' + carId);
@@ -460,6 +474,7 @@ app.locals.getActiveSessions = () => socketState.activeSessions;
 app.locals.getCars = () => CARS;
 app.locals.getRatePerMinute = () => RATE_PER_MINUTE;
 app.locals.forceEndSession = (carId, adminContext) => socketState.forceEndSession(carId, adminContext);
+app.locals.broadcastCarsUpdate = () => socketState.broadcastCarsUpdate();
 
 // Car availability status tracking
 let carStatusLastUpdated = new Date().toISOString();
@@ -576,11 +591,23 @@ app.get('/api/metrics', metricsLimiter, requireAuth, (req, res) => {
   }
   res.json(metrics.getMetrics(socketState.activeSessions, socketState.raceRooms));
 });
-app.get('/api/cars', (req, res) => {
+app.get('/api/cars', apiReadLimiter, (req, res) => {
   const activeCars = new Set([...socketState.activeSessions.values()].map((s) => s.carId));
+  const maintRows = db.prepare('SELECT car_id FROM car_maintenance WHERE enabled = 1').all();
+  const maintenanceCars = new Set(maintRows.map((r) => r.car_id));
   res.json({
     ratePerMinute: RATE_PER_MINUTE,
-    cars: CARS.map((c) => ({ ...c, status: activeCars.has(c.id) ? 'unavailable' : 'available' })),
+    cars: CARS.map((c) => {
+      let status;
+      if (maintenanceCars.has(c.id)) {
+        status = 'maintenance';
+      } else if (activeCars.has(c.id)) {
+        status = 'unavailable';
+      } else {
+        status = 'available';
+      }
+      return { ...c, status };
+    }),
   });
 });
 
@@ -779,6 +806,10 @@ app.get('/admin-analytics', pageRateLimit, (req, res) => {
   res.sendFile(path.join(frontendDir, 'admin-analytics.html'));
 });
 
+app.get('/admin-cars', pageRateLimit, (req, res) => {
+  res.sendFile(path.join(frontendDir, 'admin-cars.html'));
+});
+
 // --- Dev-only: reset database (delete all users and sessions) ---
 // Accessible only when NODE_ENV !== 'production'
 if (process.env.NODE_ENV !== 'production') {
@@ -866,6 +897,7 @@ if (process.env.NODE_ENV !== 'production') {
         db.exec('DELETE FROM news');
         db.exec('DELETE FROM admin_audit_log');
         db.exec('DELETE FROM users');
+        db.exec('DELETE FROM car_maintenance');
         // Reset autoincrement counters
         db.exec("DELETE FROM sqlite_sequence WHERE name IN ('users','lap_times','rental_sessions','email_verification_tokens','password_reset_tokens','chat_messages','magic_links','transactions','payment_orders','news','admin_audit_log')");
       })();
