@@ -21,7 +21,6 @@
     // DOM references (set in init)
     // ---------------------------------------------------------------------------
     var flashContainer, ledgerFlashContainer;
-    var fUserId, fType, fReferenceId, fDateFrom, fDateTo, fMinAmount, fMaxAmount;
     var btnApply, btnReset, btnPrev, btnNext;
     var tableWrapper, transactionsTbody, stateEmpty, stateLoading, paginationEl, paginationInfo;
     var summarySection, summaryTotalCount, summaryTotalAmount, bytypeGrid;
@@ -30,15 +29,8 @@
     var ledgerPagination, ledgerBtnPrev, ledgerBtnNext, ledgerPaginationInfo;
     var btnLedgerClose;
 
-    // ---------------------------------------------------------------------------
-    // Type badge helper
-    // ---------------------------------------------------------------------------
-    function typeBadge(type) {
-        var el = document.createElement('span');
-        el.className = 'badge-type badge-type--' + (type || 'unknown');
-        el.textContent = type || '—';
-        return el;
-    }
+    // Shared filter helper (initialised in init after DOM is ready)
+    var filterHelper;
 
     // ---------------------------------------------------------------------------
     // Amount formatting with sign-based color
@@ -50,66 +42,9 @@
             td.textContent = '—';
             return td;
         }
-        var formatted = (amount >= 0 ? '+' : '') + amount.toFixed(2) + ' RC';
-        td.textContent = formatted;
+        td.textContent = AdminUi.formatMoney(amount, { signed: true });
         td.className += amount >= 0 ? ' amount-positive' : ' amount-negative';
         return td;
-    }
-
-    // ---------------------------------------------------------------------------
-    // Filters helpers
-    // ---------------------------------------------------------------------------
-    function getFilters() {
-        return {
-            user_id: fUserId.value.trim(),
-            type: fType.value,
-            reference_id: fReferenceId.value.trim(),
-            date_from: fDateFrom.value.trim(),
-            date_to: fDateTo.value.trim(),
-            min_amount: fMinAmount.value.trim(),
-            max_amount: fMaxAmount.value.trim(),
-        };
-    }
-
-    function buildQuery(filters, page, limit) {
-        var params = new URLSearchParams();
-        params.set('page', String(page));
-        params.set('limit', String(limit));
-        if (filters.user_id) params.set('user_id', filters.user_id);
-        if (filters.type) params.set('type', filters.type);
-        if (filters.reference_id) params.set('reference_id', filters.reference_id);
-        if (filters.date_from) params.set('date_from', filters.date_from);
-        if (filters.date_to) params.set('date_to', filters.date_to);
-        if (filters.min_amount) params.set('min_amount', filters.min_amount);
-        if (filters.max_amount) params.set('max_amount', filters.max_amount);
-        return params.toString();
-    }
-
-    function syncUrlToState(filters, page) {
-        var params = new URLSearchParams();
-        if (page > 1) params.set('page', String(page));
-        if (filters.user_id) params.set('user_id', filters.user_id);
-        if (filters.type) params.set('type', filters.type);
-        if (filters.reference_id) params.set('reference_id', filters.reference_id);
-        if (filters.date_from) params.set('date_from', filters.date_from);
-        if (filters.date_to) params.set('date_to', filters.date_to);
-        if (filters.min_amount) params.set('min_amount', filters.min_amount);
-        if (filters.max_amount) params.set('max_amount', filters.max_amount);
-        var qs = params.toString();
-        history.replaceState(null, '', qs ? '?' + qs : window.location.pathname);
-    }
-
-    function hydrateFormFromUrl() {
-        var params = new URLSearchParams(window.location.search);
-        fUserId.value = params.get('user_id') || '';
-        fType.value = params.get('type') || '';
-        fReferenceId.value = params.get('reference_id') || '';
-        fDateFrom.value = params.get('date_from') || '';
-        fDateTo.value = params.get('date_to') || '';
-        fMinAmount.value = params.get('min_amount') || '';
-        fMaxAmount.value = params.get('max_amount') || '';
-        var p = parseInt(params.get('page') || '1', 10);
-        currentPage = (p >= 1) ? p : 1;
     }
 
     // ---------------------------------------------------------------------------
@@ -122,7 +57,7 @@
         }
         summaryTotalCount.textContent = String(summary.totalCount || 0);
         var amt = (summary.totalAmount || 0);
-        summaryTotalAmount.textContent = (amt >= 0 ? '+' : '') + amt.toFixed(2) + ' RC';
+        summaryTotalAmount.textContent = AdminUi.formatMoney(amt, { signed: true });
         summaryTotalAmount.className = 'summary-card-value ' + (amt >= 0 ? 'amount-positive' : 'amount-negative');
 
         bytypeGrid.innerHTML = '';
@@ -133,7 +68,7 @@
 
                 var typeEl = document.createElement('div');
                 typeEl.className = 'bytype-card-type';
-                typeEl.appendChild(typeBadge(item.type));
+                typeEl.appendChild(AdminUi.typeBadge(item.type));
                 card.appendChild(typeEl);
 
                 var countEl = document.createElement('div');
@@ -142,10 +77,9 @@
                 card.appendChild(countEl);
 
                 var totalEl = document.createElement('div');
-                totalEl.className = 'bytype-card-total';
                 var t = (item.total || 0);
-                totalEl.textContent = (t >= 0 ? '+' : '') + t.toFixed(2) + ' RC';
-                totalEl.className += t >= 0 ? ' amount-positive' : ' amount-negative';
+                totalEl.className = 'bytype-card-total' + (t >= 0 ? ' amount-positive' : ' amount-negative');
+                totalEl.textContent = AdminUi.formatMoney(t, { signed: true });
                 card.appendChild(totalEl);
 
                 bytypeGrid.appendChild(card);
@@ -185,7 +119,7 @@
 
         // Type
         var tdType = document.createElement('td');
-        tdType.appendChild(typeBadge(item.type));
+        tdType.appendChild(AdminUi.typeBadge(item.type));
         tr.appendChild(tdType);
 
         // Amount
@@ -194,7 +128,7 @@
         // Balance after
         var tdBal = document.createElement('td');
         tdBal.className = 'nowrap';
-        tdBal.textContent = item.balance_after != null ? item.balance_after.toFixed(2) + ' RC' : '—';
+        tdBal.textContent = AdminUi.formatMoney(item.balance_after);
         tr.appendChild(tdBal);
 
         // Description
@@ -227,7 +161,7 @@
         paginationEl.hidden = true;
         summarySection.hidden = true;
 
-        var qs = buildQuery(filters, page, currentLimit);
+        var qs = filterHelper.buildQuery(filters, page, currentLimit);
 
         AdminApi.adminFetch('/api/admin/transactions?' + qs)
             .then(function (data) {
@@ -263,23 +197,17 @@
     }
 
     function applyFilters() {
-        var filters = getFilters();
+        var filters = filterHelper.getFilters();
         currentPage = 1;
-        syncUrlToState(filters, currentPage);
+        filterHelper.syncUrlToState(filters, currentPage);
         loadTransactions(filters, currentPage);
     }
 
     function resetFilters() {
-        fUserId.value = '';
-        fType.value = '';
-        fReferenceId.value = '';
-        fDateFrom.value = '';
-        fDateTo.value = '';
-        fMinAmount.value = '';
-        fMaxAmount.value = '';
+        filterHelper.resetFilters();
         currentPage = 1;
         history.replaceState(null, '', window.location.pathname);
-        loadTransactions(getFilters(), currentPage);
+        loadTransactions(filterHelper.getFilters(), currentPage);
     }
 
     // ---------------------------------------------------------------------------
@@ -305,14 +233,14 @@
         ledgerUserSummary.innerHTML = '';
 
         var fields = [
-            { label: 'Баланс', value: (data.user.balance != null ? data.user.balance.toFixed(2) + ' RC' : '—') },
+            { label: 'Баланс', value: AdminUi.formatMoney(data.user.balance) },
             { label: 'Статус', value: data.user.status || '—' },
             { label: 'Транзакций', value: String(data.summary.transactionCount || 0) },
-            { label: 'Пополнений', value: '+' + (data.summary.totalTopups || 0).toFixed(2) },
-            { label: 'Холдов', value: (data.summary.totalHolds || 0).toFixed(2) },
-            { label: 'Возвратов', value: '+' + (data.summary.totalReleases || 0).toFixed(2) },
-            { label: 'Списаний', value: (data.summary.totalDeductions || 0).toFixed(2) },
-            { label: 'Корректировок', value: (data.summary.totalAdminAdjusts || 0).toFixed(2) },
+            { label: 'Пополнений', value: AdminUi.formatMoney(data.summary.totalTopups || 0, { signed: true }) },
+            { label: 'Холдов', value: AdminUi.formatMoney(data.summary.totalHolds || 0) },
+            { label: 'Возвратов', value: AdminUi.formatMoney(data.summary.totalReleases || 0, { signed: true }) },
+            { label: 'Списаний', value: AdminUi.formatMoney(data.summary.totalDeductions || 0) },
+            { label: 'Корректировок', value: AdminUi.formatMoney(data.summary.totalAdminAdjusts || 0) },
         ];
 
         fields.forEach(function (f) {
@@ -376,14 +304,6 @@
         flashContainer = document.getElementById('flash-container');
         ledgerFlashContainer = document.getElementById('ledger-flash-container');
 
-        fUserId = document.getElementById('f-user-id');
-        fType = document.getElementById('f-type');
-        fReferenceId = document.getElementById('f-reference-id');
-        fDateFrom = document.getElementById('f-date-from');
-        fDateTo = document.getElementById('f-date-to');
-        fMinAmount = document.getElementById('f-min-amount');
-        fMaxAmount = document.getElementById('f-max-amount');
-
         btnApply = document.getElementById('btn-apply');
         btnReset = document.getElementById('btn-reset');
         btnPrev = document.getElementById('btn-prev');
@@ -415,6 +335,17 @@
         ledgerPaginationInfo = document.getElementById('ledger-pagination-info');
         btnLedgerClose = document.getElementById('btn-ledger-close');
 
+        // Initialise filter helper with the transactions filter field map
+        filterHelper = AdminFilters.create({
+            user_id:      'f-user-id',
+            type:         'f-type',
+            reference_id: 'f-reference-id',
+            date_from:    'f-date-from',
+            date_to:      'f-date-to',
+            min_amount:   'f-min-amount',
+            max_amount:   'f-max-amount',
+        });
+
         // Buttons
         btnApply.addEventListener('click', applyFilters);
         btnReset.addEventListener('click', resetFilters);
@@ -422,16 +353,16 @@
         btnPrev.addEventListener('click', function () {
             if (currentPage > 1) {
                 currentPage--;
-                var filters = getFilters();
-                syncUrlToState(filters, currentPage);
+                var filters = filterHelper.getFilters();
+                filterHelper.syncUrlToState(filters, currentPage);
                 loadTransactions(filters, currentPage);
             }
         });
         btnNext.addEventListener('click', function () {
             if (currentPage < totalPages) {
                 currentPage++;
-                var filters = getFilters();
-                syncUrlToState(filters, currentPage);
+                var filters = filterHelper.getFilters();
+                filterHelper.syncUrlToState(filters, currentPage);
                 loadTransactions(filters, currentPage);
             }
         });
@@ -462,8 +393,8 @@
         });
 
         // Hydrate form from URL and load initial data
-        hydrateFormFromUrl();
-        loadTransactions(getFilters(), currentPage);
+        currentPage = filterHelper.hydrateFormFromUrl();
+        loadTransactions(filterHelper.getFilters(), currentPage);
     }
 
     // ---------------------------------------------------------------------------

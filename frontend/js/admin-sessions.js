@@ -22,7 +22,6 @@
     // DOM references (set in init)
     // ---------------------------------------------------------------------------
     var flashContainer, flashActiveContainer;
-    var fCarId, fUserId, fDateFrom, fDateTo, fMinCost, fMaxCost;
     var btnApply, btnReset, btnPrev, btnNext;
     var tableWrapper, sessionsTbody, stateEmpty, stateLoading, paginationEl, paginationInfo;
     var summaryGrid, summaryTotal, summaryRevenue, summaryAvgDuration, summaryAvgCost;
@@ -34,57 +33,12 @@
     var modalCarName, modalUsername, modalDuration, modalCost, modalHold;
     var modalReason, modalNote, modalCancelBtn, modalConfirmBtn;
 
+    // Shared filter helper (initialised in init after DOM is ready)
+    var filterHelper;
+
     // ---------------------------------------------------------------------------
     // Completed sessions helpers
     // ---------------------------------------------------------------------------
-    function getFilters() {
-        return {
-            car_id: fCarId.value.trim(),
-            user_id: fUserId.value.trim(),
-            date_from: fDateFrom.value.trim(),
-            date_to: fDateTo.value.trim(),
-            min_cost: fMinCost.value.trim(),
-            max_cost: fMaxCost.value.trim(),
-        };
-    }
-
-    function buildQuery(filters, page, limit) {
-        var params = new URLSearchParams();
-        params.set('page', String(page));
-        params.set('limit', String(limit));
-        if (filters.car_id) params.set('car_id', filters.car_id);
-        if (filters.user_id) params.set('user_id', filters.user_id);
-        if (filters.date_from) params.set('date_from', filters.date_from);
-        if (filters.date_to) params.set('date_to', filters.date_to);
-        if (filters.min_cost) params.set('min_cost', filters.min_cost);
-        if (filters.max_cost) params.set('max_cost', filters.max_cost);
-        return params.toString();
-    }
-
-    function syncUrlToState(filters, page) {
-        var params = new URLSearchParams();
-        if (page > 1) params.set('page', String(page));
-        if (filters.car_id) params.set('car_id', filters.car_id);
-        if (filters.user_id) params.set('user_id', filters.user_id);
-        if (filters.date_from) params.set('date_from', filters.date_from);
-        if (filters.date_to) params.set('date_to', filters.date_to);
-        if (filters.min_cost) params.set('min_cost', filters.min_cost);
-        if (filters.max_cost) params.set('max_cost', filters.max_cost);
-        var qs = params.toString();
-        history.replaceState(null, '', qs ? '?' + qs : window.location.pathname);
-    }
-
-    function hydrateFormFromUrl() {
-        var params = new URLSearchParams(window.location.search);
-        fCarId.value = params.get('car_id') || '';
-        fUserId.value = params.get('user_id') || '';
-        fDateFrom.value = params.get('date_from') || '';
-        fDateTo.value = params.get('date_to') || '';
-        fMinCost.value = params.get('min_cost') || '';
-        fMaxCost.value = params.get('max_cost') || '';
-        var p = parseInt(params.get('page') || '1', 10);
-        currentPage = (p >= 1) ? p : 1;
-    }
 
     function renderSummary(summary) {
         if (!summary) {
@@ -92,9 +46,9 @@
             return;
         }
         summaryTotal.textContent = String(summary.totalSessions || 0);
-        summaryRevenue.textContent = (summary.totalRevenue || 0).toFixed(2) + ' RC';
+        summaryRevenue.textContent = AdminUi.formatMoney(summary.totalRevenue || 0);
         summaryAvgDuration.textContent = AdminUi.formatDuration(summary.avgDurationSeconds || 0);
-        summaryAvgCost.textContent = (summary.avgCost || 0).toFixed(2) + ' RC';
+        summaryAvgCost.textContent = AdminUi.formatMoney(summary.avgCost || 0);
         summaryGrid.hidden = false;
     }
 
@@ -123,7 +77,7 @@
 
         var tdCost = document.createElement('td');
         tdCost.className = 'nowrap';
-        tdCost.textContent = item.cost != null ? item.cost.toFixed(2) + ' RC' : '—';
+        tdCost.textContent = AdminUi.formatMoney(item.cost);
         tr.appendChild(tdCost);
 
         var tdDate = document.createElement('td');
@@ -142,7 +96,7 @@
         paginationEl.hidden = true;
         summaryGrid.hidden = true;
 
-        var qs = buildQuery(filters, page, currentLimit);
+        var qs = filterHelper.buildQuery(filters, page, currentLimit);
 
         AdminApi.adminFetch('/api/admin/sessions?' + qs)
             .then(function (data) {
@@ -204,13 +158,12 @@
 
         var tdHold = document.createElement('td');
         tdHold.className = 'nowrap';
-        tdHold.textContent = item.holdAmount != null ? item.holdAmount.toFixed(2) + ' RC' : '—';
+        tdHold.textContent = AdminUi.formatMoney(item.holdAmount);
         tr.appendChild(tdHold);
 
         var tdCost = document.createElement('td');
         tdCost.className = 'nowrap';
-        tdCost.textContent = item.currentCostEstimate != null
-            ? item.currentCostEstimate.toFixed(2) + ' RC' : '—';
+        tdCost.textContent = AdminUi.formatMoney(item.currentCostEstimate);
         tr.appendChild(tdCost);
 
         // Actions column — force-end button, admin only
@@ -287,9 +240,8 @@
         modalCarName.textContent = item.carName || (item.carId ? '#' + item.carId : '—');
         modalUsername.textContent = item.username || (item.userId ? '#' + item.userId : '—');
         modalDuration.textContent = AdminUi.formatDuration(item.durationSeconds);
-        modalCost.textContent = item.currentCostEstimate != null
-            ? item.currentCostEstimate.toFixed(2) + ' RC' : '—';
-        modalHold.textContent = item.holdAmount != null ? item.holdAmount.toFixed(2) + ' RC' : '—';
+        modalCost.textContent = AdminUi.formatMoney(item.currentCostEstimate);
+        modalHold.textContent = AdminUi.formatMoney(item.holdAmount);
         modalReason.value = '';
         modalNote.value = '';
         AdminUi.clearFlash(flashModalContainer);
@@ -366,36 +318,31 @@
     // ---------------------------------------------------------------------------
     function onApply() {
         currentPage = 1;
-        var filters = getFilters();
-        syncUrlToState(filters, currentPage);
+        var filters = filterHelper.getFilters();
+        filterHelper.syncUrlToState(filters, currentPage);
         loadSessions(filters, currentPage);
     }
 
     function onReset() {
-        fCarId.value = '';
-        fUserId.value = '';
-        fDateFrom.value = '';
-        fDateTo.value = '';
-        fMinCost.value = '';
-        fMaxCost.value = '';
+        filterHelper.resetFilters();
         currentPage = 1;
         history.replaceState(null, '', window.location.pathname);
-        loadSessions(getFilters(), currentPage);
+        loadSessions(filterHelper.getFilters(), currentPage);
     }
 
     function onPrev() {
         if (currentPage <= 1) return;
         currentPage -= 1;
-        var filters = getFilters();
-        syncUrlToState(filters, currentPage);
+        var filters = filterHelper.getFilters();
+        filterHelper.syncUrlToState(filters, currentPage);
         loadSessions(filters, currentPage);
     }
 
     function onNext() {
         if (currentPage >= totalPages) return;
         currentPage += 1;
-        var filters = getFilters();
-        syncUrlToState(filters, currentPage);
+        var filters = filterHelper.getFilters();
+        filterHelper.syncUrlToState(filters, currentPage);
         loadSessions(filters, currentPage);
     }
 
@@ -403,6 +350,7 @@
     // Load car list for filter dropdown
     // ---------------------------------------------------------------------------
     function loadCars() {
+        var fCarId = document.getElementById('f-car-id');
         return fetch('/api/cars', { credentials: 'include' })
             .then(function (r) { return r.json(); })
             .then(function (data) {
@@ -439,12 +387,6 @@
     function init() {
         flashContainer = document.getElementById('flash-container');
         flashActiveContainer = document.getElementById('flash-active-container');
-        fCarId = document.getElementById('f-car-id');
-        fUserId = document.getElementById('f-user-id');
-        fDateFrom = document.getElementById('f-date-from');
-        fDateTo = document.getElementById('f-date-to');
-        fMinCost = document.getElementById('f-min-cost');
-        fMaxCost = document.getElementById('f-max-cost');
         btnApply = document.getElementById('btn-apply');
         btnReset = document.getElementById('btn-reset');
         btnPrev = document.getElementById('btn-prev');
@@ -484,6 +426,16 @@
         modalCancelBtn = document.getElementById('modal-cancel-btn');
         modalConfirmBtn = document.getElementById('modal-confirm-btn');
 
+        // Initialise filter helper with the sessions filter field map
+        filterHelper = AdminFilters.create({
+            car_id:    'f-car-id',
+            user_id:   'f-user-id',
+            date_from: 'f-date-from',
+            date_to:   'f-date-to',
+            min_cost:  'f-min-cost',
+            max_cost:  'f-max-cost',
+        });
+
         btnApply.addEventListener('click', onApply);
         btnReset.addEventListener('click', onReset);
         btnPrev.addEventListener('click', onPrev);
@@ -512,8 +464,8 @@
                 return loadCars();
             })
             .then(function () {
-                hydrateFormFromUrl();
-                loadSessions(getFilters(), currentPage);
+                currentPage = filterHelper.hydrateFormFromUrl();
+                loadSessions(filterHelper.getFilters(), currentPage);
             })
             .catch(function () { /* requireAdmin handles redirects */ });
     }

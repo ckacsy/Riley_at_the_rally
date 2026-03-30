@@ -16,61 +16,15 @@
     // DOM references (set after DOMContentLoaded guard inside init)
     // ---------------------------------------------------------------------------
     var flashContainer;
-    var fAction, fAdminId, fTargetType, fTargetId, fDateFrom, fDateTo;
     var btnApply, btnReset, btnPrev, btnNext;
     var tableWrapper, auditTbody, stateEmpty, stateLoading, paginationEl, paginationInfo;
+
+    // Shared filter helper (initialised in init after DOM is ready)
+    var filterHelper;
 
     // ---------------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------------
-    function getFilters() {
-        return {
-            action: fAction.value.trim(),
-            admin_id: fAdminId.value.trim(),
-            target_type: fTargetType.value.trim(),
-            target_id: fTargetId.value.trim(),
-            date_from: fDateFrom.value.trim(),
-            date_to: fDateTo.value.trim(),
-        };
-    }
-
-    function buildQuery(filters, page, limit) {
-        var params = new URLSearchParams();
-        params.set('page', String(page));
-        params.set('limit', String(limit));
-        if (filters.action) params.set('action', filters.action);
-        if (filters.admin_id) params.set('admin_id', filters.admin_id);
-        if (filters.target_type) params.set('target_type', filters.target_type);
-        if (filters.target_id) params.set('target_id', filters.target_id);
-        if (filters.date_from) params.set('date_from', filters.date_from);
-        if (filters.date_to) params.set('date_to', filters.date_to);
-        return params.toString();
-    }
-
-    function syncUrlToState(filters, page) {
-        var params = new URLSearchParams();
-        if (page > 1) params.set('page', String(page));
-        if (filters.action) params.set('action', filters.action);
-        if (filters.admin_id) params.set('admin_id', filters.admin_id);
-        if (filters.target_type) params.set('target_type', filters.target_type);
-        if (filters.target_id) params.set('target_id', filters.target_id);
-        if (filters.date_from) params.set('date_from', filters.date_from);
-        if (filters.date_to) params.set('date_to', filters.date_to);
-        var qs = params.toString();
-        history.replaceState(null, '', qs ? '?' + qs : window.location.pathname);
-    }
-
-    function hydrateFormFromUrl() {
-        var params = new URLSearchParams(window.location.search);
-        fAction.value = params.get('action') || '';
-        fAdminId.value = params.get('admin_id') || '';
-        fTargetType.value = params.get('target_type') || '';
-        fTargetId.value = params.get('target_id') || '';
-        fDateFrom.value = params.get('date_from') || '';
-        fDateTo.value = params.get('date_to') || '';
-        var p = parseInt(params.get('page') || '1', 10);
-        currentPage = (p >= 1) ? p : 1;
-    }
 
     // Safely render a details_json value: parse and pretty-print.
     function renderDetails(detailsJson) {
@@ -178,7 +132,7 @@
         tableWrapper.hidden = true;
         paginationEl.hidden = true;
 
-        var qs = buildQuery(filters, page, currentLimit);
+        var qs = filterHelper.buildQuery(filters, page, currentLimit);
 
         AdminApi.adminFetch('/api/admin/audit-log?' + qs)
             .then(function (data) {
@@ -216,36 +170,31 @@
     // ---------------------------------------------------------------------------
     function onApply() {
         currentPage = 1;
-        var filters = getFilters();
-        syncUrlToState(filters, currentPage);
+        var filters = filterHelper.getFilters();
+        filterHelper.syncUrlToState(filters, currentPage);
         loadAuditLog(filters, currentPage);
     }
 
     function onReset() {
-        fAction.value = '';
-        fAdminId.value = '';
-        fTargetType.value = '';
-        fTargetId.value = '';
-        fDateFrom.value = '';
-        fDateTo.value = '';
+        filterHelper.resetFilters();
         currentPage = 1;
         history.replaceState(null, '', window.location.pathname);
-        loadAuditLog(getFilters(), currentPage);
+        loadAuditLog(filterHelper.getFilters(), currentPage);
     }
 
     function onPrev() {
         if (currentPage <= 1) return;
         currentPage -= 1;
-        var filters = getFilters();
-        syncUrlToState(filters, currentPage);
+        var filters = filterHelper.getFilters();
+        filterHelper.syncUrlToState(filters, currentPage);
         loadAuditLog(filters, currentPage);
     }
 
     function onNext() {
         if (currentPage >= totalPages) return;
         currentPage += 1;
-        var filters = getFilters();
-        syncUrlToState(filters, currentPage);
+        var filters = filterHelper.getFilters();
+        filterHelper.syncUrlToState(filters, currentPage);
         loadAuditLog(filters, currentPage);
     }
 
@@ -254,12 +203,6 @@
     // ---------------------------------------------------------------------------
     function init() {
         flashContainer = document.getElementById('flash-container');
-        fAction = document.getElementById('f-action');
-        fAdminId = document.getElementById('f-admin-id');
-        fTargetType = document.getElementById('f-target-type');
-        fTargetId = document.getElementById('f-target-id');
-        fDateFrom = document.getElementById('f-date-from');
-        fDateTo = document.getElementById('f-date-to');
         btnApply = document.getElementById('btn-apply');
         btnReset = document.getElementById('btn-reset');
         btnPrev = document.getElementById('btn-prev');
@@ -271,6 +214,16 @@
         paginationEl = document.getElementById('pagination');
         paginationInfo = document.getElementById('pagination-info');
 
+        // Initialise filter helper with the audit filter field map
+        filterHelper = AdminFilters.create({
+            action:      'f-action',
+            admin_id:    'f-admin-id',
+            target_type: 'f-target-type',
+            target_id:   'f-target-id',
+            date_from:   'f-date-from',
+            date_to:     'f-date-to',
+        });
+
         btnApply.addEventListener('click', onApply);
         btnReset.addEventListener('click', onReset);
         btnPrev.addEventListener('click', onPrev);
@@ -280,8 +233,8 @@
             .then(function () {
                 document.getElementById('admin-loading').hidden = true;
                 document.getElementById('admin-content').hidden = false;
-                hydrateFormFromUrl();
-                loadAuditLog(getFilters(), currentPage);
+                currentPage = filterHelper.hydrateFormFromUrl();
+                loadAuditLog(filterHelper.getFilters(), currentPage);
             })
             .catch(function () { /* requireStrictAdmin handles redirects */ });
     }

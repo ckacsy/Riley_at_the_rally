@@ -127,7 +127,7 @@
 
     /**
      * Format a duration in seconds to a human-readable string.
-     * Example: formatDuration(150) → '2м 30с'
+     * Canonical style: '2м 30с', '30с', '0с', '—' for null/NaN.
      * @param {number|null} seconds
      * @returns {string}
      */
@@ -142,6 +142,34 @@
         return rem + 'с';
     }
 
+    /**
+     * Format a monetary amount with ' RC' suffix.
+     * @param {number|null} amount
+     * @param {{ signed?: boolean }} [options]
+     *   signed: true → prepend '+' for non-negative values (useful for transaction deltas)
+     * @returns {string}
+     */
+    function formatMoney(amount, options) {
+        if (amount == null || isNaN(amount)) return '—';
+        var str = Number(amount).toFixed(2) + ' RC';
+        if (options && options.signed) {
+            str = (amount >= 0 ? '+' : '') + str;
+        }
+        return str;
+    }
+
+    /**
+     * Build an HTML badge element for a transaction type.
+     * @param {string} type  e.g. 'topup', 'hold', 'release', 'deduct', 'admin_adjust'
+     * @returns {HTMLElement}
+     */
+    function typeBadge(type) {
+        var el = document.createElement('span');
+        el.className = 'badge-type badge-type--' + (type || 'unknown');
+        el.textContent = type || '—';
+        return el;
+    }
+
     global.AdminUi = {
         showFlash: showFlash,
         clearFlash: clearFlash,
@@ -153,5 +181,7 @@
         hideLoading: hideLoading,
         esc: esc,
         formatDuration: formatDuration,
+        formatMoney: formatMoney,
+        typeBadge: typeBadge,
     };
 })(window);

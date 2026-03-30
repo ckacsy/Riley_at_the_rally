@@ -22,21 +22,6 @@
     var kpiGrid, txtypeGrid, carsBarList, topusersBarList, timeseriesBarList;
 
     // ---------------------------------------------------------------------------
-    // Flash helper
-    // ---------------------------------------------------------------------------
-    function showFlash(msg, type) {
-        var div = document.createElement('div');
-        div.className = 'admin-flash admin-flash--' + (type || 'error');
-        div.textContent = msg;
-        flashContainer.innerHTML = '';
-        flashContainer.appendChild(div);
-    }
-
-    function clearFlash() {
-        flashContainer.innerHTML = '';
-    }
-
-    // ---------------------------------------------------------------------------
     // Period helpers
     // ---------------------------------------------------------------------------
     function buildQueryParams() {
@@ -158,19 +143,6 @@
         return labels[type] || type;
     }
 
-    function fmtDuration(seconds) {
-        if (!seconds) return '0 с';
-        var s = Math.round(seconds);
-        var m = Math.floor(s / 60);
-        var rem = s % 60;
-        if (m === 0) return rem + ' с';
-        return m + ' м ' + (rem > 0 ? rem + ' с' : '');
-    }
-
-    function fmtMoney(v) {
-        return v.toFixed(2) + ' RC';
-    }
-
     // ---------------------------------------------------------------------------
     // Render overview
     // ---------------------------------------------------------------------------
@@ -180,9 +152,9 @@
         var kpi = data.kpi || {};
         kpiGrid.appendChild(makeKpiCard('Всего пользователей', String(kpi.totalUsers || 0)));
         kpiGrid.appendChild(makeKpiCard('Сессий за период', String(kpi.totalSessions || 0)));
-        kpiGrid.appendChild(makeKpiCard('Доход за период', fmtMoney(kpi.totalRevenue || 0)));
-        kpiGrid.appendChild(makeKpiCard('Ср. длит. сессии', fmtDuration(kpi.avgSessionDuration || 0)));
-        kpiGrid.appendChild(makeKpiCard('Ср. стоимость сессии', fmtMoney(kpi.avgSessionCost || 0)));
+        kpiGrid.appendChild(makeKpiCard('Доход за период', AdminUi.formatMoney(kpi.totalRevenue || 0)));
+        kpiGrid.appendChild(makeKpiCard('Ср. длит. сессии', AdminUi.formatDuration(kpi.avgSessionDuration || 0)));
+        kpiGrid.appendChild(makeKpiCard('Ср. стоимость сессии', AdminUi.formatMoney(kpi.avgSessionCost || 0)));
 
         // Transaction type breakdown
         txtypeGrid.innerHTML = '';
@@ -196,7 +168,7 @@
             byType.forEach(function (row) {
                 var card = makeBreakdownCard(
                     typeBadgeText(row.type),
-                    fmtMoney(row.total || 0),
+                    AdminUi.formatMoney(row.total || 0),
                     row.count + ' операций'
                 );
                 card.querySelector('.breakdown-card-label').className += ' badge-type badge-type--' + (row.type || 'unknown');
@@ -217,7 +189,7 @@
             var maxCarRev = Math.max.apply(null, byCar.map(function (r) { return r.totalRevenue || 0; }));
             byCar.forEach(function (row) {
                 var pct = maxCarRev > 0 ? (row.totalRevenue / maxCarRev) * 100 : 0;
-                var meta = fmtMoney(row.totalRevenue || 0) + ' · ' + (row.sessionCount || 0) + ' сессий';
+                var meta = AdminUi.formatMoney(row.totalRevenue || 0) + ' · ' + (row.sessionCount || 0) + ' сессий';
                 carsBarList.appendChild(makeBarRow(row.car_name || ('Машина #' + row.car_id), meta, pct, 'bar-fill--green'));
             });
         }
@@ -235,7 +207,7 @@
             var maxSpend = Math.max.apply(null, topUsers.map(function (r) { return r.totalSpend || 0; }));
             topUsers.forEach(function (row) {
                 var pct = maxSpend > 0 ? (row.totalSpend / maxSpend) * 100 : 0;
-                var meta = fmtMoney(row.totalSpend || 0) + ' · ' + (row.sessionCount || 0) + ' сессий';
+                var meta = AdminUi.formatMoney(row.totalSpend || 0) + ' · ' + (row.sessionCount || 0) + ' сессий';
                 topusersBarList.appendChild(makeBarRow(row.username || ('user_' + row.user_id), meta, pct, 'bar-fill--amber'));
             });
         }
@@ -261,7 +233,7 @@
         var sorted = days.slice().reverse();
         sorted.forEach(function (day) {
             var pct = maxRev > 0 ? (day.revenue / maxRev) * 100 : 0;
-            var meta = fmtMoney(day.revenue || 0) + ' · ' + (day.sessions || 0) + ' сессий · пополн. ' + fmtMoney(day.topups || 0);
+            var meta = AdminUi.formatMoney(day.revenue || 0) + ' · ' + (day.sessions || 0) + ' сессий · пополн. ' + AdminUi.formatMoney(day.topups || 0);
             timeseriesBarList.appendChild(makeBarRow(day.date, meta, pct));
         });
     }
@@ -270,7 +242,7 @@
     // Load data
     // ---------------------------------------------------------------------------
     function loadAnalytics() {
-        clearFlash();
+        AdminUi.clearFlash(flashContainer);
         analyticsContent.hidden = true;
         stateLoading.hidden = false;
         stateEmpty.hidden = true;
@@ -304,7 +276,7 @@
             })
             .catch(function (err) {
                 stateLoading.hidden = true;
-                showFlash('Ошибка загрузки данных: ' + (err && err.message ? err.message : String(err)), 'error');
+                AdminUi.showFlash(flashContainer, 'Ошибка загрузки данных: ' + (err && err.message ? err.message : String(err)), 'error');
             });
     }
 
@@ -359,7 +331,7 @@
             customFrom = dateFromEl.value;
             customTo = dateToEl.value;
             if (!customFrom || !customTo) {
-                showFlash('Укажите обе даты', 'error');
+                AdminUi.showFlash(flashContainer, 'Укажите обе даты', 'error');
                 return;
             }
             syncUrlState();
