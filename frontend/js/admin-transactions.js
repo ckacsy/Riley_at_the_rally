@@ -37,6 +37,11 @@ if (typeof AdminFilters === 'undefined') throw new Error('admin-filters.js must 
     var orphanedHoldsLoading, orphanedHoldsEmpty, orphanedHoldsTableWrapper, orphanedHoldsTbody;
     var orphanedHoldsBadge, btnRefreshOrphaned;
 
+    // Orphaned hold release modal state
+    var orModal, orModalUsername, orModalAmount, orModalRef, orModalFlash;
+    var orModalConfirm, orModalCancel;
+    var orModalCurrentHoldId = null;
+
     // Shared filter helper (initialised in init after DOM is ready)
     var filterHelper;
 
@@ -349,6 +354,25 @@ if (typeof AdminFilters === 'undefined') throw new Error('admin-filters.js must 
                     tdDesc.textContent = item.description || '—';
                     tr.appendChild(tdDesc);
 
+                    var tdAction = document.createElement('td');
+                    var btnRelease = document.createElement('button');
+                    btnRelease.className = 'btn btn-sm btn-secondary';
+                    btnRelease.textContent = 'Вернуть средства';
+                    btnRelease.setAttribute('data-hold-id', String(item.id));
+                    btnRelease.setAttribute('data-username', item.username || ('#' + item.user_id));
+                    btnRelease.setAttribute('data-amount', String(Math.abs(item.amount)));
+                    btnRelease.setAttribute('data-ref', item.reference_id || '');
+                    btnRelease.addEventListener('click', function () {
+                        openOrphanReleaseModal(
+                            item.id,
+                            item.username || ('#' + item.user_id),
+                            Math.abs(item.amount),
+                            item.reference_id || ''
+                        );
+                    });
+                    tdAction.appendChild(btnRelease);
+                    tr.appendChild(tdAction);
+
                     orphanedHoldsTbody.appendChild(tr);
                 });
                 orphanedHoldsTableWrapper.hidden = false;
@@ -359,6 +383,54 @@ if (typeof AdminFilters === 'undefined') throw new Error('admin-filters.js must 
                 orphanedHoldsLoading.hidden = true;
                 orphanedHoldsEmpty.hidden = false;
                 orphanedHoldsEmpty.textContent = 'Ошибка загрузки: ' + (err.message || 'Неизвестная ошибка');
+            });
+    }
+
+    // ---------------------------------------------------------------------------
+    // Orphaned hold release modal
+    // ---------------------------------------------------------------------------
+    function openOrphanReleaseModal(holdId, username, amount, referenceId) {
+        orModalCurrentHoldId = holdId;
+        orModalUsername.textContent = username;
+        orModalAmount.textContent = AdminUi.formatMoney(amount);
+        orModalRef.textContent = referenceId || '—';
+        orModalFlash.innerHTML = '';
+        orModalConfirm.disabled = false;
+        orModalCancel.disabled = false;
+        orModal.hidden = false;
+    }
+
+    function closeOrphanReleaseModal() {
+        orModal.hidden = true;
+        orModalCurrentHoldId = null;
+    }
+
+    function confirmOrphanRelease() {
+        if (!orModalCurrentHoldId) return;
+        var holdId = orModalCurrentHoldId;
+        var username = orModalUsername.textContent;
+        var amount = orModalAmount.textContent;
+
+        orModalConfirm.disabled = true;
+        orModalCancel.disabled = true;
+        orModalFlash.innerHTML = '';
+
+        AdminApi.adminFetch('/api/admin/transactions/orphaned-holds/' + holdId + '/release', {
+            method: 'POST',
+        })
+            .then(function () {
+                closeOrphanReleaseModal();
+                AdminUi.showFlash(
+                    flashContainer,
+                    'Средства возвращены: ' + amount + ' для ' + username,
+                    'success'
+                );
+                loadOrphanedHolds();
+            })
+            .catch(function (err) {
+                AdminUi.showFlash(orModalFlash, err.message || 'Ошибка', 'error');
+                orModalConfirm.disabled = false;
+                orModalCancel.disabled = false;
             });
     }
 
@@ -463,6 +535,17 @@ if (typeof AdminFilters === 'undefined') throw new Error('admin-filters.js must 
             orphanedHoldsBody.hidden = !orphanedHoldsBody.hidden;
             orphanedHoldsToggleHint.textContent = orphanedHoldsBody.hidden ? '▶' : '▼';
         });
+
+        // Orphaned hold release modal
+        orModal = document.getElementById('orphan-release-modal');
+        orModalUsername = document.getElementById('or-modal-username');
+        orModalAmount = document.getElementById('or-modal-amount');
+        orModalRef = document.getElementById('or-modal-ref');
+        orModalFlash = document.getElementById('or-modal-flash');
+        orModalConfirm = document.getElementById('or-modal-confirm');
+        orModalCancel = document.getElementById('or-modal-cancel');
+        orModalConfirm.addEventListener('click', confirmOrphanRelease);
+        orModalCancel.addEventListener('click', closeOrphanReleaseModal);
 
         // Delegate username clicks in main table
         transactionsTbody.addEventListener('click', function (e) {

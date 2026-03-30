@@ -416,7 +416,10 @@ const mountAdminSessionRoutes = require('./routes/admin-sessions');
 mountAdminSessionRoutes(app, db, adminRouteDeps);
 
 const mountAdminTransactionRoutes = require('./routes/admin-transactions');
-mountAdminTransactionRoutes(app, db, { ...adminRouteDeps, getActiveSessions: () => socketState && socketState.activeSessions });
+mountAdminTransactionRoutes(app, db, {
+  ...adminRouteDeps,
+  getActiveSessions: () => socketState && socketState.activeSessions,
+});
 
 const mountAdminAnalyticsRoutes = require('./routes/admin-analytics');
 mountAdminAnalyticsRoutes(app, db, adminRouteDeps);
