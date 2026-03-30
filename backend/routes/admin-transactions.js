@@ -19,14 +19,26 @@ const ORPHAN_GRACE_MINUTES = 10;
  * @param {{
  *   requireRole: (...roles: string[]) => Function,
  *   getActiveSessions?: () => Map,
+ *   csrfMiddleware: Function,
+ *   logAdminAudit: (data: object) => void,
  * }} deps
  */
 module.exports = function mountAdminTransactionRoutes(app, db, deps) {
-  const { requireRole, getActiveSessions } = deps;
+  const { requireRole, getActiveSessions, csrfMiddleware, logAdminAudit } = deps;
 
   const adminReadLimiter = rateLimit({
     windowMs: 60 * 1000,
     max: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Слишком много запросов. Попробуйте позже.' },
+    keyGenerator: (req) => req.ip,
+    skip: () => process.env.NODE_ENV === 'test',
+  });
+
+  const adminMutationLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 30,
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Слишком много запросов. Попробуйте позже.' },
@@ -385,6 +397,132 @@ module.exports = function mountAdminTransactionRoutes(app, db, deps) {
         items,
         total: items.length,
         activeSessionRefs: activeSessionRefs.size,
+      });
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // POST /api/admin/transactions/orphaned-holds/:holdId/release
+  // Admin-only: release a single orphaned hold by crediting the user's balance
+  // and inserting a matching release transaction.
+  // -------------------------------------------------------------------------
+  app.post(
+    '/api/admin/transactions/orphaned-holds/:holdId/release',
+    adminMutationLimiter,
+    csrfMiddleware,
+    requireRole('admin'),
+    (req, res) => {
+      // A. Validate holdId param
+      const holdId = parseInt(req.params.holdId, 10);
+      if (!Number.isInteger(holdId) || holdId < 1) {
+        return res.status(400).json({ error: 'Invalid holdId' });
+      }
+
+      // B. Look up the transaction
+      const hold = db.prepare(
+        `SELECT * FROM transactions WHERE id = ? AND type = 'hold'`
+      ).get(holdId);
+      if (!hold) {
+        return res.status(404).json({ error: 'Hold not found' });
+      }
+
+      // C. reference_id must exist
+      if (!hold.reference_id) {
+        return res.status(400).json({ error: 'Cannot release a hold without reference_id' });
+      }
+
+      // D. Must not already be resolved (deduct or release with same reference_id)
+      const resolved = db.prepare(
+        `SELECT 1
+         FROM transactions
+         WHERE reference_id = ?
+           AND type IN ('deduct', 'release')
+         LIMIT 1`
+      ).get(hold.reference_id);
+      if (resolved) {
+        return res.status(409).json({ error: 'Hold already resolved' });
+      }
+
+      // E. Must be older than grace period (SQL comparison, not JS Date arithmetic)
+      const withinGrace = db.prepare(
+        `SELECT 1 WHERE ? >= datetime('now', '-${ORPHAN_GRACE_MINUTES} minutes')`
+      ).get(hold.created_at);
+      if (withinGrace) {
+        return res.status(409).json({ error: 'Hold is within grace period' });
+      }
+
+      // F. Must not belong to an active session
+      try {
+        const activeSessions = typeof getActiveSessions === 'function' ? getActiveSessions() : null;
+        if (activeSessions) {
+          for (const session of activeSessions.values()) {
+            if (session.sessionRef === hold.reference_id) {
+              return res.status(409).json({ error: 'Hold belongs to an active session' });
+            }
+          }
+        }
+      } catch (_) {
+        // Degrade gracefully if active sessions unavailable
+      }
+
+      // Mutation: credit balance + insert release transaction
+      const releaseAmount = Math.abs(hold.amount);
+
+      let newBalance;
+      let releaseId;
+      db.transaction(() => {
+        // 1. Credit user balance
+        db.prepare(
+          `UPDATE users SET balance = balance + ? WHERE id = ?`
+        ).run(releaseAmount, hold.user_id);
+
+        // 2. Read new balance
+        const userRow = db.prepare(
+          `SELECT balance FROM users WHERE id = ?`
+        ).get(hold.user_id);
+        newBalance = userRow ? userRow.balance : 0;
+
+        // 3. Insert release transaction
+        const insertResult = db.prepare(
+          `INSERT INTO transactions (user_id, type, amount, balance_after, description, reference_id, admin_id)
+           VALUES (?, 'release', ?, ?, ?, ?, ?)`
+        ).run(
+          hold.user_id,
+          releaseAmount,
+          newBalance,
+          'Admin remediation: orphaned hold release',
+          hold.reference_id,
+          req.user.id,
+        );
+        releaseId = insertResult.lastInsertRowid;
+      })();
+
+      // Audit log
+      logAdminAudit({
+        adminId: req.user.id,
+        action: 'orphaned_hold_release',
+        targetType: 'transaction',
+        targetId: hold.id,
+        details: {
+          holdId: hold.id,
+          userId: hold.user_id,
+          amount: releaseAmount,
+          referenceId: hold.reference_id,
+          releaseTransactionId: releaseId,
+        },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'] || null,
+      });
+
+      return res.json({
+        success: true,
+        released: {
+          holdId: hold.id,
+          userId: hold.user_id,
+          amount: releaseAmount,
+          newBalance,
+          referenceId: hold.reference_id,
+        },
       });
     }
   );

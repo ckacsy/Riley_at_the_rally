@@ -109,6 +109,87 @@ async function insertTransaction(
   return body.transaction;
 }
 
+/** Intercept socket events from the page. Must be called before page.goto(). */
+async function setupSocketCapture(page: import('@playwright/test').Page): Promise<void> {
+  await page.addInitScript(() => {
+    (window as any).__socketEventStore = {};
+    let _ioValue: any;
+    Object.defineProperty(window, 'io', {
+      configurable: true,
+      get() { return _ioValue; },
+      set(v: any) {
+        _ioValue = function (this: any, ...args: any[]) {
+          const sock = v.apply(this, args);
+          (window as any).__testSocket = sock;
+          const trackedEvents = ['session_started', 'session_error', 'session_ended'];
+          for (const evt of trackedEvents) {
+            sock.on(evt, (data: any) => {
+              (window as any).__socketEventStore[evt] = data !== undefined ? data : null;
+            });
+          }
+          return sock;
+        };
+      },
+    });
+  });
+}
+
+async function waitForSocketEvent(
+  page: import('@playwright/test').Page,
+  eventName: string,
+  timeout = 8000,
+): Promise<any> {
+  return page.evaluate(
+    ({ evt, ms }) =>
+      new Promise<any>((resolve, reject) => {
+        const store = (window as any).__socketEventStore;
+        if (store && Object.prototype.hasOwnProperty.call(store, evt)) {
+          resolve(store[evt]);
+          return;
+        }
+        const timer = setTimeout(
+          () => reject(new Error(`Socket event '${evt}' not received within ${ms}ms`)),
+          ms,
+        );
+        const interval = setInterval(() => {
+          const s = (window as any).__socketEventStore;
+          if (s && Object.prototype.hasOwnProperty.call(s, evt)) {
+            clearInterval(interval);
+            clearTimeout(timer);
+            resolve(s[evt]);
+          }
+        }, 50);
+      }),
+    { evt: eventName, ms: timeout },
+  );
+}
+
+async function injectActiveSession(
+  page: import('@playwright/test').Page,
+  carId: number,
+  userId: string,
+  dbUserId: number | null,
+): Promise<void> {
+  await page.addInitScript(
+    ({ carId, userId, dbUserId }) => {
+      sessionStorage.setItem(
+        'activeSession',
+        JSON.stringify({
+          carId,
+          carName: 'Test Car',
+          startTime: new Date().toISOString(),
+          sessionId: 'pending',
+          userId,
+          dbUserId,
+          ratePerMinute: 0.5,
+          selectedRaceId: null,
+        }),
+      );
+    },
+    { carId, userId, dbUserId },
+  );
+}
+
 // ---------------------------------------------------------------------------
 // API Tests: GET /api/admin/transactions
 // ---------------------------------------------------------------------------
@@ -844,5 +925,333 @@ test.describe('Orphaned holds', () => {
     const body = await res.json();
     const found = (body.items as any[]).find((i: any) => i.reference_id === ref);
     expect(found).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/admin/transactions/orphaned-holds/:holdId/release
+// ---------------------------------------------------------------------------
+
+test.describe('POST /api/admin/transactions/orphaned-holds/:holdId/release', () => {
+  // -------------------------------------------------------------------------
+  // Auth & guard tests
+  // -------------------------------------------------------------------------
+
+  test('unauthenticated → 401', async ({ page }) => {
+    await resetDb(page);
+    const csrfToken = await getCsrfToken(page);
+    const res = await page.request.post('/api/admin/transactions/orphaned-holds/1/release', {
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test('moderator → 403', async ({ page }) => {
+    await resetDb(page);
+    await registerUser(page, 'relmod1', 'relmod1@test.com');
+    await activateUser(page, 'relmod1');
+    await setUserRole(page, 'relmod1', 'moderator');
+    await loginUser(page, 'relmod1');
+    const csrfToken = await getCsrfToken(page);
+    const res = await page.request.post('/api/admin/transactions/orphaned-holds/1/release', {
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+    expect(res.status()).toBe(403);
+  });
+
+  test('missing CSRF → 403', async ({ page }) => {
+    await resetDb(page);
+    await registerUser(page, 'reladmin_csrf', 'reladmin_csrf@test.com');
+    await activateUser(page, 'reladmin_csrf');
+    await setUserRole(page, 'reladmin_csrf', 'admin');
+    await loginUser(page, 'reladmin_csrf');
+    const res = await page.request.post('/api/admin/transactions/orphaned-holds/1/release');
+    expect(res.status()).toBe(403);
+  });
+
+  // -------------------------------------------------------------------------
+  // Validation tests
+  // -------------------------------------------------------------------------
+
+  test('invalid holdId (non-integer) → 400', async ({ page }) => {
+    await resetDb(page);
+    await registerUser(page, 'reladmin1', 'reladmin1@test.com');
+    await activateUser(page, 'reladmin1');
+    await setUserRole(page, 'reladmin1', 'admin');
+    await loginUser(page, 'reladmin1');
+    const csrfToken = await getCsrfToken(page);
+    const res = await page.request.post('/api/admin/transactions/orphaned-holds/abc/release', {
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+    expect(res.status()).toBe(400);
+  });
+
+  test('hold not found → 404', async ({ page }) => {
+    await resetDb(page);
+    await registerUser(page, 'reladmin2', 'reladmin2@test.com');
+    await activateUser(page, 'reladmin2');
+    await setUserRole(page, 'reladmin2', 'admin');
+    await loginUser(page, 'reladmin2');
+    const csrfToken = await getCsrfToken(page);
+    const res = await page.request.post('/api/admin/transactions/orphaned-holds/999999/release', {
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+    expect(res.status()).toBe(404);
+  });
+
+  test('non-hold transaction (topup) → 404', async ({ page }) => {
+    await resetDb(page);
+    const user = await registerUser(page, 'reladmin3', 'reladmin3@test.com');
+    await activateUser(page, 'reladmin3');
+    await setUserRole(page, 'reladmin3', 'admin');
+    await loginUser(page, 'reladmin3');
+    const topup = await insertTransaction(page, user.id, 'topup', 100, 300, { reference_id: 'ref-topup-test' });
+    const csrfToken = await getCsrfToken(page);
+    const res = await page.request.post(`/api/admin/transactions/orphaned-holds/${topup.id}/release`, {
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+    expect(res.status()).toBe(404);
+  });
+
+  test('hold with NULL reference_id → 400', async ({ page }) => {
+    await resetDb(page);
+    const user = await registerUser(page, 'reladmin4', 'reladmin4@test.com');
+    await activateUser(page, 'reladmin4');
+    await setUserRole(page, 'reladmin4', 'admin');
+    await loginUser(page, 'reladmin4');
+    const oldTs = new Date(Date.now() - 15 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19);
+    const hold = await insertTransaction(page, user.id, 'hold', -100, 100, { created_at: oldTs });
+    const csrfToken = await getCsrfToken(page);
+    const res = await page.request.post(`/api/admin/transactions/orphaned-holds/${hold.id}/release`, {
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+    expect(res.status()).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/reference_id/i);
+  });
+
+  test('already resolved hold with matching deduct → 409', async ({ page }) => {
+    await resetDb(page);
+    const user = await registerUser(page, 'reladmin5', 'reladmin5@test.com');
+    await activateUser(page, 'reladmin5');
+    await setUserRole(page, 'reladmin5', 'admin');
+    await loginUser(page, 'reladmin5');
+    const ref = 'ref-already-deducted';
+    const oldTs = new Date(Date.now() - 15 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19);
+    const hold = await insertTransaction(page, user.id, 'hold', -100, 100, {
+      reference_id: ref,
+      created_at: oldTs,
+    });
+    await insertTransaction(page, user.id, 'deduct', -80, 20, { reference_id: ref });
+    const csrfToken = await getCsrfToken(page);
+    const res = await page.request.post(`/api/admin/transactions/orphaned-holds/${hold.id}/release`, {
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+    expect(res.status()).toBe(409);
+    const body = await res.json();
+    expect(body.error).toMatch(/already resolved/i);
+  });
+
+  test('already resolved hold with matching release → 409', async ({ page }) => {
+    await resetDb(page);
+    const user = await registerUser(page, 'reladmin6', 'reladmin6@test.com');
+    await activateUser(page, 'reladmin6');
+    await setUserRole(page, 'reladmin6', 'admin');
+    await loginUser(page, 'reladmin6');
+    const ref = 'ref-already-released';
+    const oldTs = new Date(Date.now() - 15 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19);
+    const hold = await insertTransaction(page, user.id, 'hold', -100, 100, {
+      reference_id: ref,
+      created_at: oldTs,
+    });
+    await insertTransaction(page, user.id, 'release', 100, 200, { reference_id: ref });
+    const csrfToken = await getCsrfToken(page);
+    const res = await page.request.post(`/api/admin/transactions/orphaned-holds/${hold.id}/release`, {
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+    expect(res.status()).toBe(409);
+    const body = await res.json();
+    expect(body.error).toMatch(/already resolved/i);
+  });
+
+  test('hold within grace period → 409', async ({ page }) => {
+    await resetDb(page);
+    const user = await registerUser(page, 'reladmin7', 'reladmin7@test.com');
+    await activateUser(page, 'reladmin7');
+    await setUserRole(page, 'reladmin7', 'admin');
+    await loginUser(page, 'reladmin7');
+    const ref = 'ref-grace-period-' + Date.now();
+    // Insert a hold only 1 minute old (within 10-minute grace period)
+    const recentTs = new Date(Date.now() - 1 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19);
+    const hold = await insertTransaction(page, user.id, 'hold', -100, 100, {
+      reference_id: ref,
+      created_at: recentTs,
+    });
+    const csrfToken = await getCsrfToken(page);
+    const res = await page.request.post(`/api/admin/transactions/orphaned-holds/${hold.id}/release`, {
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+    expect(res.status()).toBe(409);
+    const body = await res.json();
+    expect(body.error).toMatch(/grace period/i);
+  });
+
+  test('hold belongs to active session → 409', async ({ browser }) => {
+    const ctx = await browser.newContext();
+    try {
+      const page = await ctx.newPage();
+      await resetDb(page);
+
+      const user = await registerUser(page, 'rel_active1', 'rel_active1@test.com');
+      await activateUser(page, 'rel_active1');
+      await setUserRole(page, 'rel_active1', 'admin');
+
+      // Start a real session to get an active sessionRef
+      await setupSocketCapture(page);
+      await injectActiveSession(page, 1, user.username, user.id);
+      await page.goto('/control');
+
+      const sessionData = await waitForSocketEvent(page, 'session_started');
+      const sessionRef = sessionData.sessionRef as string;
+      expect(typeof sessionRef).toBe('string');
+
+      // Insert an old hold using the active session's sessionRef
+      const oldTs = new Date(Date.now() - 15 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19);
+      const hold = await insertTransaction(page, user.id, 'hold', -100, 100, {
+        reference_id: sessionRef,
+        created_at: oldTs,
+      });
+
+      // Use a separate admin context for the API call
+      const adminCtx = await browser.newContext();
+      try {
+        const adminPage = await adminCtx.newPage();
+        await loginUser(adminPage, 'rel_active1');
+        const csrfToken = await getCsrfToken(adminPage);
+        const res = await adminPage.request.post(
+          `/api/admin/transactions/orphaned-holds/${hold.id}/release`,
+          { headers: { 'X-CSRF-Token': csrfToken } },
+        );
+        expect(res.status()).toBe(409);
+        const body = await res.json();
+        expect(body.error).toMatch(/active session/i);
+      } finally {
+        await adminCtx.close();
+      }
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // Happy path tests
+  // -------------------------------------------------------------------------
+
+  test('successful release', async ({ page }) => {
+    await resetDb(page);
+    const user = await registerUser(page, 'rel_happy1', 'rel_happy1@test.com');
+    await activateUser(page, 'rel_happy1');
+    await setUserRole(page, 'rel_happy1', 'admin');
+    await loginUser(page, 'rel_happy1');
+
+    // activate-user sets balance to 200; insert a hold of -100 → balance_after=100
+    const ref = 'ref-orphan-release-test';
+    const oldTs = new Date(Date.now() - 15 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19);
+    const hold = await insertTransaction(page, user.id, 'hold', -100, 100, {
+      reference_id: ref,
+      created_at: oldTs,
+    });
+
+    const csrfToken = await getCsrfToken(page);
+    const res = await page.request.post(`/api/admin/transactions/orphaned-holds/${hold.id}/release`, {
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.released).toBeDefined();
+    expect(body.released.holdId).toBe(hold.id);
+    expect(body.released.amount).toBe(100);
+    expect(typeof body.released.newBalance).toBe('number');
+
+    // amount must be positive
+    expect(body.released.amount).toBeGreaterThan(0);
+    expect(body.released.amount).toBe(Math.abs(-100));
+
+    // verify user balance is restored (activate gives 200, hold deducted 100, release adds 100 back)
+    const balanceRes = await page.request.get(`/api/admin/users/${user.id}/ledger`);
+    expect(balanceRes.status()).toBe(200);
+    const balanceBody = await balanceRes.json();
+    expect(balanceBody.user.balance).toBe(body.released.newBalance);
+
+    // verify a release transaction exists with matching reference_id
+    const txRes = await page.request.get(`/api/admin/transactions?user_id=${user.id}&type=release`);
+    expect(txRes.status()).toBe(200);
+    const txBody = await txRes.json();
+    const releaseTx = txBody.items.find((t: any) => t.reference_id === ref && t.type === 'release');
+    expect(releaseTx).toBeDefined();
+    expect(releaseTx.amount).toBe(100);
+  });
+
+  test('second release attempt returns 409', async ({ page }) => {
+    await resetDb(page);
+    const user = await registerUser(page, 'rel_happy2', 'rel_happy2@test.com');
+    await activateUser(page, 'rel_happy2');
+    await setUserRole(page, 'rel_happy2', 'admin');
+    await loginUser(page, 'rel_happy2');
+
+    const ref = 'ref-idempotent-release-test';
+    const oldTs = new Date(Date.now() - 15 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19);
+    const hold = await insertTransaction(page, user.id, 'hold', -100, 100, {
+      reference_id: ref,
+      created_at: oldTs,
+    });
+    const csrfToken = await getCsrfToken(page);
+
+    // First release — should succeed
+    const res1 = await page.request.post(`/api/admin/transactions/orphaned-holds/${hold.id}/release`, {
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+    expect(res1.status()).toBe(200);
+
+    // Second release — should return 409
+    const res2 = await page.request.post(`/api/admin/transactions/orphaned-holds/${hold.id}/release`, {
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+    expect(res2.status()).toBe(409);
+    const body2 = await res2.json();
+    expect(body2.error).toMatch(/already resolved/i);
+  });
+
+  test('audit log written after successful release', async ({ page }) => {
+    await resetDb(page);
+    const user = await registerUser(page, 'rel_audit1', 'rel_audit1@test.com');
+    await activateUser(page, 'rel_audit1');
+    await setUserRole(page, 'rel_audit1', 'admin');
+    await loginUser(page, 'rel_audit1');
+
+    const ref = 'ref-audit-log-test';
+    const oldTs = new Date(Date.now() - 15 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19);
+    const hold = await insertTransaction(page, user.id, 'hold', -100, 100, {
+      reference_id: ref,
+      created_at: oldTs,
+    });
+
+    const csrfToken = await getCsrfToken(page);
+    const releaseRes = await page.request.post(
+      `/api/admin/transactions/orphaned-holds/${hold.id}/release`,
+      { headers: { 'X-CSRF-Token': csrfToken } },
+    );
+    expect(releaseRes.status()).toBe(200);
+
+    // Query audit log for orphaned_hold_release action
+    const auditRes = await page.request.get('/api/admin/audit-log?action=orphaned_hold_release&limit=10');
+    expect(auditRes.status()).toBe(200);
+    const auditBody = await auditRes.json();
+    const items = auditBody.items || auditBody.logs || [];
+    const entry = items.find(
+      (e: any) => e.action === 'orphaned_hold_release' && e.target_id === hold.id,
+    );
+    expect(entry).toBeDefined();
   });
 });

@@ -171,6 +171,7 @@
                             <th>Сумма</th>
                             <th>Reference ID</th>
                             <th>Описание</th>
+                            <th>Действия</th>
                         </tr>
                     </thead>
                     <tbody id="orphaned-holds-tbody"></tbody>
@@ -256,5 +257,31 @@
 <script src="js/admin-ui.js"></script>
 <script src="js/admin-filters.js"></script>
 <script src="js/admin-transactions.js"></script>
+
+<!-- Orphaned hold release modal -->
+<div id="orphan-release-modal" class="modal-backdrop" hidden>
+    <div class="modal-box">
+        <h3>Возврат заблокированных средств</h3>
+        <div class="modal-info-grid">
+            <div class="modal-info-item">
+                <div class="modal-info-label">Пользователь</div>
+                <div class="modal-info-value" id="or-modal-username">—</div>
+            </div>
+            <div class="modal-info-item">
+                <div class="modal-info-label">Сумма</div>
+                <div class="modal-info-value" id="or-modal-amount">—</div>
+            </div>
+            <div class="modal-info-item" style="grid-column: 1 / -1;">
+                <div class="modal-info-label">Reference</div>
+                <div class="modal-info-value"><code id="or-modal-ref">—</code></div>
+            </div>
+        </div>
+        <div id="or-modal-flash" style="margin: 10px 0;"></div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" id="or-modal-cancel">Отмена</button>
+            <button class="btn btn-primary" id="or-modal-confirm">Подтвердить возврат</button>
+        </div>
+    </div>
+</div>
 </body>
 </html>
