@@ -1,0 +1,105 @@
+* { box-sizing: border-box; }
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 20px;
+}
+h1 {
+    text-align: center;
+    color: #222;
+    margin-bottom: 8px;
+}
+.subtitle {
+    text-align: center;
+    color: #666;
+    margin-bottom: 32px;
+    font-size: 15px;
+}
+.no-data {
+    text-align: center;
+    color: #888;
+    font-size: 14px;
+    margin: 8px 0;
+}
+/* Leaderboard */
+.section-title {
+    text-align: center;
+    color: #333;
+    margin: 40px 0 16px;
+    font-size: 20px;
+}
+.leaderboard-wrap {
+    max-width: 700px;
+    margin: 0 auto 40px;
+    overflow-x: auto;
+}
+.leaderboard-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.leaderboard-table th {
+    background-color: #007BFF;
+    color: white;
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 14px;
+}
+.leaderboard-table td {
+    padding: 9px 14px;
+    font-size: 14px;
+    color: #333;
+    border-bottom: 1px solid #f0f0f0;
+}
+.leaderboard-table tr:last-child td { border-bottom: none; }
+.leaderboard-table tr:nth-child(odd) td { background-color: #f9f9f9; }
+.medal-1 { color: #FFD700; font-weight: bold; }
+.medal-2 { color: #C0C0C0; font-weight: bold; }
+.medal-3 { color: #CD7F32; font-weight: bold; }
+.leaderboard-tabs {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+}
+.leaderboard-tab {
+    padding: 7px 20px;
+    border-radius: 20px;
+    border: 2px solid #007BFF;
+    background: white;
+    color: #007BFF;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s;
+}
+.leaderboard-tab.active { background: #007BFF; color: white; }
+.leaderboard-tab:hover:not(.active) { background: #e7f0ff; }
+.leaderboard-copy-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 16px;
+    border-radius: 20px;
+    border: 2px solid #28a745;
+    background: white;
+    color: #28a745;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s;
+}
+.leaderboard-copy-btn:hover { background: #28a745; color: white; }
+.leaderboard-actions {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}

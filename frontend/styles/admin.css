@@ -467,3 +467,114 @@ td.nowrap {
 [hidden] {
     display: none !important;
 }
+
+/* -------------------------------------------------------------------------
+   Admin cards grid
+   --------------------------------------------------------------------- */
+
+.admin-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 20px;
+}
+
+.admin-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 24px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    text-decoration: none;
+    color: #fff;
+    transition: background 0.2s, border-color 0.2s, transform 0.15s;
+}
+
+.admin-card:hover {
+    background: rgba(255,255,255,0.09);
+    border-color: rgba(255,255,255,0.2);
+    transform: translateY(-2px);
+}
+
+.admin-card-icon { font-size: 36px; }
+.admin-card-title { font-size: 18px; font-weight: bold; }
+.admin-card-desc { font-size: 14px; color: rgba(255,255,255,0.6); line-height: 1.5; }
+
+/* -------------------------------------------------------------------------
+   Admin hub / Operations Hub cards & widgets
+   --------------------------------------------------------------------- */
+
+.ops-hub {
+    margin-bottom: 32px;
+}
+
+.ops-hub-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+
+.ops-hub-title {
+    font-size: 20px;
+    font-weight: bold;
+    color: #fff;
+}
+
+.ops-hub-refresh {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px;
+    color: rgba(255,255,255,0.75);
+    font-size: 14px;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.ops-hub-refresh:hover { background: rgba(255,255,255,0.14); }
+
+.ops-hub-skeleton {
+    color: rgba(255,255,255,0.45);
+    font-size: 14px;
+    padding: 8px 0;
+}
+
+.ops-hub-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 16px;
+}
+
+.dash-widget {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 18px 20px;
+    border-radius: 10px;
+    text-decoration: none;
+    color: #fff;
+    border: 1px solid transparent;
+    transition: filter 0.15s, transform 0.15s;
+}
+
+.dash-widget:hover { filter: brightness(1.12); transform: translateY(-2px); }
+
+.dash-widget--ok      { background: rgba(34,197,94,0.15);  border-color: rgba(34,197,94,0.3); }
+.dash-widget--warn    { background: rgba(234,179,8,0.15);   border-color: rgba(234,179,8,0.3); }
+.dash-widget--danger  { background: rgba(239,68,68,0.15);   border-color: rgba(239,68,68,0.3); }
+.dash-widget--neutral { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); }
+
+.dash-widget__title { font-size: 13px; color: rgba(255,255,255,0.65); }
+.dash-widget__count { font-size: 28px; font-weight: bold; line-height: 1.1; }
+
+.dash-widget__preview {
+    list-style: none;
+    padding: 0; margin: 0;
+    font-size: 12px;
+    color: rgba(255,255,255,0.6);
+    display: flex; flex-direction: column; gap: 2px;
+}
+
+.dash-widget__empty { font-size: 12px; color: rgba(255,255,255,0.4); }
