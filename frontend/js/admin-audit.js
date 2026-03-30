@@ -89,6 +89,14 @@ if (typeof AdminFilters === 'undefined') throw new Error('admin-filters.js must 
             adminText = '#' + item.admin_id;
         }
         tdAdmin.textContent = adminText;
+        if (item.admin_id) {
+            var adminLink = document.createElement('a');
+            adminLink.className = 'cross-link';
+            adminLink.href = '/admin-users?user_id=' + encodeURIComponent(item.admin_id);
+            adminLink.textContent = '👤';
+            adminLink.title = 'Страница администратора';
+            tdAdmin.appendChild(adminLink);
+        }
         tr.appendChild(tdAdmin);
 
         // Action
@@ -100,11 +108,36 @@ if (typeof AdminFilters === 'undefined') throw new Error('admin-filters.js must 
         // Target
         var tdTarget = document.createElement('td');
         tdTarget.className = 'nowrap';
-        var targetParts = [];
-        if (item.target_type) targetParts.push(item.target_type);
-        if (item.target_id) targetParts.push('#' + item.target_id);
-        if (item.target_username) targetParts.push('(' + item.target_username + ')');
-        tdTarget.textContent = targetParts.length ? targetParts.join(' ') : '—';
+        if (item.target_type || item.target_id) {
+            var targetText = '';
+            if (item.target_type) targetText += item.target_type;
+            if (item.target_id) targetText += (targetText ? ' #' : '#') + item.target_id;
+            if (item.target_username) targetText += ' (' + item.target_username + ')';
+            tdTarget.textContent = targetText || '—';
+
+            if (item.target_id) {
+                var targetLink = document.createElement('a');
+                targetLink.className = 'cross-link';
+                if (item.target_type === 'user') {
+                    targetLink.href = '/admin-users?user_id=' + encodeURIComponent(item.target_id);
+                    targetLink.textContent = '👤';
+                    targetLink.title = 'Страница пользователя';
+                } else if (item.target_type === 'car') {
+                    targetLink.href = '/admin-investigation?car_id=' + encodeURIComponent(item.target_id);
+                    targetLink.textContent = '🏎️';
+                    targetLink.title = 'Расследование по машине';
+                } else if (item.target_type === 'session') {
+                    targetLink.href = '/admin-sessions';
+                    targetLink.textContent = '📋';
+                    targetLink.title = 'Сессии';
+                } else {
+                    targetLink = null;
+                }
+                if (targetLink) tdTarget.appendChild(targetLink);
+            }
+        } else {
+            tdTarget.textContent = '—';
+        }
         tr.appendChild(tdTarget);
 
         // IP
@@ -122,6 +155,23 @@ if (typeof AdminFilters === 'undefined') throw new Error('admin-filters.js must 
             tdDetails.appendChild(detailsNode);
         }
         tr.appendChild(tdDetails);
+
+        // Investigate button
+        var tdInvest = document.createElement('td');
+        tdInvest.className = 'nowrap';
+        if (item.target_id && (item.target_type === 'user' || item.target_type === 'car')) {
+            var investLink = document.createElement('a');
+            investLink.className = 'cross-link';
+            if (item.target_type === 'user') {
+                investLink.href = '/admin-investigation?user_id=' + encodeURIComponent(item.target_id);
+            } else {
+                investLink.href = '/admin-investigation?car_id=' + encodeURIComponent(item.target_id);
+            }
+            investLink.textContent = '🔍 Расследовать';
+            investLink.title = 'Открыть расследование';
+            tdInvest.appendChild(investLink);
+        }
+        tr.appendChild(tdInvest);
 
         return tr;
     }

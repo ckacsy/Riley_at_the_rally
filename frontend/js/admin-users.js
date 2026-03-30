@@ -174,6 +174,28 @@
             wrap.appendChild(deleteBtn);
         }
 
+        // Cross-links: Transactions, Investigation, Audit
+        var transLink = document.createElement('a');
+        transLink.className = 'cross-link';
+        transLink.href = '/admin-transactions?user_id=' + encodeURIComponent(user.id);
+        transLink.textContent = '💳 Транзакции';
+        transLink.title = 'Транзакции пользователя';
+        wrap.appendChild(transLink);
+
+        var investLink = document.createElement('a');
+        investLink.className = 'cross-link';
+        investLink.href = '/admin-investigation?user_id=' + encodeURIComponent(user.id);
+        investLink.textContent = '🔍 Расследование';
+        investLink.title = 'Расследование по пользователю';
+        wrap.appendChild(investLink);
+
+        var auditLink = document.createElement('a');
+        auditLink.className = 'cross-link';
+        auditLink.href = '/admin-audit?target_type=user&target_id=' + encodeURIComponent(user.id);
+        auditLink.textContent = '📋 Аудит';
+        auditLink.title = 'Аудит по пользователю';
+        wrap.appendChild(auditLink);
+
         return wrap;
     }
 

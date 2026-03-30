@@ -68,10 +68,26 @@ if (typeof AdminFilters === 'undefined') throw new Error('admin-filters.js must 
         tdUser.className = 'nowrap';
         var userText = item.username || (item.user_id ? '#' + item.user_id : '—');
         tdUser.textContent = userText;
+        if (item.user_id) {
+            var userPageLink = document.createElement('a');
+            userPageLink.className = 'cross-link';
+            userPageLink.href = '/admin-users?user_id=' + encodeURIComponent(item.user_id);
+            userPageLink.textContent = '👤';
+            userPageLink.title = 'Страница пользователя';
+            tdUser.appendChild(userPageLink);
+        }
         tr.appendChild(tdUser);
 
         var tdCar = document.createElement('td');
         tdCar.textContent = item.car_name || (item.car_id ? '#' + item.car_id : '—');
+        if (item.car_id) {
+            var carInvestLink = document.createElement('a');
+            carInvestLink.className = 'cross-link';
+            carInvestLink.href = '/admin-investigation?car_id=' + encodeURIComponent(item.car_id);
+            carInvestLink.textContent = '🔍';
+            carInvestLink.title = 'Расследование по машине';
+            tdCar.appendChild(carInvestLink);
+        }
         tr.appendChild(tdCar);
 
         var tdDuration = document.createElement('td');
@@ -144,10 +160,26 @@ if (typeof AdminFilters === 'undefined') throw new Error('admin-filters.js must 
         var tdUser = document.createElement('td');
         tdUser.className = 'nowrap';
         tdUser.textContent = item.username || (item.userId ? '#' + item.userId : '—');
+        if (item.userId) {
+            var userPageLink = document.createElement('a');
+            userPageLink.className = 'cross-link';
+            userPageLink.href = '/admin-users?user_id=' + encodeURIComponent(item.userId);
+            userPageLink.textContent = '👤';
+            userPageLink.title = 'Страница пользователя';
+            tdUser.appendChild(userPageLink);
+        }
         tr.appendChild(tdUser);
 
         var tdCar = document.createElement('td');
         tdCar.textContent = item.carName || (item.carId ? '#' + item.carId : '—');
+        if (item.carId) {
+            var carInvestLink = document.createElement('a');
+            carInvestLink.className = 'cross-link';
+            carInvestLink.href = '/admin-investigation?car_id=' + encodeURIComponent(item.carId);
+            carInvestLink.textContent = '🔍';
+            carInvestLink.title = 'Расследование по машине';
+            tdCar.appendChild(carInvestLink);
+        }
         tr.appendChild(tdCar);
 
         var tdStart = document.createElement('td');
