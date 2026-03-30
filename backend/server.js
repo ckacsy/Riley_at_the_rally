@@ -427,6 +427,13 @@ mountAdminAnalyticsRoutes(app, db, adminRouteDeps);
 const mountAdminCarsRoutes = require('./routes/admin-cars');
 mountAdminCarsRoutes(app, db, adminRouteDeps, { CARS });
 
+const mountAdminDashboardRoutes = require('./routes/admin-dashboard');
+mountAdminDashboardRoutes(app, db, {
+  requireRole,
+  getActiveSessions: () => socketState && socketState.activeSessions,
+  CARS,
+});
+
 function saveRentalSession(dbUserId, carId, durationSeconds, cost) {
   if (!dbUserId) return;
   const carName = CARS.find((c) => c.id === carId)?.name || ('Машина #' + carId);
