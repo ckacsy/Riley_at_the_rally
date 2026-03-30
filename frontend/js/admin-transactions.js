@@ -355,17 +355,14 @@ if (typeof AdminFilters === 'undefined') throw new Error('admin-filters.js must 
                     tr.appendChild(tdDesc);
 
                     var tdAction = document.createElement('td');
+                    var displayName = item.username || ('#' + item.user_id);
                     var btnRelease = document.createElement('button');
                     btnRelease.className = 'btn btn-sm btn-secondary';
                     btnRelease.textContent = 'Вернуть средства';
-                    btnRelease.setAttribute('data-hold-id', String(item.id));
-                    btnRelease.setAttribute('data-username', item.username || ('#' + item.user_id));
-                    btnRelease.setAttribute('data-amount', String(Math.abs(item.amount)));
-                    btnRelease.setAttribute('data-ref', item.reference_id || '');
                     btnRelease.addEventListener('click', function () {
                         openOrphanReleaseModal(
                             item.id,
-                            item.username || ('#' + item.user_id),
+                            displayName,
                             Math.abs(item.amount),
                             item.reference_id || ''
                         );
