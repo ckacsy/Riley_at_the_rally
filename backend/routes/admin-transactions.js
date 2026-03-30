@@ -357,7 +357,7 @@ module.exports = function mountAdminTransactionRoutes(app, db, deps) {
            AND t.reference_id IS NOT NULL
            AND NOT EXISTS (
              SELECT 1 FROM transactions t2
-             WHERE t2.reference_id = t.reference_id AND t2.type = 'deduct'
+             WHERE t2.reference_id = t.reference_id AND t2.type IN ('deduct', 'release')
            )
            AND t.created_at < datetime('now', '-${ORPHAN_GRACE_MINUTES} minutes')
          ORDER BY t.created_at DESC
