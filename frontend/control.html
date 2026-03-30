@@ -1299,6 +1299,16 @@
             return sessionData.userId || ('user-' + socket.id);
         }
 
+        function escapeHtml(str) {
+            if (str == null) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
         function formatLapTime(ms) {
             const mins = String(Math.floor(ms / 60000)).padStart(2, '0');
             const secs = String(Math.floor((ms % 60000) / 1000)).padStart(2, '0');
@@ -1328,7 +1338,7 @@
                 const best = p.bestLapTime != null ? formatLapTime(p.bestLapTime) : '—';
                 return `<tr class="${isMe ? 'me' : ''}">
                     <td>${i + 1}</td>
-                    <td>${p.carName}${isMe ? ' (вы)' : ''}</td>
+                    <td>${escapeHtml(p.carName)}${isMe ? ' (вы)' : ''}</td>
                     <td>${p.lapCount}</td>
                     <td>${best}</td>
                 </tr>`;
@@ -1344,8 +1354,8 @@
             tbody.innerHTML = entries.slice(0, 5).map(function (e, i) {
                 return `<tr>
                     <td>${i + 1}</td>
-                    <td>${e.carName}</td>
-                    <td>${e.userId}</td>
+                    <td>${escapeHtml(e.carName)}</td>
+                    <td>${escapeHtml(e.userId)}</td>
                     <td><strong>${formatLapTime(e.lapTimeMs)}</strong></td>
                 </tr>`;
             }).join('');
