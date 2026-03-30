@@ -290,7 +290,8 @@ module.exports = function mountAdminTransactionRoutes(app, db, deps) {
            COALESCE(SUM(CASE WHEN t.type = 'hold' THEN t.amount ELSE 0 END), 0) AS totalHolds,
            COALESCE(SUM(CASE WHEN t.type = 'release' THEN t.amount ELSE 0 END), 0) AS totalReleases,
            COALESCE(SUM(CASE WHEN t.type = 'deduct' THEN t.amount ELSE 0 END), 0) AS totalDeductions,
-           COALESCE(SUM(CASE WHEN t.type = 'admin_adjust' THEN t.amount ELSE 0 END), 0) AS totalAdminAdjusts
+           COALESCE(SUM(CASE WHEN t.type = 'admin_adjust' THEN t.amount ELSE 0 END), 0) AS totalAdminAdjusts,
+           COALESCE(SUM(CASE WHEN t.type = 'admin_compensation' THEN t.amount ELSE 0 END), 0) AS totalCompensations
          FROM transactions t
          WHERE t.user_id = ?`
       ).get(userId);
@@ -341,6 +342,7 @@ module.exports = function mountAdminTransactionRoutes(app, db, deps) {
           totalReleases: summaryRow ? Math.round(summaryRow.totalReleases * 100) / 100 : 0,
           totalDeductions: summaryRow ? Math.round(summaryRow.totalDeductions * 100) / 100 : 0,
           totalAdminAdjusts: summaryRow ? Math.round(summaryRow.totalAdminAdjusts * 100) / 100 : 0,
+          totalCompensations: summaryRow ? Math.round(summaryRow.totalCompensations * 100) / 100 : 0,
         },
         pagination: { page, limit, total, pages },
       });

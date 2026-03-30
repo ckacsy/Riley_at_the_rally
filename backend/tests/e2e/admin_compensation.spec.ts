@@ -641,6 +641,30 @@ test.describe('POST /api/admin/users/:id/compensations — functional', () => {
     expect(found).toBe(true);
   });
 
+  test('ledger summary includes correct totalCompensations', async ({ page }) => {
+    await resetDb(page);
+
+    const target = await registerUser(page, 'compfunc10_target', 'compfunc10_target@example.com');
+    await activateUser(page, target.username);
+
+    const admin = await registerUser(page, 'compfunc10_admin', 'compfunc10_admin@example.com');
+    await activateUser(page, admin.username);
+    await setUserRole(page, admin.username, 'admin');
+    await loginUser(page, admin.username);
+
+    const csrfToken = await getCsrfToken(page);
+    await page.request.post(`/api/admin/users/${target.id}/compensations`, {
+      data: { amount: 75, reason_code: 'goodwill_credit', idempotency_key: `func10-${Date.now()}` },
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+
+    const ledgerRes = await page.request.get(`/api/admin/users/${target.id}/ledger`);
+    expect(ledgerRes.status(), await ledgerRes.text()).toBe(200);
+    const ledgerBody = await ledgerRes.json();
+    expect(ledgerBody.summary).toBeDefined();
+    expect(ledgerBody.summary.totalCompensations).toBe(75);
+  });
+
   test('note with 500 characters is accepted', async ({ page }) => {
     await resetDb(page);
 

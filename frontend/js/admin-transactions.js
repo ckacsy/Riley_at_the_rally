@@ -254,6 +254,7 @@ if (typeof AdminFilters === 'undefined') throw new Error('admin-filters.js must 
             { label: 'Возвратов', value: AdminUi.formatMoney(data.summary.totalReleases || 0, { signed: true }) },
             { label: 'Списаний', value: AdminUi.formatMoney(data.summary.totalDeductions || 0) },
             { label: 'Корректировок', value: AdminUi.formatMoney(data.summary.totalAdminAdjusts || 0) },
+            { label: 'Компенсаций', value: AdminUi.formatMoney(data.summary.totalCompensations || 0, { signed: true }) },
         ];
 
         fields.forEach(function (f) {
