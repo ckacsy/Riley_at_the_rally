@@ -95,12 +95,19 @@
         }
 
         /**
-         * Reset all mapped form fields to empty string.
+         * Reset all mapped form fields to their default state.
+         * <select> elements are reset to their first option (selectedIndex = 0);
+         * all other inputs have their value cleared.
          */
         function resetFilters() {
             Object.keys(fieldMap).forEach(function (key) {
                 var el = resolveEl(fieldMap[key]);
-                if (el) el.value = '';
+                if (!el) return;
+                if (el.tagName === 'SELECT') {
+                    el.selectedIndex = 0;
+                } else {
+                    el.value = '';
+                }
             });
         }
 
