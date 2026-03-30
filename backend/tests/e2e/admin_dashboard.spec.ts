@@ -125,6 +125,24 @@ async function writeAuditAction(
   expect(res.status(), `writeAuditAction failed: ${await res.text()}`).toBe(200);
 }
 
+async function insertTransaction(
+  page: import('@playwright/test').Page,
+  data: {
+    user_id: number;
+    type: string;
+    amount: number;
+    balance_after: number;
+    reference_id?: string;
+    description?: string;
+    created_at?: string;
+  },
+): Promise<{ id: number }> {
+  const res = await page.request.post('/api/dev/transactions/insert', { data });
+  expect(res.status(), `insertTransaction failed: ${await res.text()}`).toBe(200);
+  const body = await res.json();
+  return body.transaction;
+}
+
 // ---------------------------------------------------------------------------
 // API tests: GET /api/admin/dashboard
 // ---------------------------------------------------------------------------
@@ -277,6 +295,48 @@ test.describe('GET /api/admin/dashboard — counts', () => {
     expect(res2.status()).toBe(200);
     const body2 = await res2.json();
     expect(body2.bannedUsers.count).toBe(before + 1);
+  });
+
+  test('orphaned holds count reflects hold older than grace period with no matching deduct', async ({ page }) => {
+    await resetDb(page);
+
+    // Create a regular user whose id will be used for the transaction
+    const user = await registerUser(page, 'dashorph1', 'dashorph1@test.com');
+    await activateUser(page, 'dashorph1');
+
+    // Create admin and log in to call the dashboard
+    await registerUser(page, 'dashadmin3', 'dashadmin3@test.com');
+    await activateUser(page, 'dashadmin3');
+    await setUserRole(page, 'dashadmin3', 'admin');
+    await loginUser(page, 'dashadmin3');
+
+    // Baseline — no orphaned holds yet
+    const res1 = await page.request.get('/api/admin/dashboard');
+    expect(res1.status()).toBe(200);
+    const body1 = await res1.json();
+    const before = body1.orphanedHolds.count as number;
+
+    // Insert a hold transaction:
+    //  - unique reference_id (no matching deduct transaction will exist)
+    //  - created_at set 15 minutes in the past (well beyond the 10-min grace period)
+    const refId = `test-orphan-${Date.now()}`;
+    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19);
+    await insertTransaction(page, {
+      user_id: user.id,
+      type: 'hold',
+      amount: -50,
+      balance_after: 150,
+      reference_id: refId,
+      description: 'orphaned hold test',
+      created_at: fifteenMinutesAgo,
+    });
+
+    // Dashboard should now report one more orphaned hold
+    const res2 = await page.request.get('/api/admin/dashboard');
+    expect(res2.status()).toBe(200);
+    const body2 = await res2.json();
+    expect(body2.orphanedHolds.count).toBe(before + 1);
+    expect(body2.orphanedHolds.count).toBeGreaterThan(0);
   });
 });
 
