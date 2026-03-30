@@ -947,6 +947,23 @@ if (process.env.NODE_ENV !== 'production') {
     res.json({ success: true, session: row });
   });
 
+  // Dev helper: inject a fake active session into the in-memory activeSessions map.
+  // Used by e2e tests to simulate a car with an ongoing session (e.g. to trigger the 409
+  // conflict when trying to enable maintenance on a car that is in use).
+  app.post('/api/dev/inject-active-session', devLimiter, (req, res) => {
+    const { carId } = req.body || {};
+    if (!carId) return res.status(400).json({ error: 'carId required' });
+    const sessionId = `dev-injected-${carId}-${Date.now()}`;
+    socketState.activeSessions.set(sessionId, {
+      carId: Number(carId),
+      userId: 'dev-test',
+      dbUserId: 0,
+      startTime: new Date(),
+      holdAmount: 0,
+    });
+    res.json({ success: true, sessionId });
+  });
+
   // Dev helper: insert a transaction directly for testing.
   app.post('/api/dev/transactions/insert', devLimiter, (req, res) => {
     const { user_id, type, amount, balance_after, description, reference_id, admin_id } = req.body || {};

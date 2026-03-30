@@ -286,6 +286,26 @@ test.describe('POST /api/admin/cars/:carId/maintenance', () => {
     expect(res.status()).toBe(404);
   });
 
+  test('enabling maintenance for car with active session returns 409', async ({ page }) => {
+    await resetDb(page);
+    await registerUser(page, 'cmaint9', 'cmaint9@test.com');
+    await activateUser(page, 'cmaint9');
+    await setUserRole(page, 'cmaint9', 'admin');
+    await loginUser(page, 'cmaint9');
+
+    // Inject a fake active session for car 1 via the dev helper
+    const injectRes = await page.request.post('/api/dev/inject-active-session', {
+      data: { carId: 1 },
+    });
+    expect(injectRes.status(), `inject-active-session failed: ${await injectRes.text()}`).toBe(200);
+
+    // Attempt to enable maintenance while the car has an active session
+    const res = await toggleMaintenance(page, 1, true, 'Should be rejected');
+    expect(res.status()).toBe(409);
+    const body = await res.json();
+    expect(body.error).toBe('conflict');
+  });
+
   test('maintenance state persists in DB-backed reads', async ({ page }) => {
     await resetDb(page);
     const admin = await registerUser(page, 'cmaint6', 'cmaint6@test.com');
