@@ -336,7 +336,7 @@
         })
             .then(function (data) {
                 closeCompensationModal();
-                AdminUi.showFlash(flashEl, 'Компенсация начислена: ' + data.balance, 'success');
+                AdminUi.showFlash(flashEl, 'Компенсация ' + data.compensation.amount + ' ₽ начислена. Баланс: ' + data.balance, 'success');
                 loadUsers();
             })
             .catch(function (err) {
