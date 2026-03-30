@@ -84,6 +84,26 @@
 
             card.innerHTML = headerHtml + reasonHtml +
                 '<div class="car-card-actions">' + actionBtn + '</div>';
+
+            // Cross-links: Investigation and Audit (created via DOM for XSS safety)
+            var crossLinksDiv = document.createElement('div');
+            crossLinksDiv.className = 'cross-link-group';
+
+            var investLink = document.createElement('a');
+            investLink.className = 'cross-link';
+            investLink.href = '/admin-investigation?car_id=' + encodeURIComponent(car.id);
+            investLink.textContent = '🔍 Расследование';
+            investLink.title = 'Расследование по машине';
+            crossLinksDiv.appendChild(investLink);
+
+            var auditLink = document.createElement('a');
+            auditLink.className = 'cross-link';
+            auditLink.href = '/admin-audit?target_type=car&target_id=' + encodeURIComponent(car.id);
+            auditLink.textContent = '📋 Аудит';
+            auditLink.title = 'Аудит по машине';
+            crossLinksDiv.appendChild(auditLink);
+
+            card.appendChild(crossLinksDiv);
             grid.appendChild(card);
         });
 

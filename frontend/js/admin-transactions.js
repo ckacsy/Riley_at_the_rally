@@ -127,6 +127,14 @@ if (typeof AdminFilters === 'undefined') throw new Error('admin-filters.js must 
             } else {
                 tdUser.textContent = item.user_id ? ('#' + item.user_id) : '—';
             }
+            if (item.user_id) {
+                var userPageLink = document.createElement('a');
+                userPageLink.className = 'cross-link';
+                userPageLink.href = '/admin-users?user_id=' + encodeURIComponent(item.user_id);
+                userPageLink.textContent = '👤';
+                userPageLink.title = 'Страница пользователя';
+                tdUser.appendChild(userPageLink);
+            }
             tr.appendChild(tdUser);
         }
 
@@ -157,7 +165,16 @@ if (typeof AdminFilters === 'undefined') throw new Error('admin-filters.js must 
 
         // Reference
         var tdRef = document.createElement('td');
-        tdRef.textContent = item.reference_id || '—';
+        if (item.reference_id) {
+            var refLink = document.createElement('a');
+            refLink.className = 'cross-link';
+            refLink.href = '/admin-investigation?reference_id=' + encodeURIComponent(item.reference_id);
+            refLink.textContent = item.reference_id;
+            refLink.title = 'Расследовать по reference_id';
+            tdRef.appendChild(refLink);
+        } else {
+            tdRef.textContent = '—';
+        }
         tr.appendChild(tdRef);
 
         return tr;
@@ -231,6 +248,18 @@ if (typeof AdminFilters === 'undefined') throw new Error('admin-filters.js must 
         ledgerPage = 1;
         ledgerUsername.textContent = 'Лэджер: ' + username;
         ledgerMeta.textContent = 'ID пользователя: ' + userId;
+
+        // Add/update "🔍 Timeline пользователя" link
+        var existingTimelineLink = document.getElementById('ledger-timeline-link');
+        if (existingTimelineLink) existingTimelineLink.parentNode.removeChild(existingTimelineLink);
+        var timelineLink = document.createElement('a');
+        timelineLink.id = 'ledger-timeline-link';
+        timelineLink.className = 'cross-link';
+        timelineLink.href = '/admin-investigation?user_id=' + encodeURIComponent(userId);
+        timelineLink.textContent = '🔍 Timeline пользователя';
+        timelineLink.title = 'Открыть расследование по пользователю';
+        ledgerMeta.appendChild(timelineLink);
+
         ledgerPanel.hidden = false;
         ledgerPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
         loadLedger(userId, ledgerPage);
