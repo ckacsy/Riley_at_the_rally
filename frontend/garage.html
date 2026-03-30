@@ -2093,7 +2093,7 @@
             socket.once('session_started', function (data) {
                 sessionStorage.setItem('activeSession', JSON.stringify({
                     carId: car.id, carName: car.name, startTime: new Date().toISOString(),
-                    sessionId: data.sessionId, userId: currentUser.username,
+                    sessionId: data.sessionId, sessionRef: data.sessionRef || null, userId: currentUser.username,
                     dbUserId: currentUser.id, ratePerMinute: ratePerMinute, selectedRaceId: selectedRace,
                     cameraUrl: data.cameraUrl || ''
                 }));

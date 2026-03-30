@@ -148,6 +148,37 @@
         <div class="bytype-grid" id="bytype-grid"></div>
     </div>
 
+    <!-- Orphaned Holds Section -->
+    <div id="orphaned-holds-section" style="margin-bottom:20px;">
+        <div id="orphaned-holds-header" style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:12px 0;">
+            <span style="font-size:15px;font-weight:bold;color:rgba(255,255,255,0.85);">🔍 Зависшие блокировки</span>
+            <span id="orphaned-holds-badge" style="display:none;background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.4);border-radius:12px;padding:2px 9px;font-size:12px;color:#fca5a5;"></span>
+            <span style="margin-left:auto;font-size:12px;color:rgba(255,255,255,0.4);" id="orphaned-holds-toggle-hint">▼</span>
+        </div>
+        <div id="orphaned-holds-body">
+            <div id="orphaned-holds-flash"></div>
+            <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:8px;">
+                <button class="btn btn-secondary btn-sm" id="btn-refresh-orphaned">↻ Обновить</button>
+            </div>
+            <div id="orphaned-holds-loading" class="state-msg">Загрузка…</div>
+            <div id="orphaned-holds-empty" class="state-msg" hidden>Зависших блокировок не найдено ✓</div>
+            <div class="table-wrapper" id="orphaned-holds-table-wrapper" hidden>
+                <table id="orphaned-holds-table">
+                    <thead>
+                        <tr>
+                            <th>Дата</th>
+                            <th>Пользователь</th>
+                            <th>Сумма</th>
+                            <th>Reference ID</th>
+                            <th>Описание</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orphaned-holds-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <!-- Table -->
     <div id="table-area">
         <div class="table-wrapper" id="table-wrapper" hidden>

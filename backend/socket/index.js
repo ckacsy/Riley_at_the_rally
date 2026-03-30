@@ -1,6 +1,7 @@
 'use strict';
 
 const { performance } = require('perf_hooks');
+const crypto = require('crypto');
 
 /**
  * Set up all Socket.IO logic.
@@ -90,9 +91,10 @@ function setupSocketIo(io, deps) {
    * Finalize balance after a session: release unused hold, record deduct transaction.
    * Must be called after actualCost is known (session end).
    */
-  function processHoldDeduct(dbUserId, holdAmount, actualCost, carId, durationSeconds) {
+  function processHoldDeduct(dbUserId, holdAmount, actualCost, carId, durationSeconds, sessionRef) {
     if (!dbUserId || holdAmount == null) return;
     const carName = CARS.find((c) => c.id === carId)?.name || ('Машина #' + carId);
+    const ref = sessionRef || null;
     try {
       db.transaction(() => {
         const releaseAmount = holdAmount - actualCost;
@@ -100,9 +102,9 @@ function setupSocketIo(io, deps) {
           db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(releaseAmount, dbUserId);
           const afterRelease = db.prepare('SELECT balance FROM users WHERE id = ?').get(dbUserId);
           db.prepare(
-            `INSERT INTO transactions (user_id, type, amount, balance_after, description)
-             VALUES (?, 'release', ?, ?, ?)`
-          ).run(dbUserId, releaseAmount, afterRelease ? afterRelease.balance : 0, 'Возврат блокировки: ' + carName);
+            `INSERT INTO transactions (user_id, type, amount, balance_after, description, reference_id)
+             VALUES (?, 'release', ?, ?, ?, ?)`
+          ).run(dbUserId, releaseAmount, afterRelease ? afterRelease.balance : 0, 'Возврат блокировки: ' + carName, ref);
         } else if (releaseAmount < 0) {
           // actualCost exceeded hold — deduct the extra (safety guard)
           const extra = -releaseAmount;
@@ -112,9 +114,9 @@ function setupSocketIo(io, deps) {
         const secs = durationSeconds % 60;
         const rowAfter = db.prepare('SELECT balance FROM users WHERE id = ?').get(dbUserId);
         db.prepare(
-          `INSERT INTO transactions (user_id, type, amount, balance_after, description)
-           VALUES (?, 'deduct', ?, ?, ?)`
-        ).run(dbUserId, -actualCost, rowAfter ? rowAfter.balance : 0, `Аренда: ${carName}, ${mins}м ${secs}с`);
+          `INSERT INTO transactions (user_id, type, amount, balance_after, description, reference_id)
+           VALUES (?, 'deduct', ?, ?, ?, ?)`
+        ).run(dbUserId, -actualCost, rowAfter ? rowAfter.balance : 0, `Аренда: ${carName}, ${mins}м ${secs}с`, ref);
       })();
     } catch (e) {
       console.error('[Balance] processHoldDeduct error:', e);
@@ -215,7 +217,7 @@ function setupSocketIo(io, deps) {
       inactivityTimeouts.delete(socket.id);
       clearSessionDurationTimeout(socket.id);
       saveRentalSession(session.dbUserId, session.carId, durationSeconds, cost);
-      processHoldDeduct(session.dbUserId, session.holdAmount, cost, session.carId, durationSeconds);
+      processHoldDeduct(session.dbUserId, session.holdAmount, cost, session.carId, durationSeconds, session.sessionRef);
       socket.emit('session_ended', { carId: session.carId, durationSeconds, cost, reason: 'inactivity' });
       broadcastCarsUpdate();
       metrics.log('info', 'session_end', {
@@ -251,7 +253,7 @@ function setupSocketIo(io, deps) {
       sessionDurationTimeouts.delete(socket.id);
       clearInactivityTimeout(socket.id);
       saveRentalSession(session.dbUserId, session.carId, durationSeconds, cost);
-      processHoldDeduct(session.dbUserId, session.holdAmount, cost, session.carId, durationSeconds);
+      processHoldDeduct(session.dbUserId, session.holdAmount, cost, session.carId, durationSeconds, session.sessionRef);
       socket.emit('session_ended', { carId: session.carId, durationSeconds, cost, reason: 'time_limit' });
       broadcastCarsUpdate();
       metrics.log('info', 'session_end', {
@@ -566,13 +568,14 @@ function setupSocketIo(io, deps) {
         return;
       }
       const carName = CARS.find((c) => c.id === carId)?.name || ('Машина #' + carId);
+      const sessionRef = crypto.randomUUID();
       db.transaction(() => {
         db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(HOLD_AMOUNT, dbUserId);
         const afterHold = db.prepare('SELECT balance FROM users WHERE id = ?').get(dbUserId);
         db.prepare(
-          `INSERT INTO transactions (user_id, type, amount, balance_after, description)
-           VALUES (?, 'hold', ?, ?, ?)`
-        ).run(dbUserId, -HOLD_AMOUNT, afterHold ? afterHold.balance : 0, 'Блокировка: ' + carName);
+          `INSERT INTO transactions (user_id, type, amount, balance_after, description, reference_id)
+           VALUES (?, 'hold', ?, ?, ?, ?)`
+        ).run(dbUserId, -HOLD_AMOUNT, afterHold ? afterHold.balance : 0, 'Блокировка: ' + carName, sessionRef);
       })();
 
       activeSessions.set(socket.id, {
@@ -581,10 +584,12 @@ function setupSocketIo(io, deps) {
         dbUserId,
         startTime: new Date(),
         holdAmount: HOLD_AMOUNT,
+        sessionRef,
       });
       socket.emit('session_started', {
         carId,
         sessionId: socket.id,
+        sessionRef,
         sessionMaxDurationMs: SESSION_MAX_DURATION_MS,
         inactivityTimeoutMs: INACTIVITY_TIMEOUT_MS,
         cameraUrl: CARS.find((c) => c.id === carId)?.cameraUrl || '',
@@ -633,7 +638,7 @@ function setupSocketIo(io, deps) {
       const cost = durationMinutes * RATE_PER_MINUTE;
       activeSessions.delete(socket.id);
       saveRentalSession(session.dbUserId, session.carId, durationSeconds, cost);
-      processHoldDeduct(session.dbUserId, session.holdAmount, cost, session.carId, durationSeconds);
+      processHoldDeduct(session.dbUserId, session.holdAmount, cost, session.carId, durationSeconds, session.sessionRef);
       socket.emit('session_ended', { carId: session.carId, durationSeconds, cost });
       broadcastCarsUpdate();
       metrics.log('info', 'session_end', {
@@ -661,7 +666,7 @@ function setupSocketIo(io, deps) {
         const cost = durationMinutes * RATE_PER_MINUTE;
         activeSessions.delete(socket.id);
         saveRentalSession(session.dbUserId, session.carId, durationSeconds, cost);
-        processHoldDeduct(session.dbUserId, session.holdAmount, cost, session.carId, durationSeconds);
+        processHoldDeduct(session.dbUserId, session.holdAmount, cost, session.carId, durationSeconds, session.sessionRef);
         broadcastCarsUpdate();
         metrics.log('info', 'session_end', {
           userId: session.userId,
@@ -894,7 +899,7 @@ function setupSocketIo(io, deps) {
 
     // Persist rental session and process balance
     saveRentalSession(targetSession.dbUserId, targetSession.carId, durationSeconds, cost);
-    processHoldDeduct(targetSession.dbUserId, targetSession.holdAmount, cost, targetSession.carId, durationSeconds);
+    processHoldDeduct(targetSession.dbUserId, targetSession.holdAmount, cost, targetSession.carId, durationSeconds, targetSession.sessionRef);
 
     // Notify the client socket
     const targetSocket = io.sockets.sockets.get(targetSocketId);

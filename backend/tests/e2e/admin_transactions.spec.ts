@@ -90,7 +90,7 @@ async function insertTransaction(
   type: string,
   amount: number,
   balanceAfter: number,
-  opts: { description?: string; reference_id?: string; admin_id?: number } = {},
+  opts: { description?: string; reference_id?: string; admin_id?: number; created_at?: string } = {},
 ): Promise<{ id: number }> {
   const res = await page.request.post('/api/dev/transactions/insert', {
     data: {
@@ -101,6 +101,7 @@ async function insertTransaction(
       description: opts.description || null,
       reference_id: opts.reference_id || null,
       admin_id: opts.admin_id || null,
+      created_at: opts.created_at || undefined,
     },
   });
   expect(res.status(), `insert transaction failed: ${await res.text()}`).toBe(200);
@@ -813,5 +814,35 @@ test.describe('UI: Admin landing page Transactions card', () => {
     await expect(page.locator('#admin-content')).not.toHaveAttribute('hidden');
     await page.waitForTimeout(500);
     await expect(page.locator('#card-transactions')).toHaveAttribute('hidden', '');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Orphaned holds
+// ---------------------------------------------------------------------------
+
+test.describe('Orphaned holds', () => {
+  test('hold with release but no deduct is NOT orphaned', async ({ page }) => {
+    await resetDb(page);
+    const user = await registerUser(page, 'orphanrel1', 'orphanrel1@test.com');
+    await activateUser(page, 'orphanrel1');
+    await setUserRole(page, 'orphanrel1', 'admin');
+    await loginUser(page, 'orphanrel1');
+
+    const ref = 'ref-release-only';
+    // Insert hold old enough to pass the grace period (15 min ago)
+    const oldTs = new Date(Date.now() - 15 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19);
+    await insertTransaction(page, user.id, 'hold', -100, 100, {
+      reference_id: ref,
+      created_at: oldTs,
+    });
+    // Matching release — this resolves the hold
+    await insertTransaction(page, user.id, 'release', 100, 200, { reference_id: ref });
+
+    const res = await page.request.get('/api/admin/transactions/orphaned-holds');
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    const found = (body.items as any[]).find((i: any) => i.reference_id === ref);
+    expect(found).toBeUndefined();
   });
 });
