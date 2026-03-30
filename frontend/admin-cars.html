@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Машины — Админ — Riley at the Rally</title>
+    <link rel="stylesheet" href="styles/common.css">
+    <link rel="stylesheet" href="styles/nav.css">
+    <style>
+        body { background: #0a0e1a; color: #fff; font-family: Arial, sans-serif; min-height: 100vh; }
+        .admin-container { max-width: 960px; margin: 0 auto; padding: 32px 20px; }
+        .admin-header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+        .admin-header h1 { font-size: 24px; font-weight: bold; flex: 1; }
+        .admin-back { color: rgba(255,255,255,0.6); text-decoration: none; font-size: 14px; }
+        .admin-back:hover { color: #fff; }
+
+        #flash-container { margin-bottom: 16px; }
+        .admin-flash { padding: 12px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 8px; }
+        .admin-flash--success { background: rgba(76,175,80,0.2);  border: 1px solid #4caf50; color: #4caf50; }
+        .admin-flash--error   { background: rgba(229,57,53,0.2);  border: 1px solid #e53935; color: #e53935; }
+
+        .cars-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+        }
+
+        .car-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .car-card.is-maintenance {
+            border-color: rgba(255,152,0,0.4);
+            background: rgba(255,152,0,0.05);
+        }
+        .car-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+        .car-card-name { font-size: 16px; font-weight: bold; }
+        .car-card-model { font-size: 13px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+
+        .badge {
+            display: inline-block; padding: 3px 10px; border-radius: 12px;
+            font-size: 11px; font-weight: bold; white-space: nowrap; flex-shrink: 0;
+        }
+        .badge--available    { background: rgba(76,175,80,0.2);   color: #a5d6a7; }
+        .badge--unavailable  { background: rgba(100,181,246,0.2); color: #90caf9; }
+        .badge--maintenance  { background: rgba(255,152,0,0.2);   color: #ffcc80; }
+
+        .car-card-reason {
+            font-size: 13px; color: rgba(255,152,0,0.9);
+            margin-bottom: 12px; line-height: 1.4;
+        }
+        .car-card-reason-label { font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 2px; }
+
+        .car-card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+        .btn {
+            padding: 7px 14px; border-radius: 8px; font-size: 13px;
+            font-weight: bold; border: none; cursor: pointer; transition: opacity 0.15s;
+        }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn:hover:not(:disabled) { opacity: 0.85; }
+        .btn-maintenance-enable  { background: rgba(255,152,0,0.8); color: #fff; }
+        .btn-maintenance-disable { background: rgba(76,175,80,0.8);  color: #fff; }
+
+        .state-msg { padding: 24px 0; color: rgba(255,255,255,0.5); font-size: 14px; text-align: center; }
+
+        /* Modal */
+        .modal-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.7); z-index: 1000;
+            align-items: center; justify-content: center;
+        }
+        .modal-overlay.visible { display: flex; }
+        .modal {
+            background: #151b2e; border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 14px; padding: 28px; max-width: 440px; width: 90%;
+        }
+        .modal h2 { font-size: 18px; font-weight: bold; margin-bottom: 16px; }
+        .modal p  { font-size: 14px; color: rgba(255,255,255,0.7); margin-bottom: 12px; line-height: 1.5; }
+        .form-row { margin-bottom: 14px; }
+        .form-row label { display: block; font-size: 13px; color: rgba(255,255,255,0.6); margin-bottom: 6px; }
+        .form-input {
+            width: 100%; padding: 8px 12px; border-radius: 8px;
+            background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15);
+            color: #fff; font-size: 14px; box-sizing: border-box;
+        }
+        .form-input:focus { outline: none; border-color: rgba(255,255,255,0.3); }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; flex-wrap: wrap; }
+        .btn-cancel { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); }
+        .btn-confirm-enable  { background: rgba(255,152,0,0.8); color: #fff; }
+        .btn-confirm-disable { background: rgba(76,175,80,0.8);  color: #fff; }
+
+        [hidden] { display: none !important; }
+        #admin-loading {
+            position: fixed; inset: 0; background: #0a0e1a;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; color: rgba(255,255,255,0.7);
+        }
+    </style>
+</head>
+<body>
+<div id="main-nav"></div>
+<div id="admin-loading">Загрузка…</div>
+
+<div class="admin-container" id="admin-content" hidden>
+    <div class="admin-header">
+        <a href="/admin" class="admin-back">← Админ-панель</a>
+        <h1>🔧 Машины</h1>
+    </div>
+
+    <div id="flash-container"></div>
+
+    <div id="cars-loading" class="state-msg">Загрузка машин…</div>
+    <div id="cars-error" class="state-msg" hidden></div>
+    <div id="cars-grid" class="cars-grid" hidden></div>
+</div>
+
+<!-- Enable maintenance modal -->
+<div class="modal-overlay" id="modal-enable">
+    <div class="modal">
+        <h2>Поставить на обслуживание</h2>
+        <p id="modal-enable-car-name" style="font-weight:bold;color:#fff;"></p>
+        <div class="form-row">
+            <label for="modal-reason">Причина <span style="color:#e53935;">*</span></label>
+            <input type="text" id="modal-reason" class="form-input" placeholder="Например: замена колеса" maxlength="200" />
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-cancel" id="modal-enable-cancel">Отмена</button>
+            <button class="btn btn-confirm-enable" id="modal-enable-confirm">Поставить на обслуживание</button>
+        </div>
+    </div>
+</div>
+
+<!-- Disable maintenance modal -->
+<div class="modal-overlay" id="modal-disable">
+    <div class="modal">
+        <h2>Снять с обслуживания</h2>
+        <p id="modal-disable-car-name" style="font-weight:bold;color:#fff;"></p>
+        <p id="modal-disable-reason" style="color:rgba(255,152,0,0.9);"></p>
+        <p>Снять машину с технического обслуживания и сделать её доступной для аренды?</p>
+        <div class="modal-actions">
+            <button class="btn btn-cancel" id="modal-disable-cancel">Отмена</button>
+            <button class="btn btn-confirm-disable" id="modal-disable-confirm">Снять с обслуживания</button>
+        </div>
+    </div>
+</div>
+
+<script src="js/nav.js"></script>
+<script src="js/admin-api.js"></script>
+<script src="js/admin-cars.js"></script>
+</body>
+</html>

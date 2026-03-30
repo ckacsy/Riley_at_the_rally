@@ -243,6 +243,8 @@
         .car-availability-badge.status-busy .badge-dot    { background: #ff9800; box-shadow: 0 0 5px #ff9800; }
         .car-availability-badge.status-offline { border-color: rgba(244,67,54,0.6); color: #e57373; }
         .car-availability-badge.status-offline .badge-dot { background: #f44336; box-shadow: 0 0 5px #f44336; }
+        .car-availability-badge.status-maintenance { border-color: rgba(255,152,0,0.6); color: #ffb74d; }
+        .car-availability-badge.status-maintenance .badge-dot { background: #ff9800; box-shadow: 0 0 5px #ff9800; }
 
         .car-specs { margin-bottom: 14px; }
         .spec-row {
@@ -355,7 +357,9 @@
         .thumb-avail { width: 7px; height: 7px; border-radius: 50%; margin-top: 1px; background: #4caf50; }
         .car-thumb.car-busy .thumb-avail { background: #ff9800; }
         .car-thumb.car-offline .thumb-avail { background: #f44336; }
+        .car-thumb.car-maintenance .thumb-avail { background: #ff9800; }
         .car-thumb.car-busy { opacity: 0.65; }
+        .car-thumb.car-maintenance { opacity: 0.65; }
         .carousel-empty { color: rgba(255,255,255,0.35); font-size: 12px; padding: 10px 0; }
 
         /* =========================================
@@ -1502,15 +1506,16 @@
                 const mappedSt = carStatusMap[v.id];
                 const vSt = (mappedSt != null) ? mappedSt : (i === activeVariant ? globalSt : 'available');
                 if (fa !== 'all') {
-                    if (fa === 'available' && (vSt === 'busy' || vSt === 'offline')) return;
+                    if (fa === 'available' && (vSt === 'busy' || vSt === 'offline' || vSt === 'maintenance')) return;
                     if (fa === 'busy'      && vSt !== 'busy')  return;
                 }
                 if (srch && !v.name.toLowerCase().includes(srch)) return;
                 any = true;
                 const thumb = document.createElement('div');
                 let thumbCls = 'car-thumb' + (i === activeVariant ? ' active' : '');
-                if (vSt === 'busy')    thumbCls += ' car-busy';
-                if (vSt === 'offline') thumbCls += ' car-offline';
+                if (vSt === 'busy')        thumbCls += ' car-busy';
+                if (vSt === 'offline')     thumbCls += ' car-offline';
+                if (vSt === 'maintenance') thumbCls += ' car-maintenance';
                 thumb.className = thumbCls;
                 thumb.setAttribute('role', 'option');
                 thumb.setAttribute('aria-label', v.name);
@@ -1754,9 +1759,10 @@
 
         function updateCarStateLabel() {
             var map = {
-                available: '🟢 Свободна',
-                busy:      '🟡 Занята',
-                offline:   '🔴 Недоступна'
+                available:   '🟢 Свободна',
+                busy:        '🟡 Занята',
+                offline:     '🔴 Недоступна',
+                maintenance: '🔧 На обслуживании'
             };
             sbCarState.textContent = map[carAvailabilityStatus] || carAvailabilityStatus;
         }
@@ -1916,6 +1922,10 @@
                 setBtn('\u041c\u0430\u0448\u0438\u043d\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430', true, '', null);
                 setFallback('\u041c\u0430\u0448\u0438\u043d\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430', true, null);
                 setCenter('\u041c\u0430\u0448\u0438\u043d\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430', true, '', null);
+            } else if (effectiveStatus === 'maintenance') {
+                setBtn('\u041d\u0430 \u043e\u0431\u0441\u043b\u0443\u0436\u0438\u0432\u0430\u043d\u0438\u0438', true, '', null);
+                setFallback('\u041d\u0430 \u043e\u0431\u0441\u043b\u0443\u0436\u0438\u0432\u0430\u043d\u0438\u0438', true, null);
+                setCenter('\u041d\u0430 \u043e\u0431\u0441\u043b\u0443\u0436\u0438\u0432\u0430\u043d\u0438\u0438', true, '', null);
             } else if ((currentBalance + currentActiveHold) < 100) {
                 setBtn('\u041d\u0435\u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e RC (\u043c\u0438\u043d. 100)', true, '', null);
                 setFallback('\u041d\u0435\u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e RC', true, null);
@@ -1929,7 +1939,7 @@
         }
 
         function renderAvailabilityBadge() {
-            var t = { available: '\u0414\u043e\u0441\u0442\u0443\u043f\u043d\u0430', busy: '\u0417\u0430\u043d\u044f\u0442\u0430', offline: '\u041d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430' };
+            var t = { available: '\u0414\u043e\u0441\u0442\u0443\u043f\u043d\u0430', busy: '\u0417\u0430\u043d\u044f\u0442\u0430', offline: '\u041d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430', maintenance: '\u041d\u0430 \u043e\u0431\u0441\u043b\u0443\u0436\u0438\u0432\u0430\u043d\u0438\u0438' };
             var text = t[carAvailabilityStatus] || carAvailabilityStatus;
             var css  = 'car-availability-badge status-' + carAvailabilityStatus;
             var badge = document.getElementById('car-availability-badge');
@@ -2020,7 +2030,8 @@
                 carAvailabilityStatus = newMap[activeCarId];
             } else {
                 var anyBusy = cars.some(function (c) { return c.status === 'unavailable'; });
-                carAvailabilityStatus = anyBusy ? 'busy' : 'available';
+                var anyMaint = cars.some(function (c) { return c.status === 'maintenance'; });
+                carAvailabilityStatus = anyBusy ? 'busy' : (anyMaint ? 'maintenance' : 'available');
             }
             window._carAvailabilityStatus = carAvailabilityStatus;
             renderAvailabilityBadge();
@@ -2056,6 +2067,10 @@
             }
             if (carStatus === 'offline') {
                 alert('\u042d\u0442\u0430 \u043c\u0430\u0448\u0438\u043d\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430.');
+                return;
+            }
+            if (carStatus === 'maintenance') {
+                alert('\u042d\u0442\u0430 \u043c\u0430\u0448\u0438\u043d\u0430 \u043d\u0430\u0445\u043e\u0434\u0438\u0442\u0441\u044f \u043d\u0430 \u0442\u0435\u0445\u043d\u0438\u0447\u0435\u0441\u043a\u043e\u043c \u043e\u0431\u0441\u043b\u0443\u0436\u0438\u0432\u0430\u043d\u0438\u0438.');
                 return;
             }
             // Find car data by matching the variant id
