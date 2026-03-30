@@ -9,6 +9,8 @@ const KNOWN_TYPES = ['hold', 'release', 'deduct', 'topup', 'admin_adjust'];
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+const ORPHAN_GRACE_MINUTES = 10;
+
 /**
  * Mount admin transactions routes.
  *
@@ -16,10 +18,11 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
  * @param {import('better-sqlite3').Database} db
  * @param {{
  *   requireRole: (...roles: string[]) => Function,
+ *   getActiveSessions?: () => Map,
  * }} deps
  */
 module.exports = function mountAdminTransactionRoutes(app, db, deps) {
-  const { requireRole } = deps;
+  const { requireRole, getActiveSessions } = deps;
 
   const adminReadLimiter = rateLimit({
     windowMs: 60 * 1000,
@@ -328,6 +331,60 @@ module.exports = function mountAdminTransactionRoutes(app, db, deps) {
           totalAdminAdjusts: summaryRow ? Math.round(summaryRow.totalAdminAdjusts * 100) / 100 : 0,
         },
         pagination: { page, limit, total, pages },
+      });
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // GET /api/admin/transactions/orphaned-holds
+  // Read-only: find hold transactions with no corresponding deduct transaction
+  // (sharing the same reference_id), older than the grace period.
+  // Excludes holds with NULL reference_id (legacy data).
+  // Excludes holds whose reference_id belongs to a currently active session.
+  // Admin only.
+  // -------------------------------------------------------------------------
+  app.get(
+    '/api/admin/transactions/orphaned-holds',
+    adminReadLimiter,
+    requireRole('admin'),
+    (req, res) => {
+      const rows = db.prepare(
+        `SELECT t.id, t.user_id, u.username, t.amount, t.balance_after,
+                t.description, t.reference_id, t.created_at
+         FROM transactions t
+         LEFT JOIN users u ON u.id = t.user_id
+         WHERE t.type = 'hold'
+           AND t.reference_id IS NOT NULL
+           AND NOT EXISTS (
+             SELECT 1 FROM transactions t2
+             WHERE t2.reference_id = t.reference_id AND t2.type = 'deduct'
+           )
+           AND t.created_at < datetime('now', '-${ORPHAN_GRACE_MINUTES} minutes')
+         ORDER BY t.created_at DESC
+         LIMIT 100`
+      ).all();
+
+      // Collect active session refs to exclude
+      let activeSessionRefs = new Set();
+      try {
+        const activeSessions = typeof getActiveSessions === 'function' ? getActiveSessions() : null;
+        if (activeSessions) {
+          for (const session of activeSessions.values()) {
+            if (session.sessionRef) activeSessionRefs.add(session.sessionRef);
+          }
+        }
+      } catch (_) {
+        // Skip exclusion gracefully if unavailable
+      }
+
+      const items = rows
+        .filter((r) => !activeSessionRefs.has(r.reference_id))
+        .map((r) => ({ ...r, status: 'orphaned' }));
+
+      res.json({
+        items,
+        total: items.length,
+        activeSessionRefs: activeSessionRefs.size,
       });
     }
   );

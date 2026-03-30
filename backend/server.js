@@ -416,7 +416,7 @@ const mountAdminSessionRoutes = require('./routes/admin-sessions');
 mountAdminSessionRoutes(app, db, adminRouteDeps);
 
 const mountAdminTransactionRoutes = require('./routes/admin-transactions');
-mountAdminTransactionRoutes(app, db, adminRouteDeps);
+mountAdminTransactionRoutes(app, db, { ...adminRouteDeps, getActiveSessions: () => socketState && socketState.activeSessions });
 
 const mountAdminAnalyticsRoutes = require('./routes/admin-analytics');
 mountAdminAnalyticsRoutes(app, db, adminRouteDeps);
@@ -693,7 +693,7 @@ app.get('/api/config/video', (req, res) => {
 
 // End session via HTTP (used by navigator.sendBeacon on page unload)
 app.post('/api/session/end', (req, res) => {
-  const { sessionId, dbUserId } = req.body || {};
+  const { sessionId, dbUserId, sessionRef: bodySessionRef } = req.body || {};
   if (!sessionId || typeof sessionId !== 'string') {
     return res.status(400).json({ ended: false, message: 'Invalid sessionId.' });
   }
@@ -709,8 +709,9 @@ app.post('/api/session/end', (req, res) => {
   const cost = durationMinutes * RATE_PER_MINUTE;
   socketState.activeSessions.delete(sessionId);
   const effectiveDbUserId = session.dbUserId || (Number.isInteger(dbUserId) ? dbUserId : null);
+  const effectiveSessionRef = session.sessionRef || (typeof bodySessionRef === 'string' ? bodySessionRef : null);
   saveRentalSession(effectiveDbUserId, session.carId, durationSeconds, cost);
-  socketState.processHoldDeduct(effectiveDbUserId, session.holdAmount, cost, session.carId, durationSeconds);
+  socketState.processHoldDeduct(effectiveDbUserId, session.holdAmount, cost, session.carId, durationSeconds, effectiveSessionRef);
   socketState.broadcastCarsUpdate();
   metrics.log('info', 'session_end', {
     userId: session.userId,
@@ -954,33 +955,51 @@ if (process.env.NODE_ENV !== 'production') {
     const { carId } = req.body || {};
     if (!carId) return res.status(400).json({ error: 'carId required' });
     const sessionId = `dev-injected-${carId}-${Date.now()}`;
+    const crypto = require('crypto');
     socketState.activeSessions.set(sessionId, {
       carId: Number(carId),
       userId: 'dev-test',
       dbUserId: 0,
       startTime: new Date(),
       holdAmount: 0,
+      sessionRef: crypto.randomUUID(),
     });
     res.json({ success: true, sessionId });
   });
 
   // Dev helper: insert a transaction directly for testing.
   app.post('/api/dev/transactions/insert', devLimiter, (req, res) => {
-    const { user_id, type, amount, balance_after, description, reference_id, admin_id } = req.body || {};
+    const { user_id, type, amount, balance_after, description, reference_id, admin_id, created_at } = req.body || {};
     if (!user_id || !type || amount === undefined || balance_after === undefined) {
       return res.status(400).json({ error: 'user_id, type, amount, balance_after required' });
     }
-    const result = db.prepare(
-      'INSERT INTO transactions (user_id, type, amount, balance_after, description, reference_id, admin_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).run(
-      Number(user_id),
-      String(type),
-      Number(amount),
-      Number(balance_after),
-      description || null,
-      reference_id || null,
-      admin_id ? Number(admin_id) : null
-    );
+    let result;
+    if (created_at && typeof created_at === 'string') {
+      result = db.prepare(
+        'INSERT INTO transactions (user_id, type, amount, balance_after, description, reference_id, admin_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      ).run(
+        Number(user_id),
+        String(type),
+        Number(amount),
+        Number(balance_after),
+        description || null,
+        reference_id || null,
+        admin_id ? Number(admin_id) : null,
+        created_at,
+      );
+    } else {
+      result = db.prepare(
+        'INSERT INTO transactions (user_id, type, amount, balance_after, description, reference_id, admin_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ).run(
+        Number(user_id),
+        String(type),
+        Number(amount),
+        Number(balance_after),
+        description || null,
+        reference_id || null,
+        admin_id ? Number(admin_id) : null
+      );
+    }
     const row = db.prepare('SELECT * FROM transactions WHERE id = ?').get(result.lastInsertRowid);
     res.json({ success: true, transaction: row });
   });

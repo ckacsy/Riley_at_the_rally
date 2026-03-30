@@ -982,8 +982,11 @@
         function sendEndSessionBeacon(socketId) {
             if (!socketId) return;
             try {
+                const currentSession = getActiveSession() || {};
+                const payload = { sessionId: socketId };
+                if (currentSession.sessionRef) payload.sessionRef = currentSession.sessionRef;
                 const blob = new Blob(
-                    [JSON.stringify({ sessionId: socketId })],
+                    [JSON.stringify(payload)],
                     { type: 'application/json' }
                 );
                 navigator.sendBeacon('/api/session/end', blob);
@@ -1099,8 +1102,8 @@
         }, 15000);
 
         socket.on('session_started', function (data) {
-            // Update sessionStorage with new socket-based sessionId
-            const updated = Object.assign({}, sessionData, { sessionId: data.sessionId });
+            // Update sessionStorage with new socket-based sessionId and sessionRef
+            const updated = Object.assign({}, sessionData, { sessionId: data.sessionId, sessionRef: data.sessionRef || null });
             sessionStorage.setItem('activeSession', JSON.stringify(updated));
             // Start client-side countdown timers if server provided values
             if (data.sessionMaxDurationMs && data.inactivityTimeoutMs) {

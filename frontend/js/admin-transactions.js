@@ -33,6 +33,10 @@ if (typeof AdminFilters === 'undefined') throw new Error('admin-filters.js must 
     var ledgerPagination, ledgerBtnPrev, ledgerBtnNext, ledgerPaginationInfo;
     var btnLedgerClose;
 
+    // Orphaned holds DOM refs
+    var orphanedHoldsLoading, orphanedHoldsEmpty, orphanedHoldsTableWrapper, orphanedHoldsTbody;
+    var orphanedHoldsBadge, btnRefreshOrphaned;
+
     // Shared filter helper (initialised in init after DOM is ready)
     var filterHelper;
 
@@ -302,6 +306,63 @@ if (typeof AdminFilters === 'undefined') throw new Error('admin-filters.js must 
     }
 
     // ---------------------------------------------------------------------------
+    // Orphaned Holds
+    // ---------------------------------------------------------------------------
+    function loadOrphanedHolds() {
+        orphanedHoldsLoading.hidden = false;
+        orphanedHoldsEmpty.hidden = true;
+        orphanedHoldsTableWrapper.hidden = true;
+        orphanedHoldsBadge.style.display = 'none';
+
+        AdminApi.adminFetch('/api/admin/transactions/orphaned-holds')
+            .then(function (data) {
+                orphanedHoldsLoading.hidden = true;
+                var items = data.items || [];
+                if (items.length === 0) {
+                    orphanedHoldsEmpty.hidden = false;
+                    return;
+                }
+                orphanedHoldsTbody.innerHTML = '';
+                items.forEach(function (item) {
+                    var tr = document.createElement('tr');
+
+                    var tdDate = document.createElement('td');
+                    tdDate.className = 'nowrap';
+                    tdDate.textContent = AdminUi.formatDateTime(item.created_at);
+                    tr.appendChild(tdDate);
+
+                    var tdUser = document.createElement('td');
+                    tdUser.className = 'nowrap';
+                    tdUser.textContent = item.username || (item.user_id ? ('#' + item.user_id) : '—');
+                    tr.appendChild(tdUser);
+
+                    var tdAmt = document.createElement('td');
+                    tdAmt.className = 'nowrap amount-negative';
+                    tdAmt.textContent = AdminUi.formatMoney(item.amount, { signed: true });
+                    tr.appendChild(tdAmt);
+
+                    var tdRef = document.createElement('td');
+                    tdRef.textContent = item.reference_id || '—';
+                    tr.appendChild(tdRef);
+
+                    var tdDesc = document.createElement('td');
+                    tdDesc.textContent = item.description || '—';
+                    tr.appendChild(tdDesc);
+
+                    orphanedHoldsTbody.appendChild(tr);
+                });
+                orphanedHoldsTableWrapper.hidden = false;
+                orphanedHoldsBadge.textContent = String(items.length);
+                orphanedHoldsBadge.style.display = '';
+            })
+            .catch(function (err) {
+                orphanedHoldsLoading.hidden = true;
+                orphanedHoldsEmpty.hidden = false;
+                orphanedHoldsEmpty.textContent = 'Ошибка загрузки: ' + (err.message || 'Неизвестная ошибка');
+            });
+    }
+
+    // ---------------------------------------------------------------------------
     // Init
     // ---------------------------------------------------------------------------
     function init() {
@@ -386,6 +447,23 @@ if (typeof AdminFilters === 'undefined') throw new Error('admin-filters.js must 
             }
         });
 
+        // Orphaned holds
+        orphanedHoldsLoading = document.getElementById('orphaned-holds-loading');
+        orphanedHoldsEmpty = document.getElementById('orphaned-holds-empty');
+        orphanedHoldsTableWrapper = document.getElementById('orphaned-holds-table-wrapper');
+        orphanedHoldsTbody = document.getElementById('orphaned-holds-tbody');
+        orphanedHoldsBadge = document.getElementById('orphaned-holds-badge');
+        btnRefreshOrphaned = document.getElementById('btn-refresh-orphaned');
+        btnRefreshOrphaned.addEventListener('click', loadOrphanedHolds);
+
+        var orphanedHoldsHeader = document.getElementById('orphaned-holds-header');
+        var orphanedHoldsBody = document.getElementById('orphaned-holds-body');
+        var orphanedHoldsToggleHint = document.getElementById('orphaned-holds-toggle-hint');
+        orphanedHoldsHeader.addEventListener('click', function () {
+            orphanedHoldsBody.hidden = !orphanedHoldsBody.hidden;
+            orphanedHoldsToggleHint.textContent = orphanedHoldsBody.hidden ? '▶' : '▼';
+        });
+
         // Delegate username clicks in main table
         transactionsTbody.addEventListener('click', function (e) {
             var target = e.target;
@@ -399,6 +477,7 @@ if (typeof AdminFilters === 'undefined') throw new Error('admin-filters.js must 
         // Hydrate form from URL and load initial data
         currentPage = filterHelper.hydrateFormFromUrl();
         loadTransactions(filterHelper.getFilters(), currentPage);
+        loadOrphanedHolds();
     }
 
     // ---------------------------------------------------------------------------
