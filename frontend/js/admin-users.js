@@ -28,6 +28,17 @@
     var adjustSubmitBtn   = document.getElementById('modal-adjust-submit');
     var adjustCancelBtn   = document.getElementById('modal-adjust-cancel');
 
+    // Compensation modal elements
+    var modalComp     = document.getElementById('modal-compensation');
+    var compFlashEl   = document.getElementById('comp-flash');
+    var compAmountEl  = document.getElementById('comp-amount');
+    var compReasonEl  = document.getElementById('comp-reason');
+    var compNoteEl    = document.getElementById('comp-note');
+    var compKeyEl     = document.getElementById('comp-idempotency-key');
+    var compUserIdEl  = document.getElementById('comp-user-id');
+    var compSubmitBtn = document.getElementById('modal-comp-submit');
+    var compCancelBtn = document.getElementById('modal-comp-cancel');
+
     // -------------------------------------------------------------------------
     // Bootstrap
     // -------------------------------------------------------------------------
@@ -147,6 +158,14 @@
             wrap.appendChild(adjustBtn);
         }
 
+        // Compensation — admin only
+        if (!isSelf && user.status !== 'deleted' && _currentUser && _currentUser.role === 'admin') {
+            var compBtn = makeButton('Компенсация', 'btn-sm btn-compensation', function () {
+                openCompensationModal(user);
+            });
+            wrap.appendChild(compBtn);
+        }
+
         // Delete — only for admin users
         if (_currentUser && _currentUser.role === 'admin' && !isSelf && user.status !== 'deleted') {
             var deleteBtn = makeButton('Удалить', 'btn-sm btn-delete', function () {
@@ -263,6 +282,67 @@
                 adjustSubmitBtn.disabled = false;
                 // Generate new key for next attempt
                 adjustKeyEl.value = generateUUID();
+            });
+    });
+
+    // -------------------------------------------------------------------------
+    // Compensation Modal
+    // -------------------------------------------------------------------------
+    function openCompensationModal(user) {
+        compUserIdEl.value = String(user.id);
+        compAmountEl.value = '';
+        compReasonEl.value = '';
+        compNoteEl.value = '';
+        compKeyEl.value = generateUUID();
+        AdminUi.clearFlash(compFlashEl);
+        compSubmitBtn.disabled = false;
+        modalComp.hidden = false;
+        compAmountEl.focus();
+    }
+
+    function closeCompensationModal() {
+        modalComp.hidden = true;
+    }
+
+    compCancelBtn.addEventListener('click', closeCompensationModal);
+    modalComp.addEventListener('click', function (e) {
+        if (e.target === modalComp) closeCompensationModal();
+    });
+
+    compSubmitBtn.addEventListener('click', function () {
+        var userId = compUserIdEl.value;
+        var amount = parseFloat(compAmountEl.value);
+        var reasonCode = compReasonEl.value;
+        var note = compNoteEl.value.trim();
+        var key = compKeyEl.value;
+
+        if (isNaN(amount) || !isFinite(amount) || amount <= 0) {
+            AdminUi.showFlash(compFlashEl, 'Сумма должна быть положительной', 'error', 0);
+            return;
+        }
+        if (amount > 10000) {
+            AdminUi.showFlash(compFlashEl, 'Сумма не может превышать 10 000', 'error', 0);
+            return;
+        }
+        if (!reasonCode) {
+            AdminUi.showFlash(compFlashEl, 'Выберите причину компенсации', 'error', 0);
+            return;
+        }
+
+        compSubmitBtn.disabled = true;
+        AdminApi.adminFetch('/api/admin/users/' + userId + '/compensations', {
+            method: 'POST',
+            body: { amount: amount, reason_code: reasonCode, note: note || undefined, idempotency_key: key },
+        })
+            .then(function (data) {
+                closeCompensationModal();
+                AdminUi.showFlash(flashEl, 'Компенсация начислена: ' + data.balance, 'success');
+                loadUsers();
+            })
+            .catch(function (err) {
+                AdminUi.showFlash(compFlashEl, err.message, 'error', 0);
+                compSubmitBtn.disabled = false;
+                compKeyEl.value = generateUUID();
             });
     });
 

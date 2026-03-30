@@ -5,7 +5,7 @@ const rateLimit = require('express-rate-limit');
 /**
  * Known transaction types — used for validation whitelist.
  */
-const KNOWN_TYPES = ['hold', 'release', 'deduct', 'topup', 'admin_adjust'];
+const KNOWN_TYPES = ['hold', 'release', 'deduct', 'topup', 'admin_adjust', 'admin_compensation'];
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 

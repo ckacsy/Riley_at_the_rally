@@ -3,6 +3,17 @@
 const rateLimit = require('express-rate-limit');
 const { canActOn } = require('../middleware/roles');
 
+const MAX_COMPENSATION_AMOUNT = 10000;
+
+const REASON_LABELS = {
+  service_issue: 'Проблема с сервисом',
+  billing_error: 'Ошибка биллинга',
+  goodwill_credit: 'Жест доброй воли',
+  session_interruption: 'Прерывание сессии',
+};
+
+const COMPENSATION_REASONS = Object.keys(REASON_LABELS);
+
 /**
  * Mount admin user-management routes.
  *
@@ -493,6 +504,174 @@ module.exports = function mountAdminRoutes(app, db, deps) {
           description: result.transaction.description,
           created_at: result.transaction.created_at,
         },
+      });
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // POST /api/admin/users/:id/compensations
+  // -------------------------------------------------------------------------
+  app.post(
+    '/api/admin/users/:id/compensations',
+    adminWriteLimiter,
+    requireRole('admin'),
+    csrfMiddleware,
+    (req, res) => {
+      const actor = req.user;
+      const targetId = parseInt(req.params.id, 10);
+      if (!Number.isInteger(targetId)) {
+        return res.status(400).json({ error: 'Invalid user id' });
+      }
+
+      if (actor.id === targetId) {
+        return res.status(403).json({ error: 'Cannot compensate yourself' });
+      }
+
+      const target = stmtGetUserById.get(targetId);
+      if (!target) return res.status(404).json({ error: 'User not found' });
+
+      if (target.status === 'deleted') {
+        return res.status(400).json({ error: 'Cannot compensate a deleted user' });
+      }
+
+      if (!canActOn(actor, target)) {
+        return res.status(403).json({ error: 'forbidden', message: 'Недостаточно прав' });
+      }
+
+      const { amount, reason_code, note, idempotency_key } = req.body || {};
+
+      // Validate amount
+      const numAmount = Number(amount);
+      if (amount === undefined || amount === null || !Number.isFinite(numAmount)) {
+        return res.status(400).json({ error: 'amount must be a finite number' });
+      }
+      if (numAmount <= 0) {
+        return res.status(400).json({ error: 'amount must be positive' });
+      }
+      if (numAmount > MAX_COMPENSATION_AMOUNT) {
+        return res.status(400).json({ error: `amount exceeds maximum of ${MAX_COMPENSATION_AMOUNT}` });
+      }
+
+      // Validate reason_code
+      if (!reason_code || !COMPENSATION_REASONS.includes(reason_code)) {
+        return res.status(400).json({ error: 'reason_code must be one of: ' + COMPENSATION_REASONS.join(', ') });
+      }
+
+      // Validate note (optional)
+      let trimmedNote = null;
+      if (note !== undefined && note !== null) {
+        if (typeof note !== 'string') {
+          return res.status(400).json({ error: 'note must be a string' });
+        }
+        trimmedNote = note.trim();
+        if (trimmedNote.length > 500) {
+          return res.status(400).json({ error: 'note must not exceed 500 characters' });
+        }
+        if (trimmedNote.length === 0) trimmedNote = null;
+      }
+
+      // Validate idempotency_key
+      if (!idempotency_key || typeof idempotency_key !== 'string' || !idempotency_key.trim()) {
+        return res.status(400).json({ error: 'idempotency_key is required' });
+      }
+
+      const reasonLabel = REASON_LABELS[reason_code];
+      const description = trimmedNote
+        ? `Компенсация: ${reasonLabel} — ${trimmedNote}`
+        : `Компенсация: ${reasonLabel}`;
+
+      const result = db.transaction(() => {
+        // Check for existing transaction with same idempotency key
+        const existing = db
+          .prepare(
+            `SELECT id, user_id, type, amount, balance_after, description, created_at, admin_id, idempotency_key
+               FROM transactions
+              WHERE idempotency_key = ?`
+          )
+          .get(idempotency_key);
+
+        if (existing) {
+          if (
+            existing.type !== 'admin_compensation' ||
+            existing.user_id !== targetId ||
+            existing.admin_id !== actor.id
+          ) {
+            return { conflict: true };
+          }
+          const currentUser = stmtGetUserById.get(existing.user_id);
+          return { idempotent: true, transaction: existing, user: currentUser };
+        }
+
+        // Compute new balance
+        const currentUser = stmtGetUserById.get(targetId);
+        const currentBalance = currentUser.balance || 0;
+        const newBalance = currentBalance + numAmount;
+
+        // Update balance
+        db.prepare(
+          'UPDATE users SET balance = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+        ).run(newBalance, targetId);
+
+        // Read back new balance
+        const updatedUser = stmtGetUserById.get(targetId);
+
+        // Insert transaction
+        const txResult = db.prepare(
+          `INSERT INTO transactions
+             (user_id, type, amount, balance_after, description, admin_id, idempotency_key)
+           VALUES (?, 'admin_compensation', ?, ?, ?, ?, ?)`
+        ).run(targetId, numAmount, newBalance, description, actor.id, idempotency_key);
+
+        const txRow = db
+          .prepare('SELECT * FROM transactions WHERE id = ?')
+          .get(txResult.lastInsertRowid);
+
+        return {
+          idempotent: false,
+          transaction: txRow,
+          user: updatedUser,
+          currentBalance,
+          newBalance,
+        };
+      })();
+
+      if (result.conflict) {
+        return res.status(409).json({ error: 'idempotency_key_conflict' });
+      }
+
+      if (!result.idempotent) {
+        logAdminAudit({
+          adminId: actor.id,
+          action: 'admin_compensation_create',
+          targetType: 'user',
+          targetId,
+          details: {
+            amount: numAmount,
+            reason_code,
+            note: trimmedNote || null,
+            balance_before: result.currentBalance,
+            balance_after: result.newBalance,
+            idempotency_key,
+          },
+          ipAddress: req.ip || null,
+          userAgent: req.headers['user-agent'] || null,
+        });
+      }
+
+      res.json({
+        success: true,
+        idempotent: result.idempotent,
+        compensation: {
+          id: result.transaction.id,
+          type: result.transaction.type,
+          amount: result.transaction.amount,
+          balance_after: result.transaction.balance_after,
+          description: result.transaction.description,
+          reason_code,
+          created_at: result.transaction.created_at,
+        },
+        balance: result.user.balance,
+        user: result.user,
       });
     }
   );
