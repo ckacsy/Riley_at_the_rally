@@ -92,7 +92,11 @@
             color: #fff; font-size: 14px;
         }
         .modal-field input:focus { outline: none; border-color: rgba(255,255,255,0.3); }
-        .modal-field select { appearance: none; }
+        .modal-field select {
+            appearance: none; width: 100%; padding: 8px 12px; border-radius: 8px;
+            background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15);
+            color: #fff; font-size: 14px;
+        }
         .modal-field select:focus { outline: none; border-color: rgba(255,255,255,0.3); }
         .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
         .btn-modal-cancel {
@@ -107,6 +111,10 @@
         }
         .btn-modal-submit:disabled { opacity: 0.5; cursor: not-allowed; }
         #modal-flash { margin-bottom: 12px; }
+        #comp-flash { margin-bottom: 12px; }
+        .modal-desc {
+            font-size: 13px; color: rgba(255,255,255,0.5); margin-bottom: 14px;
+        }
 
         [hidden] { display: none !important; }
         #admin-loading {
@@ -180,7 +188,7 @@
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-comp-title">
         <h2 id="modal-comp-title">Начисление компенсации</h2>
         <div id="comp-flash"></div>
-        <p style="font-size:13px; color:rgba(255,255,255,0.5); margin-bottom:14px;">
+        <p class="modal-desc">
             Средства будут зачислены на внутренний баланс пользователя
         </p>
         <div class="modal-field">
@@ -189,7 +197,7 @@
         </div>
         <div class="modal-field">
             <label for="comp-reason">Причина</label>
-            <select id="comp-reason" style="width:100%; padding:8px 12px; border-radius:8px; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.15); color:#fff; font-size:14px;">
+            <select id="comp-reason">
                 <option value="">— Выберите причину —</option>
                 <option value="service_issue">Проблема с сервисом</option>
                 <option value="billing_error">Ошибка биллинга</option>
