@@ -459,6 +459,7 @@ const socketState = setupSocketIo(io, {
 app.locals.getActiveSessions = () => socketState.activeSessions;
 app.locals.getCars = () => CARS;
 app.locals.getRatePerMinute = () => RATE_PER_MINUTE;
+app.locals.forceEndSession = (carId, adminContext) => socketState.forceEndSession(carId, adminContext);
 
 // Car availability status tracking
 let carStatusLastUpdated = new Date().toISOString();

@@ -835,6 +835,87 @@ function setupSocketIo(io, deps) {
     });
   });
 
+  /**
+   * Force-end the active session for a given carId.
+   * Used by the admin force-end route.
+   *
+   * @param {number} carId
+   * @param {{ adminId: number, adminUsername: string }} adminContext
+   * @returns {{ ended: boolean, session?: object, message?: string }}
+   */
+  function forceEndSession(carId, adminContext) {
+    // Find the socketId that owns a session on this carId
+    let targetSocketId = null;
+    let targetSession = null;
+    for (const [sid, session] of activeSessions) {
+      if (session.carId === carId) {
+        targetSocketId = sid;
+        targetSession = session;
+        break;
+      }
+    }
+
+    if (!targetSocketId || !targetSession) {
+      return { ended: false, message: 'No active session' };
+    }
+
+    // Clear timers
+    clearInactivityTimeout(targetSocketId);
+    clearSessionDurationTimeout(targetSocketId);
+
+    // Calculate duration and cost (same as normal end flow)
+    const endTime = new Date();
+    const durationMs = endTime - targetSession.startTime;
+    const durationSeconds = Math.floor(durationMs / 1000);
+    const durationMinutes = durationMs / 60000;
+    const cost = durationMinutes * RATE_PER_MINUTE;
+
+    // Remove from active sessions map (must happen before save to prevent duplicate ends)
+    activeSessions.delete(targetSocketId);
+
+    // Persist rental session and process balance
+    saveRentalSession(targetSession.dbUserId, targetSession.carId, durationSeconds, cost);
+    processHoldDeduct(targetSession.dbUserId, targetSession.holdAmount, cost, targetSession.carId, durationSeconds);
+
+    // Notify the client socket
+    const targetSocket = io.sockets.sockets.get(targetSocketId);
+    if (targetSocket) {
+      targetSocket.emit('session_ended', {
+        carId: targetSession.carId,
+        durationSeconds,
+        cost,
+        reason: 'admin_force_end',
+      });
+    }
+
+    // Broadcast updated car availability
+    broadcastCarsUpdate();
+
+    metrics.log('info', 'session_force_end', {
+      adminId: adminContext ? adminContext.adminId : null,
+      adminUsername: adminContext ? adminContext.adminUsername : null,
+      userId: targetSession.userId,
+      dbUserId: targetSession.dbUserId,
+      carId: targetSession.carId,
+      durationSeconds,
+      cost: parseFloat(cost.toFixed(4)),
+    });
+
+    const carName = CARS.find((c) => c.id === targetSession.carId)?.name || ('Машина #' + targetSession.carId);
+
+    return {
+      ended: true,
+      session: {
+        carId: targetSession.carId,
+        carName,
+        userId: targetSession.dbUserId || null,
+        username: targetSession.userId || null,
+        durationSeconds,
+        cost: Math.round(cost * 100) / 100,
+      },
+    };
+  }
+
   return {
     activeSessions,
     raceRooms,
@@ -846,6 +927,7 @@ function setupSocketIo(io, deps) {
     clearSessionDurationTimeout,
     broadcastCarsUpdate,
     processHoldDeduct,
+    forceEndSession,
   };
 }
 
