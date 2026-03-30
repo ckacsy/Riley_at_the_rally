@@ -303,6 +303,7 @@
 
     function closeCompensationModal() {
         modalComp.hidden = true;
+        document.getElementById('modal-comp-title').textContent = 'Начисление компенсации';
     }
 
     compCancelBtn.addEventListener('click', closeCompensationModal);
