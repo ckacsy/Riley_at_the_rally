@@ -159,6 +159,22 @@
     }
 
     /**
+     * Return the human-readable Russian label for a transaction type.
+     * @param {string} type  e.g. 'topup', 'hold', 'release', 'deduct', 'admin_adjust'
+     * @returns {string}
+     */
+    function typeBadgeLabel(type) {
+        var labels = {
+            topup: 'Пополнение',
+            hold: 'Холд',
+            release: 'Возврат',
+            deduct: 'Списание',
+            admin_adjust: 'Корректировка',
+        };
+        return labels[type] || type || '—';
+    }
+
+    /**
      * Build an HTML badge element for a transaction type.
      * @param {string} type  e.g. 'topup', 'hold', 'release', 'deduct', 'admin_adjust'
      * @returns {HTMLElement}
@@ -182,6 +198,7 @@
         esc: esc,
         formatDuration: formatDuration,
         formatMoney: formatMoney,
+        typeBadgeLabel: typeBadgeLabel,
         typeBadge: typeBadge,
     };
 })(window);

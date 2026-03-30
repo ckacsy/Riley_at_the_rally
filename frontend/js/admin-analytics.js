@@ -1,5 +1,8 @@
 'use strict';
 
+if (typeof AdminUi === 'undefined') throw new Error('admin-ui.js must be loaded before admin-analytics.js');
+if (typeof AdminApi === 'undefined') throw new Error('admin-api.js must be loaded before admin-analytics.js');
+
 /**
  * Admin analytics dashboard.
  * Read-only KPI and breakdown view for admin.
@@ -138,11 +141,6 @@
         return row;
     }
 
-    function typeBadgeText(type) {
-        var labels = { topup: 'Пополнение', hold: 'Холд', release: 'Возврат', deduct: 'Списание', admin_adjust: 'Корректировка' };
-        return labels[type] || type;
-    }
-
     // ---------------------------------------------------------------------------
     // Render overview
     // ---------------------------------------------------------------------------
@@ -167,7 +165,7 @@
         } else {
             byType.forEach(function (row) {
                 var card = makeBreakdownCard(
-                    typeBadgeText(row.type),
+                    AdminUi.typeBadgeLabel(row.type),
                     AdminUi.formatMoney(row.total || 0),
                     row.count + ' операций'
                 );

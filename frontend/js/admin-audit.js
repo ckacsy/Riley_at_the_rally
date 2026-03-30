@@ -1,5 +1,9 @@
 'use strict';
 
+if (typeof AdminUi === 'undefined') throw new Error('admin-ui.js must be loaded before admin-audit.js');
+if (typeof AdminApi === 'undefined') throw new Error('admin-api.js must be loaded before admin-audit.js');
+if (typeof AdminFilters === 'undefined') throw new Error('admin-filters.js must be loaded before admin-audit.js');
+
 /**
  * Admin audit log viewer.
  * Strict admin only — uses AdminApi.requireStrictAdmin().
