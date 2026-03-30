@@ -9,10 +9,12 @@ const rateLimit = require('express-rate-limit');
  * @param {import('better-sqlite3').Database} db
  * @param {{
  *   requireRole: (...roles: string[]) => Function,
+ *   csrfMiddleware: Function,
+ *   logAdminAudit: Function,
  * }} deps
  */
 module.exports = function mountAdminSessionRoutes(app, db, deps) {
-  const { requireRole } = deps;
+  const { requireRole, csrfMiddleware, logAdminAudit } = deps;
 
   const adminReadLimiter = rateLimit({
     windowMs: 60 * 1000,
@@ -23,6 +25,18 @@ module.exports = function mountAdminSessionRoutes(app, db, deps) {
     keyGenerator: (req) => req.ip,
     skip: () => process.env.NODE_ENV === 'test',
   });
+
+  const adminMutationLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Слишком много запросов. Попробуйте позже.' },
+    keyGenerator: (req) => req.ip,
+    skip: () => process.env.NODE_ENV === 'test',
+  });
+
+  const VALID_FORCE_END_REASONS = ['stuck_session', 'car_offline', 'operator_intervention'];
 
   const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -291,6 +305,75 @@ module.exports = function mountAdminSessionRoutes(app, db, deps) {
       }
 
       res.json({ session, transactions });
+    }
+  );
+  // -------------------------------------------------------------------------
+  // POST /api/admin/sessions/active/:carId/force-end
+  // Admin-only: force-end an active rental session by carId.
+  // -------------------------------------------------------------------------
+  app.post(
+    '/api/admin/sessions/active/:carId/force-end',
+    adminMutationLimiter,
+    csrfMiddleware,
+    requireRole('admin'),
+    (req, res) => {
+      const carId = parseInt(req.params.carId, 10);
+      if (!Number.isInteger(carId) || carId < 1) {
+        return res.status(400).json({ error: 'Invalid carId' });
+      }
+
+      const { reason, note } = req.body || {};
+
+      if (!reason || typeof reason !== 'string') {
+        return res.status(400).json({ error: 'reason is required' });
+      }
+      if (!VALID_FORCE_END_REASONS.includes(reason)) {
+        return res.status(400).json({
+          error: 'Invalid reason. Must be one of: ' + VALID_FORCE_END_REASONS.join(', '),
+        });
+      }
+
+      const trimmedNote = note && typeof note === 'string' ? note.trim() : null;
+
+      const admin = req.user;
+      const adminContext = { adminId: admin.id, adminUsername: admin.username };
+
+      const forceEndSession = app.locals.forceEndSession;
+      if (typeof forceEndSession !== 'function') {
+        return res.status(503).json({ error: 'Service unavailable' });
+      }
+
+      const result = forceEndSession(carId, adminContext);
+
+      logAdminAudit({
+        adminId: admin.id,
+        action: 'force_end_session',
+        targetType: 'car',
+        targetId: carId,
+        details: {
+          ended: result.ended,
+          reason,
+          note: trimmedNote || null,
+          carId,
+          carName: result.session ? result.session.carName : null,
+          affectedUserId: result.session ? result.session.userId : null,
+          affectedUsername: result.session ? result.session.username : null,
+          durationSeconds: result.session ? result.session.durationSeconds : null,
+          cost: result.session ? result.session.cost : null,
+        },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'] || null,
+      });
+
+      if (!result.ended) {
+        return res.json({ ended: false, message: 'No active session' });
+      }
+
+      return res.json({
+        ended: true,
+        message: 'Session force-ended',
+        session: result.session,
+      });
     }
   );
 };

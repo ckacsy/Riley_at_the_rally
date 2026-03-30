@@ -564,3 +564,584 @@ test('admin landing page shows Sessions card for moderator', async ({ page }) =>
   await expect(page.locator('#admin-content')).toBeVisible({ timeout: 8000 });
   await expect(page.locator('#card-sessions')).toBeVisible({ timeout: 4000 });
 });
+
+// ---------------------------------------------------------------------------
+// Helpers for socket-based active session setup
+// ---------------------------------------------------------------------------
+
+async function injectActiveSession(
+  page: import('@playwright/test').Page,
+  carId: number,
+  userId: string,
+  dbUserId: number | null,
+): Promise<void> {
+  await page.addInitScript(
+    ({ carId, userId, dbUserId }) => {
+      sessionStorage.setItem(
+        'activeSession',
+        JSON.stringify({
+          carId,
+          carName: 'Test Car',
+          startTime: new Date().toISOString(),
+          sessionId: 'pending',
+          userId,
+          dbUserId,
+          ratePerMinute: 0.5,
+          selectedRaceId: null,
+        }),
+      );
+    },
+    { carId, userId, dbUserId },
+  );
+}
+
+async function setupSocketCapture(page: import('@playwright/test').Page): Promise<void> {
+  await page.addInitScript(() => {
+    (window as any).__socketEventStore = {};
+    let _ioValue: any;
+    Object.defineProperty(window, 'io', {
+      configurable: true,
+      get() { return _ioValue; },
+      set(v: any) {
+        _ioValue = function (this: any, ...args: any[]) {
+          const sock = v.apply(this, args);
+          (window as any).__testSocket = sock;
+          const trackedEvents = ['session_started', 'session_error', 'session_ended'];
+          for (const evt of trackedEvents) {
+            sock.on(evt, (data: any) => {
+              (window as any).__socketEventStore[evt] = data !== undefined ? data : null;
+            });
+          }
+          return sock;
+        };
+      },
+    });
+  });
+}
+
+async function waitForSocketEvent(
+  page: import('@playwright/test').Page,
+  eventName: string,
+  timeout = 8000,
+): Promise<any> {
+  return page.evaluate(
+    ({ evt, ms }) =>
+      new Promise<any>((resolve, reject) => {
+        const store = (window as any).__socketEventStore;
+        if (store && Object.prototype.hasOwnProperty.call(store, evt)) {
+          resolve(store[evt]);
+          return;
+        }
+        const timer = setTimeout(
+          () => {
+            clearInterval(interval);
+            reject(new Error(`Socket event '${evt}' not received within ${ms}ms`));
+          },
+          ms,
+        );
+        const interval = setInterval(() => {
+          const s = (window as any).__socketEventStore;
+          if (s && Object.prototype.hasOwnProperty.call(s, evt)) {
+            clearInterval(interval);
+            clearTimeout(timer);
+            resolve(s[evt]);
+          }
+        }, 50);
+      }),
+    { evt: eventName, ms: timeout },
+  );
+}
+
+// ---------------------------------------------------------------------------
+// API Tests: POST /api/admin/sessions/active/:carId/force-end
+// ---------------------------------------------------------------------------
+
+test.describe('POST /api/admin/sessions/active/:carId/force-end', () => {
+  test('unauthenticated gets 401', async ({ page }) => {
+    await resetDb(page);
+    const csrfToken = await getCsrfToken(page);
+    const res = await page.request.post('/api/admin/sessions/active/1/force-end', {
+      data: { reason: 'stuck_session' },
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test('moderator gets 403', async ({ page }) => {
+    await resetDb(page);
+    await registerUser(page, 'femod1', 'femod1@test.com');
+    await activateUser(page, 'femod1');
+    await setUserRole(page, 'femod1', 'moderator');
+    await loginUser(page, 'femod1');
+
+    const csrfToken = await getCsrfToken(page);
+    const res = await page.request.post('/api/admin/sessions/active/1/force-end', {
+      data: { reason: 'stuck_session' },
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+    expect(res.status()).toBe(403);
+  });
+
+  test('missing CSRF token is rejected', async ({ page }) => {
+    await resetDb(page);
+    await registerUser(page, 'fecsrf1', 'fecsrf1@test.com');
+    await activateUser(page, 'fecsrf1');
+    await setUserRole(page, 'fecsrf1', 'admin');
+    await loginUser(page, 'fecsrf1');
+
+    const res = await page.request.post('/api/admin/sessions/active/1/force-end', {
+      data: { reason: 'stuck_session' },
+    });
+    expect(res.status()).toBe(403);
+  });
+
+  test('invalid reason returns 400', async ({ page }) => {
+    await resetDb(page);
+    await registerUser(page, 'feinvreason1', 'feinvreason1@test.com');
+    await activateUser(page, 'feinvreason1');
+    await setUserRole(page, 'feinvreason1', 'admin');
+    await loginUser(page, 'feinvreason1');
+
+    const csrfToken = await getCsrfToken(page);
+    const res = await page.request.post('/api/admin/sessions/active/1/force-end', {
+      data: { reason: 'not_a_valid_reason' },
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+    expect(res.status()).toBe(400);
+  });
+
+  test('missing reason returns 400', async ({ page }) => {
+    await resetDb(page);
+    await registerUser(page, 'feinvreason2', 'feinvreason2@test.com');
+    await activateUser(page, 'feinvreason2');
+    await setUserRole(page, 'feinvreason2', 'admin');
+    await loginUser(page, 'feinvreason2');
+
+    const csrfToken = await getCsrfToken(page);
+    const res = await page.request.post('/api/admin/sessions/active/1/force-end', {
+      data: {},
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+    expect(res.status()).toBe(400);
+  });
+
+  test('no active session returns 200 { ended: false }', async ({ page }) => {
+    await resetDb(page);
+    await registerUser(page, 'fenoact1', 'fenoact1@test.com');
+    await activateUser(page, 'fenoact1');
+    await setUserRole(page, 'fenoact1', 'admin');
+    await loginUser(page, 'fenoact1');
+
+    const csrfToken = await getCsrfToken(page);
+    const res = await page.request.post('/api/admin/sessions/active/1/force-end', {
+      data: { reason: 'stuck_session' },
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.ended).toBe(false);
+    expect(body.message).toMatch(/No active session/i);
+  });
+
+  test('admin can force-end an active session', async ({ browser }) => {
+    const ctx = await browser.newContext();
+    try {
+      const page = await ctx.newPage();
+      await resetDb(page);
+
+      // Create driver user and admin user
+      const driver = await registerUser(page, 'fedriver1', 'fedriver1@test.com');
+      await activateUser(page, 'fedriver1');
+      const admin = await registerUser(page, 'feadmin1', 'feadmin1@test.com');
+      await activateUser(page, 'feadmin1');
+      await setUserRole(page, 'feadmin1', 'admin');
+
+      // Start a live socket session as the driver
+      await setupSocketCapture(page);
+      await injectActiveSession(page, 1, driver.username, driver.id);
+      await page.goto('/control');
+      await waitForSocketEvent(page, 'session_started');
+
+      // Verify the active session appears in admin endpoint
+      const adminCtx = await browser.newContext();
+      const adminPage = await adminCtx.newPage();
+      await loginUser(adminPage, 'feadmin1');
+
+      const activeRes = await adminPage.request.get('/api/admin/sessions/active');
+      const activeBody = await activeRes.json();
+      expect(activeBody.items.some((s: any) => s.carId === 1)).toBe(true);
+
+      // Force-end the session
+      const csrfToken = await getCsrfToken(adminPage);
+      const res = await adminPage.request.post('/api/admin/sessions/active/1/force-end', {
+        data: { reason: 'stuck_session', note: 'Test force end' },
+        headers: { 'X-CSRF-Token': csrfToken },
+      });
+      expect(res.status()).toBe(200);
+      const body = await res.json();
+      expect(body.ended).toBe(true);
+      expect(body.message).toMatch(/force-ended/i);
+      expect(body.session).toHaveProperty('carId', 1);
+      expect(typeof body.session.durationSeconds).toBe('number');
+      expect(typeof body.session.cost).toBe('number');
+
+      // Active sessions should now be empty for car 1
+      const activeRes2 = await adminPage.request.get('/api/admin/sessions/active');
+      const activeBody2 = await activeRes2.json();
+      expect(activeBody2.items.some((s: any) => s.carId === 1)).toBe(false);
+
+      await adminCtx.close();
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  test('force-end creates a persisted completed rental session', async ({ browser }) => {
+    const ctx = await browser.newContext();
+    try {
+      const page = await ctx.newPage();
+      await resetDb(page);
+
+      const driver = await registerUser(page, 'fedriver2', 'fedriver2@test.com');
+      await activateUser(page, 'fedriver2');
+      const admin = await registerUser(page, 'feadmin2', 'feadmin2@test.com');
+      await activateUser(page, 'feadmin2');
+      await setUserRole(page, 'feadmin2', 'admin');
+
+      await setupSocketCapture(page);
+      await injectActiveSession(page, 1, driver.username, driver.id);
+      await page.goto('/control');
+      await waitForSocketEvent(page, 'session_started');
+
+      const adminCtx = await browser.newContext();
+      const adminPage = await adminCtx.newPage();
+      await loginUser(adminPage, 'feadmin2');
+
+      const csrfToken = await getCsrfToken(adminPage);
+      const res = await adminPage.request.post('/api/admin/sessions/active/1/force-end', {
+        data: { reason: 'operator_intervention' },
+        headers: { 'X-CSRF-Token': csrfToken },
+      });
+      expect(res.status()).toBe(200);
+
+      // Completed session should appear in the sessions list
+      const sessRes = await adminPage.request.get('/api/admin/sessions?user_id=' + driver.id);
+      expect(sessRes.status()).toBe(200);
+      const sessBody = await sessRes.json();
+      expect(sessBody.items.length).toBeGreaterThanOrEqual(1);
+      expect(sessBody.items.some((s: any) => s.user_id === driver.id && s.car_id === 1)).toBe(true);
+
+      await adminCtx.close();
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  test('force-end writes an admin audit log entry', async ({ browser }) => {
+    const ctx = await browser.newContext();
+    try {
+      const page = await ctx.newPage();
+      await resetDb(page);
+
+      const driver = await registerUser(page, 'fedriver3', 'fedriver3@test.com');
+      await activateUser(page, 'fedriver3');
+      const admin = await registerUser(page, 'feadmin3', 'feadmin3@test.com');
+      await activateUser(page, 'feadmin3');
+      await setUserRole(page, 'feadmin3', 'admin');
+
+      await setupSocketCapture(page);
+      await injectActiveSession(page, 1, driver.username, driver.id);
+      await page.goto('/control');
+      await waitForSocketEvent(page, 'session_started');
+
+      const adminCtx = await browser.newContext();
+      const adminPage = await adminCtx.newPage();
+      await loginUser(adminPage, 'feadmin3');
+
+      const csrfToken = await getCsrfToken(adminPage);
+      await adminPage.request.post('/api/admin/sessions/active/1/force-end', {
+        data: { reason: 'car_offline', note: 'Car went offline' },
+        headers: { 'X-CSRF-Token': csrfToken },
+      });
+
+      // Check audit log
+      const auditRes = await adminPage.request.get('/api/admin/audit-log?limit=10');
+      expect(auditRes.status()).toBe(200);
+      const auditBody = await auditRes.json();
+      const entry = (auditBody.items || auditBody.logs || []).find(
+        (e: any) => e.action === 'force_end_session',
+      );
+      expect(entry).toBeTruthy();
+      expect(entry.target_type).toBe('car');
+
+      await adminCtx.close();
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  test('double force-end only ends once', async ({ browser }) => {
+    const ctx = await browser.newContext();
+    try {
+      const page = await ctx.newPage();
+      await resetDb(page);
+
+      const driver = await registerUser(page, 'fedriver4', 'fedriver4@test.com');
+      await activateUser(page, 'fedriver4');
+      const admin = await registerUser(page, 'feadmin4', 'feadmin4@test.com');
+      await activateUser(page, 'feadmin4');
+      await setUserRole(page, 'feadmin4', 'admin');
+
+      await setupSocketCapture(page);
+      await injectActiveSession(page, 1, driver.username, driver.id);
+      await page.goto('/control');
+      await waitForSocketEvent(page, 'session_started');
+
+      const adminCtx = await browser.newContext();
+      const adminPage = await adminCtx.newPage();
+      await loginUser(adminPage, 'feadmin4');
+
+      const csrfToken = await getCsrfToken(adminPage);
+      const res1 = await adminPage.request.post('/api/admin/sessions/active/1/force-end', {
+        data: { reason: 'stuck_session' },
+        headers: { 'X-CSRF-Token': csrfToken },
+      });
+      expect(res1.status()).toBe(200);
+      const body1 = await res1.json();
+      expect(body1.ended).toBe(true);
+
+      // Second force-end should return ended: false (idempotent)
+      const csrfToken2 = await getCsrfToken(adminPage);
+      const res2 = await adminPage.request.post('/api/admin/sessions/active/1/force-end', {
+        data: { reason: 'stuck_session' },
+        headers: { 'X-CSRF-Token': csrfToken2 },
+      });
+      expect(res2.status()).toBe(200);
+      const body2 = await res2.json();
+      expect(body2.ended).toBe(false);
+
+      // Only one completed session should exist for this driver
+      const sessRes = await adminPage.request.get('/api/admin/sessions?user_id=' + driver.id);
+      const sessBody = await sessRes.json();
+      const driverSessions = sessBody.items.filter((s: any) => s.user_id === driver.id && s.car_id === 1);
+      expect(driverSessions.length).toBe(1);
+
+      await adminCtx.close();
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  test('force-end emits session_ended with reason admin_force_end to client socket', async ({ browser }) => {
+    const ctx = await browser.newContext();
+    try {
+      const page = await ctx.newPage();
+      await resetDb(page);
+
+      const driver = await registerUser(page, 'fedriver5', 'fedriver5@test.com');
+      await activateUser(page, 'fedriver5');
+      const admin = await registerUser(page, 'feadmin5', 'feadmin5@test.com');
+      await activateUser(page, 'feadmin5');
+      await setUserRole(page, 'feadmin5', 'admin');
+
+      await setupSocketCapture(page);
+      await injectActiveSession(page, 1, driver.username, driver.id);
+      await page.goto('/control');
+      await waitForSocketEvent(page, 'session_started');
+
+      const adminCtx = await browser.newContext();
+      const adminPage = await adminCtx.newPage();
+      await loginUser(adminPage, 'feadmin5');
+
+      // Force-end from the admin side
+      const csrfToken = await getCsrfToken(adminPage);
+      const res = await adminPage.request.post('/api/admin/sessions/active/1/force-end', {
+        data: { reason: 'stuck_session' },
+        headers: { 'X-CSRF-Token': csrfToken },
+      });
+      expect(res.status()).toBe(200);
+
+      // Client socket should receive session_ended with reason: 'admin_force_end'
+      const ended = await waitForSocketEvent(page, 'session_ended', 10000);
+      expect(ended).toHaveProperty('reason', 'admin_force_end');
+      expect(ended).toHaveProperty('carId', 1);
+      expect(typeof ended.durationSeconds).toBe('number');
+      expect(typeof ended.cost).toBe('number');
+
+      await adminCtx.close();
+    } finally {
+      await ctx.close();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// UI Tests: Force-end button visibility and modal
+// ---------------------------------------------------------------------------
+
+test.describe('Force-end UI', () => {
+  test('admin sees force-end button in active sessions', async ({ browser }) => {
+    const ctx = await browser.newContext();
+    try {
+      const page = await ctx.newPage();
+      await resetDb(page);
+
+      const driver = await registerUser(page, 'uifedriver1', 'uifedriver1@test.com');
+      await activateUser(page, 'uifedriver1');
+      const admin = await registerUser(page, 'uifeadmin1', 'uifeadmin1@test.com');
+      await activateUser(page, 'uifeadmin1');
+      await setUserRole(page, 'uifeadmin1', 'admin');
+
+      // Start a live session so it shows up in active tab
+      await setupSocketCapture(page);
+      await injectActiveSession(page, 1, driver.username, driver.id);
+      await page.goto('/control');
+      await waitForSocketEvent(page, 'session_started');
+
+      // Admin views the sessions dashboard
+      const adminCtx = await browser.newContext();
+      const adminPage = await adminCtx.newPage();
+      await loginUser(adminPage, 'uifeadmin1');
+
+      await adminPage.goto(TEST_BASE_URL + '/admin-sessions');
+      await expect(adminPage.locator('#admin-content')).toBeVisible({ timeout: 8000 });
+
+      // Switch to active tab
+      await adminPage.locator('#tab-active').click();
+      await expect(adminPage.locator('#panel-active')).toBeVisible({ timeout: 4000 });
+      await expect(adminPage.locator('#active-table-wrapper')).toBeVisible({ timeout: 8000 });
+
+      // Force-end button should be present
+      await expect(adminPage.locator('#active-tbody button.btn-danger')).toBeVisible({ timeout: 6000 });
+
+      await adminCtx.close();
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  test('moderator does not see force-end button', async ({ browser }) => {
+    const ctx = await browser.newContext();
+    try {
+      const page = await ctx.newPage();
+      await resetDb(page);
+
+      const driver = await registerUser(page, 'uifedriver2', 'uifedriver2@test.com');
+      await activateUser(page, 'uifedriver2');
+      const mod = await registerUser(page, 'uifemod2', 'uifemod2@test.com');
+      await activateUser(page, 'uifemod2');
+      await setUserRole(page, 'uifemod2', 'moderator');
+
+      // Start a live session
+      await setupSocketCapture(page);
+      await injectActiveSession(page, 1, driver.username, driver.id);
+      await page.goto('/control');
+      await waitForSocketEvent(page, 'session_started');
+
+      // Moderator views the sessions dashboard
+      const modCtx = await browser.newContext();
+      const modPage = await modCtx.newPage();
+      await loginUser(modPage, 'uifemod2');
+
+      await modPage.goto(TEST_BASE_URL + '/admin-sessions');
+      await expect(modPage.locator('#admin-content')).toBeVisible({ timeout: 8000 });
+
+      await modPage.locator('#tab-active').click();
+      await expect(modPage.locator('#panel-active')).toBeVisible({ timeout: 4000 });
+      await expect(modPage.locator('#active-table-wrapper')).toBeVisible({ timeout: 8000 });
+
+      // Force-end button should NOT be present for moderator
+      await expect(modPage.locator('#active-tbody button.btn-danger')).toHaveCount(0);
+
+      await modCtx.close();
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  test('confirmation modal appears on force-end click', async ({ browser }) => {
+    const ctx = await browser.newContext();
+    try {
+      const page = await ctx.newPage();
+      await resetDb(page);
+
+      const driver = await registerUser(page, 'uifedriver3', 'uifedriver3@test.com');
+      await activateUser(page, 'uifedriver3');
+      const admin = await registerUser(page, 'uifeadmin3', 'uifeadmin3@test.com');
+      await activateUser(page, 'uifeadmin3');
+      await setUserRole(page, 'uifeadmin3', 'admin');
+
+      await setupSocketCapture(page);
+      await injectActiveSession(page, 1, driver.username, driver.id);
+      await page.goto('/control');
+      await waitForSocketEvent(page, 'session_started');
+
+      const adminCtx = await browser.newContext();
+      const adminPage = await adminCtx.newPage();
+      await loginUser(adminPage, 'uifeadmin3');
+
+      await adminPage.goto(TEST_BASE_URL + '/admin-sessions');
+      await expect(adminPage.locator('#admin-content')).toBeVisible({ timeout: 8000 });
+
+      await adminPage.locator('#tab-active').click();
+      await expect(adminPage.locator('#active-table-wrapper')).toBeVisible({ timeout: 8000 });
+
+      await adminPage.locator('#active-tbody button.btn-danger').first().click();
+      await expect(adminPage.locator('#force-end-modal')).toBeVisible({ timeout: 4000 });
+      await expect(adminPage.locator('#modal-reason')).toBeVisible();
+      await expect(adminPage.locator('#modal-confirm-btn')).toBeVisible();
+      await expect(adminPage.locator('#modal-cancel-btn')).toBeVisible();
+
+      await adminCtx.close();
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  test('successful force-end via UI refreshes active list', async ({ browser }) => {
+    const ctx = await browser.newContext();
+    try {
+      const page = await ctx.newPage();
+      await resetDb(page);
+
+      const driver = await registerUser(page, 'uifedriver4', 'uifedriver4@test.com');
+      await activateUser(page, 'uifedriver4');
+      const admin = await registerUser(page, 'uifeadmin4', 'uifeadmin4@test.com');
+      await activateUser(page, 'uifeadmin4');
+      await setUserRole(page, 'uifeadmin4', 'admin');
+
+      await setupSocketCapture(page);
+      await injectActiveSession(page, 1, driver.username, driver.id);
+      await page.goto('/control');
+      await waitForSocketEvent(page, 'session_started');
+
+      const adminCtx = await browser.newContext();
+      const adminPage = await adminCtx.newPage();
+      await loginUser(adminPage, 'uifeadmin4');
+
+      await adminPage.goto(TEST_BASE_URL + '/admin-sessions');
+      await expect(adminPage.locator('#admin-content')).toBeVisible({ timeout: 8000 });
+
+      await adminPage.locator('#tab-active').click();
+      await expect(adminPage.locator('#active-table-wrapper')).toBeVisible({ timeout: 8000 });
+
+      // Click force-end
+      await adminPage.locator('#active-tbody button.btn-danger').first().click();
+      await expect(adminPage.locator('#force-end-modal')).toBeVisible({ timeout: 4000 });
+
+      // Select reason and confirm
+      await adminPage.locator('#modal-reason').selectOption('stuck_session');
+      await adminPage.locator('#modal-confirm-btn').click();
+
+      // Modal should close
+      await expect(adminPage.locator('#force-end-modal')).toBeHidden({ timeout: 8000 });
+
+      // Active sessions should now be empty
+      await expect(adminPage.locator('#active-state-empty')).toBeVisible({ timeout: 8000 });
+
+      await adminCtx.close();
+    } finally {
+      await ctx.close();
+    }
+  });
+});

@@ -15,6 +15,8 @@
     var activeTab = 'completed'; // 'completed' | 'active'
     var activeRefreshTimer = null;
     var activeRefreshPaused = false;
+    var currentUserRole = null; // populated after requireAdmin resolves
+    var forceEndTargetCarId = null; // carId being targeted by the modal
 
     // ---------------------------------------------------------------------------
     // DOM references (set in init)
@@ -26,7 +28,11 @@
     var summaryGrid, summaryTotal, summaryRevenue, summaryAvgDuration, summaryAvgCost;
     var tabCompleted, tabActive, panelCompleted, panelActive;
     var activeTableWrapper, activeTbody, activeStateEmpty, activeStateLoading;
-    var activeCountBadge, refreshInfo;
+    var activeCountBadge, refreshInfo, thActions;
+    // Modal elements
+    var forceEndModal, flashModalContainer;
+    var modalCarName, modalUsername, modalDuration, modalCost, modalHold;
+    var modalReason, modalNote, modalCancelBtn, modalConfirmBtn;
 
     // ---------------------------------------------------------------------------
     // Completed sessions helpers
@@ -207,6 +213,21 @@
             ? item.currentCostEstimate.toFixed(2) + ' RC' : '—';
         tr.appendChild(tdCost);
 
+        // Actions column — force-end button, admin only
+        var tdActions = document.createElement('td');
+        tdActions.className = 'nowrap';
+        if (currentUserRole === 'admin') {
+            var btnForceEnd = document.createElement('button');
+            btnForceEnd.className = 'btn btn-danger btn-sm';
+            btnForceEnd.textContent = 'Завершить принудительно';
+            btnForceEnd.setAttribute('data-car-id', String(item.carId));
+            btnForceEnd.addEventListener('click', function () {
+                openForceEndModal(item);
+            });
+            tdActions.appendChild(btnForceEnd);
+        }
+        tr.appendChild(tdActions);
+
         return tr;
     }
 
@@ -256,6 +277,63 @@
             clearInterval(activeRefreshTimer);
             activeRefreshTimer = null;
         }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Force-end modal
+    // ---------------------------------------------------------------------------
+    function openForceEndModal(item) {
+        forceEndTargetCarId = item.carId;
+        modalCarName.textContent = item.carName || (item.carId ? '#' + item.carId : '—');
+        modalUsername.textContent = item.username || (item.userId ? '#' + item.userId : '—');
+        modalDuration.textContent = AdminUi.formatDuration(item.durationSeconds);
+        modalCost.textContent = item.currentCostEstimate != null
+            ? item.currentCostEstimate.toFixed(2) + ' RC' : '—';
+        modalHold.textContent = item.holdAmount != null ? item.holdAmount.toFixed(2) + ' RC' : '—';
+        modalReason.value = '';
+        modalNote.value = '';
+        AdminUi.clearFlash(flashModalContainer);
+        modalConfirmBtn.disabled = false;
+        forceEndModal.hidden = false;
+    }
+
+    function closeForceEndModal() {
+        forceEndModal.hidden = true;
+        forceEndTargetCarId = null;
+    }
+
+    function submitForceEnd() {
+        var reason = modalReason.value;
+        if (!reason) {
+            AdminUi.showFlash(flashModalContainer, 'Выберите причину завершения', 'error');
+            return;
+        }
+
+        modalConfirmBtn.disabled = true;
+        AdminUi.clearFlash(flashModalContainer);
+
+        AdminApi.adminFetch(
+            '/api/admin/sessions/active/' + forceEndTargetCarId + '/force-end',
+            {
+                method: 'POST',
+                body: { reason: reason, note: modalNote.value.trim() || null },
+            }
+        ).then(function (data) {
+            closeForceEndModal();
+            if (data.ended) {
+                AdminUi.showFlash(
+                    flashActiveContainer,
+                    'Сессия завершена: ' + (data.session ? data.session.carName || '' : ''),
+                    'success'
+                );
+            } else {
+                AdminUi.showFlash(flashActiveContainer, 'Сессия уже завершена', 'info');
+            }
+            loadActiveSessions();
+        }).catch(function (err) {
+            modalConfirmBtn.disabled = false;
+            AdminUi.showFlash(flashModalContainer, err.message || 'Ошибка', 'error');
+        });
     }
 
     // ---------------------------------------------------------------------------
@@ -392,6 +470,19 @@
         activeStateLoading = document.getElementById('active-state-loading');
         activeCountBadge = document.getElementById('active-count-badge');
         refreshInfo = document.getElementById('refresh-info');
+        thActions = document.getElementById('th-actions');
+        // Modal
+        forceEndModal = document.getElementById('force-end-modal');
+        flashModalContainer = document.getElementById('flash-modal-container');
+        modalCarName = document.getElementById('modal-car-name');
+        modalUsername = document.getElementById('modal-username');
+        modalDuration = document.getElementById('modal-duration');
+        modalCost = document.getElementById('modal-cost');
+        modalHold = document.getElementById('modal-hold');
+        modalReason = document.getElementById('modal-reason');
+        modalNote = document.getElementById('modal-note');
+        modalCancelBtn = document.getElementById('modal-cancel-btn');
+        modalConfirmBtn = document.getElementById('modal-confirm-btn');
 
         btnApply.addEventListener('click', onApply);
         btnReset.addEventListener('click', onReset);
@@ -399,11 +490,22 @@
         btnNext.addEventListener('click', onNext);
         tabCompleted.addEventListener('click', function () { showTab('completed'); });
         tabActive.addEventListener('click', function () { showTab('active'); });
+        modalCancelBtn.addEventListener('click', closeForceEndModal);
+        modalConfirmBtn.addEventListener('click', submitForceEnd);
+        // Close modal on backdrop click
+        forceEndModal.addEventListener('click', function (e) {
+            if (e.target === forceEndModal) closeForceEndModal();
+        });
 
         setupVisibility();
 
         AdminApi.requireAdmin()
-            .then(function () {
+            .then(function (user) {
+                currentUserRole = user.role;
+                // Show the actions column header for admins
+                if (currentUserRole === 'admin' && thActions) {
+                    thActions.hidden = false;
+                }
                 document.getElementById('admin-loading').hidden = true;
                 document.getElementById('admin-content').hidden = false;
                 // Load cars first so that the filter dropdown is ready before hydrating the form

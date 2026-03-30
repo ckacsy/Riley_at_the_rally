@@ -119,6 +119,37 @@
         .live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #22c55e; margin-right: 6px; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 
+        /* Force-end button */
+        .btn-danger { background: rgba(239,68,68,0.2); color: #fca5a5; border: 1px solid rgba(239,68,68,0.4); }
+        .btn-danger:hover { background: rgba(239,68,68,0.35); }
+        .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+        /* Force-end modal */
+        .modal-backdrop {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 1000;
+        }
+        .modal-box {
+            background: #131829; border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 12px; padding: 28px 28px 24px; max-width: 480px; width: 100%;
+        }
+        .modal-box h3 { font-size: 18px; font-weight: bold; margin-bottom: 16px; color: #fff; }
+        .modal-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .modal-info-item { background: rgba(255,255,255,0.05); border-radius: 8px; padding: 10px 12px; }
+        .modal-info-label { font-size: 11px; color: rgba(255,255,255,0.45); margin-bottom: 3px; }
+        .modal-info-value { font-size: 14px; color: #fff; font-weight: bold; }
+        .modal-field { margin-bottom: 14px; }
+        .modal-field label { display: block; font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 5px; }
+        .modal-field select,
+        .modal-field textarea {
+            width: 100%; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 6px; color: #fff; padding: 8px 10px; font-size: 13px; box-sizing: border-box;
+        }
+        .modal-field select option { background: #131829; }
+        .modal-field textarea { resize: vertical; min-height: 60px; font-family: inherit; }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
         [hidden] { display: none !important; }
         #admin-loading {
             position: fixed; inset: 0; background: #0a0e1a;
@@ -247,6 +278,7 @@
                             <th>Длительность</th>
                             <th>Заблокировано</th>
                             <th>Текущая стоимость</th>
+                            <th id="th-actions" hidden>Действия</th>
                         </tr>
                     </thead>
                     <tbody id="active-tbody"></tbody>
@@ -254,6 +286,53 @@
             </div>
             <div id="active-state-empty" class="state-msg" hidden>Сейчас никто не катается 🏎️</div>
             <div id="active-state-loading" class="state-msg" hidden>Загрузка…</div>
+        </div>
+    </div>
+
+    <!-- Force-end confirmation modal -->
+    <div id="force-end-modal" class="modal-backdrop" hidden>
+        <div class="modal-box">
+            <h3>🛑 Принудительное завершение сессии</h3>
+            <div class="modal-info-grid">
+                <div class="modal-info-item">
+                    <div class="modal-info-label">Автомобиль</div>
+                    <div class="modal-info-value" id="modal-car-name">—</div>
+                </div>
+                <div class="modal-info-item">
+                    <div class="modal-info-label">Пользователь</div>
+                    <div class="modal-info-value" id="modal-username">—</div>
+                </div>
+                <div class="modal-info-item">
+                    <div class="modal-info-label">Длительность</div>
+                    <div class="modal-info-value" id="modal-duration">—</div>
+                </div>
+                <div class="modal-info-item">
+                    <div class="modal-info-label">Текущая стоимость</div>
+                    <div class="modal-info-value" id="modal-cost">—</div>
+                </div>
+                <div class="modal-info-item">
+                    <div class="modal-info-label">Заблокировано</div>
+                    <div class="modal-info-value" id="modal-hold">—</div>
+                </div>
+            </div>
+            <div class="modal-field">
+                <label for="modal-reason">Причина *</label>
+                <select id="modal-reason">
+                    <option value="">— Выберите причину —</option>
+                    <option value="stuck_session">Зависшая сессия</option>
+                    <option value="car_offline">Машина офлайн</option>
+                    <option value="operator_intervention">Вмешательство оператора</option>
+                </select>
+            </div>
+            <div class="modal-field">
+                <label for="modal-note">Примечание (необязательно)</label>
+                <textarea id="modal-note" placeholder="Дополнительные сведения…"></textarea>
+            </div>
+            <div id="flash-modal-container"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="modal-cancel-btn">Отмена</button>
+                <button class="btn btn-danger" id="modal-confirm-btn">Да, завершить принудительно</button>
+            </div>
         </div>
     </div>
 </div>
