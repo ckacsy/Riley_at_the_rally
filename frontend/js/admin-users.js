@@ -296,6 +296,7 @@
         compKeyEl.value = generateUUID();
         AdminUi.clearFlash(compFlashEl);
         compSubmitBtn.disabled = false;
+        document.getElementById('modal-comp-title').textContent = 'Компенсация — ' + (user.username || user.email);
         modalComp.hidden = false;
         compAmountEl.focus();
     }
@@ -344,6 +345,14 @@
                 compSubmitBtn.disabled = false;
                 compKeyEl.value = generateUUID();
             });
+    });
+
+    // Close modals on Escape key
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            if (!modalAdjust.hidden) closeAdjustModal();
+            if (!modalComp.hidden) closeCompensationModal();
+        }
     });
 
     // -------------------------------------------------------------------------
