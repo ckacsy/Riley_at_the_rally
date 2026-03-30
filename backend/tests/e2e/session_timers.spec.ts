@@ -108,6 +108,9 @@ async function stubSocketIo(page: import('@playwright/test').Page) {
     route.fulfill({
       contentType: 'application/javascript',
       body: `
+        // Block redirects
+        window.location.replace = function() { console.log('blocked replace'); };
+
         window.io = function() {
           var handlers = {};
           var socket = {
@@ -152,12 +155,13 @@ test.describe('Control page timer UI — stubbed', () => {
       await expect(page).toHaveURL(/\/control/, { timeout: 5_000 });
 
       // Directly call the timer functions exposed in window scope via page.evaluate
+      await expect(page.locator('#session-timers-bar')).toBeAttached({ timeout: 15000 });
       await page.evaluate(() => {
         // Access the countdown-start function by simulating what session_started does
         // The function is in local scope, so we test via DOM manipulation:
         // Show the bar and set initial countdown values
         const bar = document.getElementById('session-timers-bar');
-        if (bar) bar.style.display = '';
+        if (bar) bar.style.display = 'flex';
         const maxEl = document.getElementById('max-timer-countdown');
         const inEl = document.getElementById('inactivity-timer-countdown');
         if (maxEl) maxEl.textContent = '00:45';
@@ -192,9 +196,10 @@ test.describe('Control page timer UI — stubbed', () => {
       await expect(page).toHaveURL(/\/control/, { timeout: 5_000 });
 
       // Simulate warning state via DOM manipulation
+      await expect(page.locator('#session-timers-bar')).toBeAttached({ timeout: 15000 });
       await page.evaluate(() => {
         const bar = document.getElementById('session-timers-bar');
-        if (bar) bar.style.display = '';
+        if (bar) bar.style.display = 'flex';
         const inBadge = document.getElementById('inactivity-timer-badge');
         if (inBadge) inBadge.classList.add('warning');
         const banner = document.getElementById('session-warning-banner');
@@ -231,6 +236,7 @@ test.describe('Control page timer UI — stubbed', () => {
       await expect(page).toHaveURL(/\/control/, { timeout: 5_000 });
 
       // Show warning banner first
+      await expect(page.locator('#session-timers-bar')).toBeAttached({ timeout: 15000 });
       await page.evaluate(() => {
         const banner = document.getElementById('session-warning-banner');
         if (banner) {
