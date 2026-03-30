@@ -289,6 +289,9 @@ db.exec(`
     // Partial unique index — SQLite supports WHERE clause in CREATE INDEX
     db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_idempotency_key ON transactions(idempotency_key) WHERE idempotency_key IS NOT NULL');
   } catch (e) { /* ignore */ }
+  // --- PR 7: additional transaction indexes for dashboard queries ---
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON transactions(created_at)'); } catch (e) { /* ignore */ }
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_transactions_type_created ON transactions(type, created_at)'); } catch (e) { /* ignore */ }
 
   // --- PR 1: admin_audit_log table ---
   db.exec(`
@@ -397,6 +400,9 @@ mountNewsRoutes(app, db, adminRouteDeps);
 
 const mountAdminSessionRoutes = require('./routes/admin-sessions');
 mountAdminSessionRoutes(app, db, adminRouteDeps);
+
+const mountAdminTransactionRoutes = require('./routes/admin-transactions');
+mountAdminTransactionRoutes(app, db, adminRouteDeps);
 
 function saveRentalSession(dbUserId, carId, durationSeconds, cost) {
   if (!dbUserId) return;
@@ -758,6 +764,10 @@ app.get('/admin-sessions', pageRateLimit, (req, res) => {
   res.sendFile(path.join(frontendDir, 'admin-sessions.html'));
 });
 
+app.get('/admin-transactions', pageRateLimit, (req, res) => {
+  res.sendFile(path.join(frontendDir, 'admin-transactions.html'));
+});
+
 // --- Dev-only: reset database (delete all users and sessions) ---
 // Accessible only when NODE_ENV !== 'production'
 if (process.env.NODE_ENV !== 'production') {
@@ -892,6 +902,27 @@ if (process.env.NODE_ENV !== 'production') {
     );
     const row = db.prepare('SELECT * FROM rental_sessions WHERE id = ?').get(result.lastInsertRowid);
     res.json({ success: true, session: row });
+  });
+
+  // Dev helper: insert a transaction directly for testing.
+  app.post('/api/dev/transactions/insert', devLimiter, (req, res) => {
+    const { user_id, type, amount, balance_after, description, reference_id, admin_id } = req.body || {};
+    if (!user_id || !type || amount === undefined || balance_after === undefined) {
+      return res.status(400).json({ error: 'user_id, type, amount, balance_after required' });
+    }
+    const result = db.prepare(
+      'INSERT INTO transactions (user_id, type, amount, balance_after, description, reference_id, admin_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).run(
+      Number(user_id),
+      String(type),
+      Number(amount),
+      Number(balance_after),
+      description || null,
+      reference_id || null,
+      admin_id ? Number(admin_id) : null
+    );
+    const row = db.prepare('SELECT * FROM transactions WHERE id = ?').get(result.lastInsertRowid);
+    res.json({ success: true, transaction: row });
   });
 
 

@@ -89,6 +89,12 @@
             <span class="admin-card-title">Сессии аренды</span>
             <span class="admin-card-desc">Просмотр завершённых сессий и активных аренд в реальном времени</span>
         </a>
+        <!-- CARD: Transactions (ADMIN ONLY - hidden by default) -->
+        <a href="/admin-transactions" class="admin-card" id="card-transactions" hidden>
+            <span class="admin-card-icon">💳</span>
+            <span class="admin-card-title">Транзакции</span>
+            <span class="admin-card-desc">Финансовые операции пользователей: пополнения, холды, списания, корректировки</span>
+        </a>
     </div>
 </div>
 
@@ -103,6 +109,7 @@
             document.getElementById('admin-content').hidden = false;
             if (user.role === 'admin') {
                 document.getElementById('card-audit').hidden = false;
+                document.getElementById('card-transactions').hidden = false;
             }
         })
         .catch(function () { /* requireAdmin handles redirects */ });
