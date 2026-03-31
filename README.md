@@ -19,6 +19,12 @@ A web-based platform for remotely controlling an **MJX Hyper Go 14302** RC car v
 - **Per-car maintenance mode** — take individual cars out of service via admin UI
 - **Admin audit log** — immutable record of all high-impact admin actions
 - **Admin analytics** — KPI overview and time-series charts for sessions, revenue, and user activity
+- **Admin investigation timeline** — unified chronological timeline aggregating transactions, sessions, audit log, and maintenance events with filtering, pagination, and entity quick cards (`admin-investigation.js` + `admin-investigation.html`)
+- **Admin session management** — view active and past rental sessions, force-end sessions from admin UI (`admin-sessions.js` + `admin-sessions.html`)
+- **Payment / top-up** — balance top-up flow for users (`payment.js`)
+- **User profile** — personal dashboard with balance, session history, and account settings (`profile.html`)
+- **CSRF protection** — all state-changing endpoints are protected with CSRF tokens
+- **Cross-link navigation** — admin pages are interconnected with investigation, audit, and user/car/session quick links
 
 ## Architecture
 
@@ -137,3 +143,21 @@ socket.emit('control_command', { direction: 'backward', speed: -50 });
 Copy `backend/.env.example` to `backend/.env` and fill in your values.  The most important variables for email delivery are `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`, `NODE_ENV`, and `APP_BASE_URL`.  Set `DISABLE_EMAIL=true` to print email content to the server console instead of sending real messages.
 
 See [INSTALL.md](./INSTALL.md#email-configuration) for a complete step-by-step guide to Gmail SMTP setup and switching between dev and production email modes.
+
+## Testing
+
+The project includes a comprehensive E2E test suite built with [Playwright](https://playwright.dev/). The suite contains **23 spec files** covering all API endpoints and key UI flows.
+
+```bash
+cd backend
+npm run test:e2e
+```
+
+See [backend/TESTING.md](./backend/TESTING.md) for the full list of spec files and what each covers.
+
+## See also
+
+- [INSTALL.md](./INSTALL.md) — step-by-step installation and email configuration guide
+- [API_EXAMPLES.md](./API_EXAMPLES.md) — extended REST and Socket.io API examples
+- [SECURITY.md](./SECURITY.md) — security policy and vulnerability reporting
+- [backend/TESTING.md](./backend/TESTING.md) — E2E test suite documentation (23 spec files)
