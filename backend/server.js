@@ -360,6 +360,24 @@ db.exec(`
     try { db.exec('ALTER TABLE rental_sessions ADD COLUMN session_ref TEXT'); } catch (e) { /* already exists */ }
   }
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_rental_sessions_session_ref ON rental_sessions(session_ref)'); } catch (e) { /* ignore */ }
+
+  // --- Daily bonus: daily_checkins table ---
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS daily_checkins (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      checkin_date TEXT NOT NULL,
+      cycle_day INTEGER NOT NULL,
+      streak_count INTEGER NOT NULL,
+      reward_amount REAL NOT NULL,
+      schedule_version INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id),
+      UNIQUE(user_id, checkin_date)
+    )
+  `);
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_daily_checkins_user_id ON daily_checkins(user_id)'); } catch (e) { /* ignore */ }
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_daily_checkins_date ON daily_checkins(checkin_date)'); } catch (e) { /* ignore */ }
 })();
 
 // --- File uploads (avatars) ---
@@ -412,6 +430,9 @@ app.locals.adminRouteDeps = adminRouteDeps;
 
 const mountPaymentRoutes = require('./routes/payment');
 mountPaymentRoutes(app, db, { requireAuth, requireActiveUser, csrfMiddleware, apiReadLimiter, getActiveSessions: () => socketState && socketState.activeSessions });
+
+const mountDailyBonusRoutes = require('./routes/daily-bonus');
+mountDailyBonusRoutes(app, db, { requireAuth, requireActiveUser, csrfMiddleware, apiReadLimiter });
 
 const mountAdminRoutes = require('./routes/admin');
 mountAdminRoutes(app, db, adminRouteDeps);

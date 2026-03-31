@@ -5,7 +5,7 @@ const rateLimit = require('express-rate-limit');
 /**
  * Known transaction types — used for validation whitelist.
  */
-const KNOWN_TYPES = ['hold', 'release', 'deduct', 'topup', 'admin_adjust', 'admin_compensation'];
+const KNOWN_TYPES = ['hold', 'release', 'deduct', 'topup', 'admin_adjust', 'admin_compensation', 'daily_bonus'];
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -291,7 +291,8 @@ module.exports = function mountAdminTransactionRoutes(app, db, deps) {
            COALESCE(SUM(CASE WHEN t.type = 'release' THEN t.amount ELSE 0 END), 0) AS totalReleases,
            COALESCE(SUM(CASE WHEN t.type = 'deduct' THEN t.amount ELSE 0 END), 0) AS totalDeductions,
            COALESCE(SUM(CASE WHEN t.type = 'admin_adjust' THEN t.amount ELSE 0 END), 0) AS totalAdminAdjusts,
-           COALESCE(SUM(CASE WHEN t.type = 'admin_compensation' THEN t.amount ELSE 0 END), 0) AS totalCompensations
+           COALESCE(SUM(CASE WHEN t.type = 'admin_compensation' THEN t.amount ELSE 0 END), 0) AS totalCompensations,
+           COALESCE(SUM(CASE WHEN t.type = 'daily_bonus' THEN t.amount ELSE 0 END), 0) AS totalDailyBonuses
          FROM transactions t
          WHERE t.user_id = ?`
       ).get(userId);
@@ -343,6 +344,7 @@ module.exports = function mountAdminTransactionRoutes(app, db, deps) {
           totalDeductions: summaryRow ? Math.round(summaryRow.totalDeductions * 100) / 100 : 0,
           totalAdminAdjusts: summaryRow ? Math.round(summaryRow.totalAdminAdjusts * 100) / 100 : 0,
           totalCompensations: summaryRow ? Math.round(summaryRow.totalCompensations * 100) / 100 : 0,
+          totalDailyBonuses: summaryRow ? Math.round(summaryRow.totalDailyBonuses * 100) / 100 : 0,
         },
         pagination: { page, limit, total, pages },
       });

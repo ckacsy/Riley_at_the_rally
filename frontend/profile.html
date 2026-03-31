@@ -759,11 +759,13 @@
                     }
                     var typeLabels = {
                         topup: 'Пополнение', hold: 'Блокировка',
-                        deduct: 'Списание', release: 'Возврат', bonus: 'Бонус'
+                        deduct: 'Списание', release: 'Возврат', bonus: 'Бонус',
+                        daily_bonus: 'Ежедневный бонус'
                     };
                     var typeClasses = {
                         topup: 'tx-type-topup', hold: 'tx-type-hold',
-                        deduct: 'tx-type-deduct', release: 'tx-type-release', bonus: 'tx-type-bonus'
+                        deduct: 'tx-type-deduct', release: 'tx-type-release', bonus: 'tx-type-bonus',
+                        daily_bonus: 'tx-type-bonus'
                     };
                     var rows = txs.map(function (tx) {
                         var amtCls = tx.amount >= 0 ? 'tx-amount-pos' : 'tx-amount-neg';
