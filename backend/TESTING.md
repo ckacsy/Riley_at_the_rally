@@ -36,7 +36,6 @@ The suite contains 22 spec files. The table below describes what each covers.
 | `auth_cta.spec.ts` | Guest CTA = "Только просмотр / Войти", click → `/login`; pending user CTA = "Подтвердите email"; active user CTA = "НА ТРЕК" (correct text after activation) |
 | `broadcast.spec.ts` | Unauthenticated visit redirects to `/login`; authenticated user sees the broadcast viewport; fullscreen toggle works; `/api/config/video` returns expected shape |
 | `chat.spec.ts` | Cross-page chat (broadcast ↔ control): message sent from one page appears on the other; history loaded on reconnect; unauthenticated users are blocked from sending |
-| `garage.spec.ts` | *(see above)* |
 | `news.spec.ts` | `news` table schema is created; moderator and admin can create/publish news; published items appear in the public API; drafts are excluded; XSS payloads are sanitised via DOMPurify; slug generation is deterministic |
 | `password_reset.spec.ts` | Forgot-password form submits without leaking user existence; reset-password page validates token; tokens are single-use; error states render correctly |
 | `presence.spec.ts` | Active drivers list on `/broadcast`; `/api/health` `activeDrivers` count increments on connect and decrements on disconnect |
@@ -44,6 +43,7 @@ The suite contains 22 spec files. The table below describes what each covers.
 | `socket_race.spec.ts` | `join_race`, `leave_race`, `start_lap`, `end_lap` socket events; `/api/races` returns current races; `/api/leaderboard` reflects completed lap |
 | `socket_session.spec.ts` | `start_session` → `session_started` event with `sessionRef`; `end_session` → `session_ended`; `/api/car-status` reflects session state; `/api/session/end` works from REST |
 | `admin_roles.spec.ts` | User role enum (`user` / `moderator` / `admin`) via dev helpers; `requireRole` blocks wrong roles; banned users are rejected at login; soft-delete marks users deleted; audit log persists high-impact actions |
+| `admin_ui.spec.ts` | Admin page access / route guards (admin and moderator can open admin pages; plain user is redirected to `/garage`); moderator can ban a user via the UI (button click → confirm → success flash → status badge update); admin can adjust balance via the UI modal form; moderator does not see the Delete button; admin/moderator can open the admin news page; admin can create a draft news item from the UI; markdown preview renders formatted `<h2>` and `<strong>` output |
 | `admin_users.spec.ts` | `GET /api/admin/users` (admin access, pagination, search); `POST` ban / unban / delete / balance-adjust; each action writes to `admin_audit_log`; idempotency key enforcement |
 | `admin_sessions.spec.ts` | `GET /api/admin/sessions` with filters (status, user, car, date) and pagination; active sessions endpoint; completed sessions; force-end session (admin only); UI renders session list and filters |
 | `admin_analytics.spec.ts` | `GET /api/admin/analytics/overview`; time-series endpoint; period presets (day / week / month / year); KPI field presence; UI renders charts and KPI cards |
