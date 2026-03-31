@@ -8,7 +8,6 @@
 
     var NAV_LINKS = [
         { href: '/garage',       label: '🏠 Гараж' },
-        { href: '/leaderboard',  label: '🏆 Рейтинг' },
         { href: '/broadcast',    label: '📡 Трансляция' },
         { href: '/profile',      label: '👤 Профиль' }
     ];
