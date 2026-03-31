@@ -193,8 +193,8 @@
         function loadAuth() {
             fetch('/api/auth/me', { credentials: 'same-origin' })
                 .then(function (r) { return r.json(); })
-                .then(function (data) { currentUser = data.user || null; renderAuthChip(); updateCTA(); })
-                .catch(function () { currentUser = null; renderAuthChip(); updateCTA(); });
+                .then(function (data) { currentUser = data.user || null; renderAuthChip(); updateCTA(); loadDailyBonusStatus(); })
+                .catch(function () { currentUser = null; renderAuthChip(); updateCTA(); loadDailyBonusStatus(); });
         }
 
         // Balance
@@ -677,7 +677,8 @@
             })
             .then(function (resp) {
                 if (resp.status === 200 && resp.body.claimed) {
-                    // Update balance display
+                    // Update balance state and display
+                    currentBalance = resp.body.balance;
                     var credEl = document.getElementById('rp-credits');
                     if (credEl) credEl.textContent = resp.body.balance.toFixed(2) + ' RC';
                     updateCTA();
@@ -709,7 +710,6 @@
         loadCarStatus();
         checkStaleSession();
         loadLeaderboard();
-        loadDailyBonusStatus();
         setInterval(loadCarStatus, 10000);
         // Reload balance on page return (e.g., after YooKassa redirect)
         window.addEventListener('pageshow', function (e) {

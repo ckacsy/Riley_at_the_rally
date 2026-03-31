@@ -1163,6 +1163,26 @@ if (process.env.NODE_ENV !== 'production') {
     ).run(user.id, tokenHash, exp);
     res.json({ success: true, token: rawToken });
   });
+
+  // Inject a daily_checkins row for testing cycle-wrap scenarios.
+  // Accepts { userId, checkinDate, streakCount, cycleDay, rewardAmount }.
+  app.post('/api/dev/inject-checkin', devLimiter, (req, res) => {
+    const { userId, checkinDate, streakCount, cycleDay, rewardAmount } = req.body || {};
+    if (!userId || !checkinDate || streakCount == null || cycleDay == null || rewardAmount == null) {
+      return res.status(400).json({ error: 'userId, checkinDate, streakCount, cycleDay, rewardAmount required' });
+    }
+    const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    try {
+      db.prepare(
+        `INSERT OR REPLACE INTO daily_checkins (user_id, checkin_date, cycle_day, streak_count, reward_amount, schedule_version)
+         VALUES (?, ?, ?, ?, ?, 1)`
+      ).run(userId, checkinDate, cycleDay, streakCount, rewardAmount);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
 }
 
 const MAX_PORT_RETRIES = 10;

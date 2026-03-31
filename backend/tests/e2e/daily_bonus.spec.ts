@@ -180,11 +180,7 @@ test.describe('Daily Bonus API', () => {
     const injectRes = await page.request.post('/api/dev/inject-checkin', {
       data: { userId: user.id, checkinDate: yesterday, streakCount: 7, cycleDay: 7, rewardAmount: 15 },
     });
-    // If dev endpoint doesn't exist, skip the test gracefully
-    if (injectRes.status() === 404) {
-      test.skip();
-      return;
-    }
+    expect(injectRes.status(), `inject-checkin failed: ${await injectRes.text()}`).toBe(200);
 
     const statusRes = await page.request.get('/api/daily-bonus/status');
     const statusBody = await statusRes.json();
