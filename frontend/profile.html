@@ -753,6 +753,10 @@
                         return;
                     }
                     var txs = data.transactions;
+                    // Hide internal hold/release — user only sees net deductions
+                    txs = txs.filter(function (tx) {
+                        return tx.type !== 'hold' && tx.type !== 'release';
+                    });
                     if (!txs.length) {
                         container.innerHTML = '<p style="text-align:center;color:var(--text-secondary);">Транзакций пока нет</p>';
                         return;
