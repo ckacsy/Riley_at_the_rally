@@ -550,6 +550,21 @@ function setupSocketIo(io, deps) {
         return;
       }
 
+      // Check if this user already has an active session on any car
+      const existingUserSession = [...activeSessions.values()].find((s) => s.dbUserId === dbUserId);
+      if (existingUserSession) {
+        metrics.log('warn', 'session_blocked', {
+          reason: 'session_already_active',
+          dbUserId,
+          existingCarId: existingUserSession.carId,
+        });
+        socket.emit('session_error', {
+          message: 'У вас уже есть активная сессия. Завершите текущую перед запуском другой машины.',
+          code: 'session_already_active',
+        });
+        return;
+      }
+
       const carAlreadyActive = [...activeSessions.values()].some((s) => s.carId === carId);
       if (carAlreadyActive) {
         socket.emit('session_error', { message: 'Эта машина уже занята. Выберите другую.' });

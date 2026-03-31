@@ -254,6 +254,46 @@ test.describe('Socket.IO session flow', () => {
     }
   });
 
+  test('start_session while user already has active session on another car → receives session_error with code session_already_active', async ({
+    browser,
+  }) => {
+    const ctxA = await browser.newContext();
+    const ctxB = await browser.newContext();
+    try {
+      const pageA = await ctxA.newPage();
+      await resetDb(pageA);
+
+      const user = await registerUser(pageA, 'sess_user_dup', 'sess_user_dup@example.com', 'Secure#Pass1');
+      await activateUser(pageA, user.username);
+
+      // Context A (same user): start a session on car 1
+      await setupSocketCapture(pageA);
+      await injectActiveSession(pageA, 1, user.username, user.id);
+      await pageA.goto('/control');
+      await waitForSocketEvent(pageA, 'session_started');
+
+      // Context B (same user): try to start a session on car 2
+      const pageB = await ctxB.newPage();
+      await setupSocketCapture(pageB);
+      await injectActiveSession(pageB, 2, user.username, user.id);
+      await pageB.goto('/control');
+
+      const errData = await waitForSocketEvent(pageB, 'session_error');
+      expect(errData.code).toBe('session_already_active');
+
+      // First session on context A must still be active (not ended)
+      const carsRes = await pageA.request.get('/api/cars');
+      expect(carsRes.status()).toBe(200);
+      const carsBody = await carsRes.json();
+      const car1 = (carsBody.cars as any[]).find((c: any) => c.id === 1);
+      expect(car1).toBeTruthy();
+      expect(car1.status).toBe('unavailable');
+    } finally {
+      await ctxA.close();
+      await ctxB.close();
+    }
+  });
+
   test('end_session → receives session_ended with durationSeconds and cost', async ({ browser }) => {
     const ctx = await browser.newContext();
     try {

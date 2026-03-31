@@ -225,7 +225,7 @@ module.exports = function mountPaymentRoutes(app, db, deps) {
   // -------------------------------------------------------------------------
   app.get('/api/transactions', paymentReadLimiter, requireAuth, (req, res) => {
     const transactions = db.prepare(
-      'SELECT id, type, amount, balance_after, description, reference_id, created_at FROM transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT 50'
+      "SELECT id, type, amount, balance_after, description, reference_id, created_at FROM transactions WHERE user_id = ? AND type NOT IN ('hold', 'release') ORDER BY created_at DESC LIMIT 50"
     ).all(req.session.userId);
     res.json({ transactions });
   });

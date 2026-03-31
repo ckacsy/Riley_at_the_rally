@@ -518,6 +518,8 @@
             socket.once('session_error', function (data) {
                 if (data.code === 'insufficient_balance') {
                     document.getElementById('topup-overlay').classList.add('visible');
+                } else if (data.code === 'session_already_active') {
+                    alert(data.message || '\u0423 \u0432\u0430\u0441 \u0443\u0436\u0435 \u0435\u0441\u0442\u044c \u0430\u043a\u0442\u0438\u0432\u043d\u0430\u044f \u0441\u0435\u0441\u0441\u0438\u044f.');
                 } else {
                     alert(data.message || '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043d\u0430\u0447\u0430\u0442\u044c \u0441\u0435\u0441\u0441\u0438\u044e.');
                 }
