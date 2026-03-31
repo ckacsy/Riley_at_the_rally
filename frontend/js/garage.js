@@ -143,9 +143,6 @@
         var searchEl = document.getElementById('carousel-search');
         if (searchEl) searchEl.addEventListener('input', function () { if (window._renderCarousel) window._renderCarousel(); });
 
-        // Navigation buttons
-        document.getElementById('btn-profile').addEventListener('click', function () { window.location.href = '/profile'; });
-
         // Settings toggles
         document.getElementById('setting-autorotate').addEventListener('change', function () { if (window._garageScene) window._garageScene.setAutoRotate(this.checked); });
 

@@ -1,65 +1,87 @@
-* { box-sizing: border-box; }
+/* =============================================================
+   Leaderboard page — dark-themed overrides
+   Base styles come from common.css
+   ============================================================= */
+
+/* Remove base body overrides — let common.css handle bg & font */
 body {
-    font-family: Arial, sans-serif;
-    background-color: #f4f4f4;
-    margin: 0;
     padding: 20px;
 }
+
 h1 {
     text-align: center;
-    color: #222;
+    color: var(--text-primary);
     margin-bottom: 8px;
 }
+
 .subtitle {
     text-align: center;
-    color: #666;
+    color: var(--text-secondary);
     margin-bottom: 32px;
     font-size: 15px;
 }
+
+.subtitle a {
+    color: var(--accent-secondary);
+}
+
 .no-data {
     text-align: center;
-    color: #888;
+    color: var(--text-secondary);
     font-size: 14px;
     margin: 8px 0;
 }
+
 /* Leaderboard */
 .section-title {
     text-align: center;
-    color: #333;
+    color: var(--text-primary);
     margin: 40px 0 16px;
     font-size: 20px;
 }
+
 .leaderboard-wrap {
     max-width: 700px;
     margin: 0 auto 40px;
     overflow-x: auto;
 }
+
 .leaderboard-table {
     width: 100%;
     border-collapse: collapse;
-    background: white;
-    border-radius: 8px;
+    background: var(--bg-card);
+    border-radius: var(--border-radius);
     overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
 }
+
 .leaderboard-table th {
-    background-color: #007BFF;
-    color: white;
+    background-color: var(--accent-primary);
+    color: #fff;
     padding: 10px 14px;
     text-align: left;
     font-size: 14px;
 }
+
 .leaderboard-table td {
     padding: 9px 14px;
     font-size: 14px;
-    color: #333;
-    border-bottom: 1px solid #f0f0f0;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-color);
 }
-.leaderboard-table tr:last-child td { border-bottom: none; }
-.leaderboard-table tr:nth-child(odd) td { background-color: #f9f9f9; }
+
+.leaderboard-table tr:last-child td {
+    border-bottom: none;
+}
+
+.leaderboard-table tr:nth-child(odd) td {
+    background-color: rgba(255, 255, 255, 0.03);
+}
+
 .medal-1 { color: #FFD700; font-weight: bold; }
 .medal-2 { color: #C0C0C0; font-weight: bold; }
 .medal-3 { color: #CD7F32; font-weight: bold; }
+
 .leaderboard-tabs {
     display: flex;
     gap: 6px;
@@ -67,34 +89,48 @@ h1 {
     margin-bottom: 14px;
     flex-wrap: wrap;
 }
+
 .leaderboard-tab {
     padding: 7px 20px;
     border-radius: 20px;
-    border: 2px solid #007BFF;
-    background: white;
-    color: #007BFF;
+    border: 2px solid var(--accent-primary);
+    background: transparent;
+    color: var(--accent-primary);
     font-size: 14px;
     font-weight: bold;
     cursor: pointer;
     transition: background-color 0.2s, color 0.2s;
 }
-.leaderboard-tab.active { background: #007BFF; color: white; }
-.leaderboard-tab:hover:not(.active) { background: #e7f0ff; }
+
+.leaderboard-tab.active {
+    background: var(--accent-primary);
+    color: #fff;
+}
+
+.leaderboard-tab:hover:not(.active) {
+    background: rgba(229, 57, 53, 0.15);
+}
+
 .leaderboard-copy-btn {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     padding: 7px 16px;
     border-radius: 20px;
-    border: 2px solid #28a745;
-    background: white;
-    color: #28a745;
+    border: 2px solid var(--accent-success);
+    background: transparent;
+    color: var(--accent-success);
     font-size: 13px;
     font-weight: bold;
     cursor: pointer;
     transition: background-color 0.2s, color 0.2s;
 }
-.leaderboard-copy-btn:hover { background: #28a745; color: white; }
+
+.leaderboard-copy-btn:hover {
+    background: var(--accent-success);
+    color: #fff;
+}
+
 .leaderboard-actions {
     display: flex;
     justify-content: center;
