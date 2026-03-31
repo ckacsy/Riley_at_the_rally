@@ -31,6 +31,16 @@ function getRewardForCycleDay(cycleDay) {
  * @param {{ requireAuth: Function, requireActiveUser: Function, csrfMiddleware: Function, apiReadLimiter: Function }} deps
  */
 module.exports = function mountDailyBonusRoutes(app, db, { requireAuth, requireActiveUser, csrfMiddleware, apiReadLimiter }) {
+  const dailyBonusReadLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Слишком много запросов. Попробуйте позже.' },
+    keyGenerator: (req) => req.ip,
+    skip: () => process.env.NODE_ENV === 'test',
+  });
+
   const dailyBonusClaimLimiter = rateLimit({
     windowMs: 60 * 1000,
     max: 5,
@@ -44,7 +54,7 @@ module.exports = function mountDailyBonusRoutes(app, db, { requireAuth, requireA
   // -------------------------------------------------------------------------
   // GET /api/daily-bonus/status
   // -------------------------------------------------------------------------
-  app.get('/api/daily-bonus/status', apiReadLimiter, requireAuth, requireActiveUser, (req, res) => {
+  app.get('/api/daily-bonus/status', dailyBonusReadLimiter, requireAuth, requireActiveUser, (req, res) => {
     const userId = req.session.userId;
     const today = getUtcDateString();
 

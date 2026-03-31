@@ -946,10 +946,11 @@ if (process.env.NODE_ENV !== 'production') {
         db.exec('DELETE FROM payment_orders');
         db.exec('DELETE FROM news');
         db.exec('DELETE FROM admin_audit_log');
+        db.exec('DELETE FROM daily_checkins');
         db.exec('DELETE FROM users');
         db.exec('DELETE FROM car_maintenance');
         // Reset autoincrement counters
-        db.exec("DELETE FROM sqlite_sequence WHERE name IN ('users','lap_times','rental_sessions','email_verification_tokens','password_reset_tokens','chat_messages','magic_links','transactions','payment_orders','news','admin_audit_log')");
+        db.exec("DELETE FROM sqlite_sequence WHERE name IN ('users','lap_times','rental_sessions','email_verification_tokens','password_reset_tokens','chat_messages','magic_links','transactions','payment_orders','news','admin_audit_log','daily_checkins')");
       })();
       req.session.destroy((err) => { if (err) console.error('Session destroy error:', err); });
       if (_devVerificationLinks) _devVerificationLinks.clear();
