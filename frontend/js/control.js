@@ -209,8 +209,15 @@
             if (hasSession) {
                 const currentSocketId = socket && socket.id ? socket.id : null;
                 if (currentSocketId) {
-                    socket.emit('end_session', { carId: carId });
-                    sendEndSessionBeacon(currentSocketId);
+                    if (socket.connected) {
+                        // Socket is alive — use WebSocket to end; server disconnect handler
+                        // is the safety net if the emit doesn't arrive in time.
+                        socket.emit('end_session', { carId: carId });
+                    } else {
+                        // Socket already dead — fall back to HTTP beacon so the server
+                        // can still clean up the session.
+                        sendEndSessionBeacon(currentSocketId);
+                    }
                 }
                 sessionStorage.removeItem('activeSession');
             }
