@@ -51,7 +51,7 @@
             if (ogTitle) ogTitle.content = 'Рекорд круга: ' + formatLapTime(top.lapTimeMs) + ' — ' + safeUserId + ' на ' + safeCarName;
             if (ogDesc) ogDesc.content = 'Лучший круг: ' + formatLapTime(top.lapTimeMs) + ' (' + safeUserId + ', ' + safeCarName + '). Присоединяйтесь и побейте!';
             var ogUrl = document.getElementById('og-url');
-            if (ogUrl) ogUrl.content = window.location.origin + '/?leaderboard=' + encodeURIComponent(range || 'all') + '#leaderboard-section';
+            if (ogUrl) ogUrl.content = window.location.origin + '/leaderboard?range=' + encodeURIComponent(range || 'all') + '#leaderboard-section';
         }
     }
 

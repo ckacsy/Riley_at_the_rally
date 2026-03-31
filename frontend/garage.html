@@ -57,13 +57,13 @@
         <button class="panel-toggle" id="panel-toggle" title="Свернуть / развернуть панель" aria-label="Свернуть панель">&#9664;</button>
 
         <!-- Profile card -->
-        <div id="profile-card" class="profile-card">
+        <a href="/profile" id="profile-card" class="profile-card" style="text-decoration:none;color:inherit;display:flex;align-items:center;gap:10px;">
             <div class="profile-avatar" aria-hidden="true">&#x1F464;</div>
             <div class="profile-info">
                 <div class="profile-username" id="profile-username">Гость</div>
                 <div class="profile-rank">&#x1F3C6;&nbsp;Рейтинг:&nbsp;&#8212;&nbsp;<span class="rank-wip">🚧 В разработке</span></div>
             </div>
-        </div>
+        </a>
 
         <div class="panel-tabs">
             <button class="tab-btn active" data-tab="news">
@@ -100,8 +100,11 @@
             <!-- Рейтинг -->
             <div class="tab-content" id="tab-ratings">
                 <div class="panel-section">
-                    <h3>Рейтинг</h3>
-                    <div class="placeholder-block">🚧 Рейтинг — в разработке</div>
+                    <h3>Топ-5 — лучшие круги</h3>
+                    <div id="lb-preview"></div>
+                    <a href="/leaderboard" class="btn btn-secondary" style="margin-top:10px;width:100%;text-align:center;">
+                        🏆 Полный рейтинг
+                    </a>
                 </div>
             </div>
 
@@ -130,9 +133,6 @@
                             <span class="toggle-slider"></span>
                         </label>
                     </div>
-                    <button class="nav-btn" style="margin-top:10px;" id="btn-profile">
-                        <span>&#x1F464;</span>&nbsp;Профиль
-                    </button>
                 </div>
             </div>
 
