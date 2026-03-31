@@ -193,8 +193,8 @@
         function loadAuth() {
             fetch('/api/auth/me', { credentials: 'same-origin' })
                 .then(function (r) { return r.json(); })
-                .then(function (data) { currentUser = data.user || null; renderAuthChip(); updateCTA(); })
-                .catch(function () { currentUser = null; renderAuthChip(); updateCTA(); });
+                .then(function (data) { currentUser = data.user || null; renderAuthChip(); updateCTA(); loadDailyBonusStatus(); })
+                .catch(function () { currentUser = null; renderAuthChip(); updateCTA(); loadDailyBonusStatus(); });
         }
 
         // Balance
@@ -586,6 +586,123 @@
                 }
             });
         }());
+
+        // ---- Daily Bonus ----
+        var DAILY_REWARD_SCHEDULE = [2, 3, 5, 5, 8, 10, 15];
+
+        function renderDailyBonusWidget(data) {
+            var w = document.getElementById('daily-bonus-widget');
+            if (!w) return;
+
+            var cycleDay = data.cycleDay || 1;
+            var streakCount = data.streakCount || 1;
+            var todayReward = data.todayReward || DAILY_REWARD_SCHEDULE[0];
+            var nextReward = data.nextReward || DAILY_REWARD_SCHEDULE[0];
+            var claimedToday = !!data.claimedToday;
+
+            var dotsHtml = '';
+            for (var i = 1; i <= 7; i++) {
+                var reward = DAILY_REWARD_SCHEDULE[i - 1];
+                var dotCls = 'daily-bonus-dot';
+                var lblCls = 'daily-bonus-day-label';
+                if (i < cycleDay || (i === cycleDay && claimedToday)) {
+                    dotCls += ' done';
+                } else if (i === cycleDay && !claimedToday) {
+                    dotCls += ' active';
+                    lblCls += ' active';
+                }
+                dotsHtml += '<div class="daily-bonus-day">' +
+                    '<div class="' + dotCls + '">' + reward + '</div>' +
+                    '<div class="' + lblCls + '">' + i + '</div>' +
+                    '</div>';
+            }
+
+            var rewardHtml = claimedToday
+                ? '<div class="daily-bonus-reward">Следующий: <strong>' + nextReward + ' RC</strong></div>'
+                : '<div class="daily-bonus-reward">Сегодня: <strong>' + todayReward + ' RC</strong></div>';
+
+            var streakHtml = '<div class="daily-bonus-streak-info">🔥 Серия: <span>' + streakCount + '</span> ' +
+                (streakCount === 1 ? 'день' : (streakCount < 5 ? 'дня' : 'дней')) + '</div>';
+
+            var btnHtml;
+            if (claimedToday) {
+                btnHtml = '<button class="daily-bonus-claim-btn claimed" disabled>Получено ✅</button>';
+            } else {
+                btnHtml = '<button class="daily-bonus-claim-btn" id="daily-bonus-claim-btn">Забрать ' + todayReward + ' RC</button>';
+            }
+
+            w.innerHTML = '<div class="daily-bonus-streak">' + dotsHtml + '</div>' +
+                rewardHtml + streakHtml + btnHtml +
+                '<div id="daily-bonus-error" class="daily-bonus-error" style="display:none"></div>';
+
+            if (!claimedToday) {
+                var btn = document.getElementById('daily-bonus-claim-btn');
+                if (btn) {
+                    btn.addEventListener('click', function () {
+                        claimDailyBonus();
+                    });
+                }
+            }
+        }
+
+        function loadDailyBonusStatus() {
+            var w = document.getElementById('daily-bonus-widget');
+            if (!w) return;
+            if (!currentUser) {
+                w.innerHTML = '<div class="daily-bonus-guest">Войдите для получения бонусов</div>';
+                return;
+            }
+            if (currentUser.status === 'pending') {
+                w.innerHTML = '<div class="daily-bonus-guest">Подтвердите email</div>';
+                return;
+            }
+            fetch('/api/daily-bonus/status', { credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (data) { renderDailyBonusWidget(data); })
+                .catch(function () {
+                    if (w) w.innerHTML = '<div class="daily-bonus-guest">Недоступно</div>';
+                });
+        }
+
+        function claimDailyBonus() {
+            var btn = document.getElementById('daily-bonus-claim-btn');
+            if (btn) { btn.disabled = true; btn.textContent = 'Получение…'; }
+            fetch('/api/daily-bonus/claim', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
+            })
+            .then(function (r) {
+                return r.json().then(function (body) { return { status: r.status, body: body }; });
+            })
+            .then(function (resp) {
+                if (resp.status === 200 && resp.body.claimed) {
+                    // Update balance state and display
+                    currentBalance = resp.body.balance;
+                    var credEl = document.getElementById('rp-credits');
+                    if (credEl) credEl.textContent = resp.body.balance.toFixed(2) + ' RC';
+                    updateCTA();
+                    renderDailyBonusWidget({
+                        claimedToday: true,
+                        cycleDay: resp.body.cycleDay,
+                        streakCount: resp.body.streakCount,
+                        todayReward: resp.body.reward,
+                        nextReward: resp.body.nextReward,
+                    });
+                } else if (resp.status === 409 && resp.body.code === 'already_claimed') {
+                    loadDailyBonusStatus();
+                } else {
+                    if (btn) { btn.disabled = false; btn.textContent = 'Попробовать снова'; }
+                    var errEl = document.getElementById('daily-bonus-error');
+                    if (errEl) { errEl.textContent = resp.body.error || 'Ошибка'; errEl.style.display = ''; }
+                }
+            })
+            .catch(function () {
+                if (btn) { btn.disabled = false; btn.textContent = 'Попробовать снова'; }
+                var errEl = document.getElementById('daily-bonus-error');
+                if (errEl) { errEl.textContent = 'Ошибка сети'; errEl.style.display = ''; }
+            });
+        }
 
         // Init
         loadBalance();

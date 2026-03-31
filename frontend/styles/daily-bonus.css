@@ -1,0 +1,135 @@
+/* Daily Bonus Widget */
+.daily-bonus-widget {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.daily-bonus-streak {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 10px;
+    justify-content: center;
+}
+
+.daily-bonus-day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    flex: 1;
+}
+
+.daily-bonus-dot {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    color: rgba(255, 255, 255, 0.35);
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.daily-bonus-dot.done {
+    background: rgba(0, 230, 118, 0.25);
+    border-color: rgba(0, 230, 118, 0.6);
+    color: #00e676;
+}
+
+.daily-bonus-dot.active {
+    background: rgba(0, 212, 255, 0.25);
+    border-color: rgba(0, 212, 255, 0.8);
+    color: #00d4ff;
+    box-shadow: 0 0 6px rgba(0, 212, 255, 0.4);
+}
+
+.daily-bonus-day-label {
+    font-size: 9px;
+    color: rgba(255, 255, 255, 0.35);
+    line-height: 1;
+}
+
+.daily-bonus-day-label.active {
+    color: rgba(0, 212, 255, 0.9);
+}
+
+.daily-bonus-reward {
+    text-align: center;
+    margin-bottom: 8px;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 11px;
+}
+
+.daily-bonus-reward strong {
+    color: #ffd54f;
+    font-size: 14px;
+}
+
+.daily-bonus-streak-info {
+    text-align: center;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.4);
+    margin-bottom: 8px;
+}
+
+.daily-bonus-streak-info span {
+    color: #ff8a65;
+}
+
+.daily-bonus-claim-btn {
+    display: block;
+    width: 100%;
+    padding: 7px 0;
+    border: none;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #00e676, #00bcd4);
+    color: #000;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    letter-spacing: 0.5px;
+}
+
+.daily-bonus-claim-btn:hover:not(:disabled) {
+    opacity: 0.88;
+    transform: translateY(-1px);
+}
+
+.daily-bonus-claim-btn:disabled,
+.daily-bonus-claim-btn.claimed {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.35);
+    cursor: default;
+    transform: none;
+}
+
+.daily-bonus-claimed {
+    text-align: center;
+    color: #00e676;
+    font-size: 11px;
+    padding: 6px 0;
+}
+
+.daily-bonus-loading {
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 11px;
+    padding: 4px 0;
+}
+
+.daily-bonus-guest {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 11px;
+    font-style: italic;
+    padding: 4px 0;
+}
+
+.daily-bonus-error {
+    color: #ef5350;
+    font-size: 10px;
+    margin-top: 4px;
+    text-align: center;
+}
