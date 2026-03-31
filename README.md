@@ -1,6 +1,24 @@
-# RC Car Control — MJX Hyper Go 14302
+# RC Car Control — Riley at the Rally
 
-A web-based interface for remotely controlling an **MJX Hyper Go 14302** RC car via a browser. The backend runs on any PC or server; motor control and camera streaming run on a Raspberry Pi connected to the car.
+A web-based platform for remotely controlling an **MJX Hyper Go 14302** RC car via a browser.  The backend runs on any PC or server; motor control and camera streaming run on a Raspberry Pi connected to the car.
+
+## Features
+
+- **Live RC car control** — real-time directional commands and speed control via browser
+- **3D Garage** — WebGL car viewer with livery carousel and car selection
+- **Leaderboard** — per-user lap time records with day/week/all-time filters
+- **Live broadcast** — spectator view with MJPEG camera feed and global chat
+- **User accounts** — registration, email verification, magic-link login, password reset
+- **Session management** — time-limited rentals with inactivity timeout and session timer UI
+- **News system** — admin/moderator-created news shown on the garage page (Markdown, DOMPurify sanitised)
+- **Admin dashboard (Operations Hub)** — at-a-glance counters for active sessions, orphaned holds, maintenance cars, and recent audit actions
+- **Admin user management** — ban/unban/delete users, adjust or compensate balances
+- **Admin compensation workflow** — structured internal credit with reason codes, idempotency, and full audit trail
+- **Admin transactions ledger** — full transaction history with filters for every transaction type (`hold`, `release`, `deduct`, `topup`, `admin_adjust`, `admin_compensation`)
+- **Orphaned hold release** — detect and remediate stale session holds via admin action
+- **Per-car maintenance mode** — take individual cars out of service via admin UI
+- **Admin audit log** — immutable record of all high-impact admin actions
+- **Admin analytics** — KPI overview and time-series charts for sessions, revenue, and user activity
 
 ## Architecture
 
@@ -19,13 +37,13 @@ Raspberry Pi  (Python)
 | Layer | Technology |
 |-------|-----------|
 | Frontend | HTML, CSS, JavaScript (vanilla) |
-| Backend | Node.js, Express, Socket.io |
+| Backend | Node.js 18+, Express, Socket.io, better-sqlite3 |
 | Raspberry Pi | Python, python-socketio, adafruit-pca9685 |
 
 ## Prerequisites
 
-- **Node.js** v14 or higher
-- **npm** v6 or higher
+- **Node.js** v18 or higher
+- **npm** v8 or higher
 - **Raspberry Pi** with Raspberry Pi OS (for motor/camera control)
 - **Python** 3.7+ on the Raspberry Pi
 - PCA9685 PWM driver board wired to the Pi's I2C bus
@@ -85,13 +103,13 @@ The Pi connects to the backend via Socket.io and executes motor commands as they
 **Health check**
 ```
 GET /api/health
-→ { "status": "Server is running" }
+→ { "ok": true, "status": "ok", "db": "ok", "socket": { "clients": 0 } }
 ```
 
 **List cars**
 ```
 GET /api/cars
-→ { "cars": [{ "id": 1, "name": "MJX Hyper Go 14302", "status": "available" }] }
+→ { "ratePerMinute": 0.5, "cars": [{ "id": 1, "name": "Riley-X1 «Алый»", "status": "available" }] }
 ```
 
 ### Socket.io

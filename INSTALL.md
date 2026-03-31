@@ -3,14 +3,13 @@
 ## Prerequisites
 Before you begin, ensure you have met the following requirements:
 - You have **Git** installed on your machine.
-- You have **Node.js** version 14 or higher installed (if applicable for the project).
+- You have **Node.js** version 18 or higher installed.
 
 ## Cloning the Repository
 To clone the Riley_at_the_rally repository, run the following command in your terminal:
 ```bash
-git clone https://github.com/owner/Riley_at_the_rally.git
+git clone https://github.com/ckacsy/Riley_at_the_rally.git
 ```
-Replace `owner` with the actual owner's GitHub username.
 
 ## Navigating to the Repository
 Change into the project directory:
@@ -19,21 +18,20 @@ cd Riley_at_the_rally
 ```
 
 ## Installing Dependencies
-If the project uses Node.js, run:
+The backend uses npm. Run:
 ```bash
-yarn install  
-# or  
+cd backend
 npm install
 ```
-If there are other dependencies, adjust accordingly based on the project setup.
 
 ## Running the Project
 To run the project, use the following command:
 ```bash
-npm start  
-# or for yarn  
-yarn start
+cd backend
+npm start
 ```
+
+The server starts on `http://localhost:5000`.
 
 ## Configuration
 Copy `backend/.env.example` to `backend/.env` and edit the values for your environment:
