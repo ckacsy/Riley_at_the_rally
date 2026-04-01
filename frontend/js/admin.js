@@ -64,7 +64,7 @@
      */
     function auditPreviewLine(item) {
         var line = esc(item.action);
-        if (item.admin_username) line += ' by ' + esc(item.admin_username);
+        if (item.admin_username) line += ' — ' + esc(item.admin_username);
         if (item.target_username) line += ' → ' + esc(item.target_username);
         return '<li>' + line + '</li>';
     }

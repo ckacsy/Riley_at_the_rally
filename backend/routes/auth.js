@@ -8,7 +8,7 @@ const rateLimit = require('express-rate-limit');
 const mailer = require('../mailer');
 const metrics = require('../metrics');
 const { upload, uploadsDir } = require('../middleware/upload');
-const { hasRequiredRole } = require('../middleware/roles');
+const { hasRequiredRole, getAccessBlockReason } = require('../middleware/roles');
 const {
   validateUsername,
   validateEmail,
@@ -161,18 +161,13 @@ module.exports = function mountAuthRoutes(app, db, deps) {
     }
     // Attach to req so downstream middleware can reuse without re-querying
     if (!req.user) req.user = user;
-    if (user.status === 'pending') {
-      return res.status(403).json({ error: 'pending_verification', message: 'Подтвердите email для доступа к этой функции' });
-    }
-    if (user.status === 'banned') {
-      return res.status(403).json({ error: 'account_banned', message: 'Аккаунт заблокирован' });
-    }
-    if (user.status === 'disabled') {
-      return res.status(403).json({ error: 'account_banned', message: 'Аккаунт заблокирован' });
-    }
     if (user.status === 'deleted') {
       req.session.destroy(() => {});
       return res.status(401).json({ error: 'Не авторизован' });
+    }
+    const block = getAccessBlockReason(user.status);
+    if (block) {
+      return res.status(403).json({ error: block.code, message: block.message });
     }
     next();
   }
@@ -197,14 +192,9 @@ module.exports = function mountAuthRoutes(app, db, deps) {
         req.session.destroy(() => {});
         return res.status(401).json({ error: 'Не авторизован' });
       }
-      if (user.status === 'pending') {
-        return res.status(403).json({ error: 'pending_verification', message: 'Подтвердите email для доступа к этой функции' });
-      }
-      if (user.status === 'banned') {
-        return res.status(403).json({ error: 'account_banned', message: 'Аккаунт заблокирован' });
-      }
-      if (user.status === 'disabled') {
-        return res.status(403).json({ error: 'account_banned', message: 'Аккаунт заблокирован' });
+      const block = getAccessBlockReason(user.status);
+      if (block) {
+        return res.status(403).json({ error: block.code, message: block.message });
       }
       if (!hasRequiredRole(user.role, roles)) {
         return res.status(403).json({ error: 'forbidden', message: 'Недостаточно прав' });
@@ -466,12 +456,6 @@ module.exports = function mountAuthRoutes(app, db, deps) {
       return res.status(403).json({ error: 'Аккаунт заблокирован. Обратитесь в поддержку.' });
     }
 
-    if (user.status === 'disabled') {
-      metrics.log('warn', 'auth_fail', { event: 'login', reason: 'account_disabled', ip: clientIp, userId: user.id });
-      metrics.recordError();
-      return res.status(403).json({ error: 'Аккаунт заблокирован. Обратитесь в поддержку.' });
-    }
-
     clearLoginFailures(clientIp);
 
     req.session.regenerate((err) => {
@@ -580,6 +564,10 @@ module.exports = function mountAuthRoutes(app, db, deps) {
       .prepare('SELECT id, username, email, avatar_path, status, role, created_at FROM users WHERE id = ?')
       .get(req.session.userId);
     if (!user) {
+      req.session.destroy(() => {});
+      return res.json({ user: null });
+    }
+    if (user.status === 'deleted') {
       req.session.destroy(() => {});
       return res.json({ user: null });
     }

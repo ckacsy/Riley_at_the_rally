@@ -70,6 +70,22 @@ function hasRequiredRole(userRole, allowedRoles) {
 }
 
 /**
+ * Returns null if the given status allows access, or an error descriptor
+ * object if access should be blocked.  Uses an allow-list approach: only
+ * 'active' users are permitted; every other status is explicitly rejected.
+ *
+ * @param {string} status
+ * @returns {null | { code: string, message: string }}
+ */
+function getAccessBlockReason(status) {
+  if (status === 'active') return null;
+  if (status === 'pending') return { code: 'pending_verification', message: 'Подтвердите email для доступа к этой функции.' };
+  if (status === 'banned')  return { code: 'account_banned',        message: 'Аккаунт заблокирован.' };
+  if (status === 'deleted') return { code: 'account_deleted',       message: 'Аккаунт недоступен.' };
+  return { code: 'account_inactive', message: 'Аккаунт недоступен.' };
+}
+
+/**
  * Returns true when `actor` may perform privileged actions on `target`.
  * An actor can only act on users whose role weight is strictly lower than
  * their own.  Unknown or missing roles on either side are treated as weight 0
@@ -96,4 +112,5 @@ module.exports = {
   isKnownStatus,
   hasRequiredRole,
   canActOn,
+  getAccessBlockReason,
 };

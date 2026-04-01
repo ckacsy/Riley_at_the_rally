@@ -320,7 +320,7 @@
                 setBtn('\u0422\u043e\u043b\u044c\u043a\u043e \u043f\u0440\u043e\u0441\u043c\u043e\u0442\u0440 / \u0412\u043e\u0439\u0442\u0438', false, 'observer', function () { window.location.href = '/login?redirect=/garage'; });
                 setFallback('\u0412\u043e\u0439\u0442\u0438', false, function () { window.location.href = '/login?redirect=/garage'; });
                 setCenter('\u0412\u043e\u0439\u0442\u0438', false, 'observer', function () { window.location.href = '/login?redirect=/garage'; });
-            } else if (currentUser.status === 'pending') {
+            } else if (currentUser.status !== 'active') {
                 setBtn('\u041f\u043e\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u0435 email', false, '', function () { window.location.href = '/verify-email'; });
                 setFallback('\u041f\u043e\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u0435 email', false, function () { window.location.href = '/verify-email'; });
                 setCenter('\u041f\u043e\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u0435 email', false, '', function () { window.location.href = '/verify-email'; });
@@ -654,8 +654,8 @@
                 w.innerHTML = '<div class="daily-bonus-guest">Войдите для получения бонусов</div>';
                 return;
             }
-            if (currentUser.status === 'pending') {
-                w.innerHTML = '<div class="daily-bonus-guest">Подтвердите email</div>';
+            if (currentUser.status !== 'active') {
+                w.innerHTML = '<div class="daily-bonus-guest">Недоступно</div>';
                 return;
             }
             fetch('/api/daily-bonus/status', { credentials: 'same-origin' })
