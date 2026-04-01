@@ -557,9 +557,11 @@
               delBtn.className = 'chat-msg-delete-btn';
               delBtn.textContent = '🗑️';
               delBtn.title = 'Удалить сообщение';
-              delBtn.addEventListener('click', function () {
-                socket.emit('chat:delete', { id: msg.id });
-              });
+              (function (msgId) {
+                delBtn.addEventListener('click', function () {
+                  socket.emit('chat:delete', { id: msgId });
+                });
+              }(msg.id));
               div.appendChild(delBtn);
             }
           }
