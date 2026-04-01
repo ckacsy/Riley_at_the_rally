@@ -42,9 +42,10 @@
      * @returns {HTMLElement}
      */
     function roleBadge(role) {
+        var labels = { user: 'Пользователь', moderator: 'Модератор', admin: 'Администратор' };
         var el = document.createElement('span');
         el.className = 'badge badge-role badge-role--' + (role || 'unknown');
-        el.textContent = role || '—';
+        el.textContent = labels[role] || role || '—';
         return el;
     }
 
@@ -54,9 +55,10 @@
      * @returns {HTMLElement}
      */
     function statusBadge(status) {
+        var labels = { active: 'Активен', banned: 'Забанен', pending: 'Ожидает', deleted: 'Удалён' };
         var el = document.createElement('span');
         el.className = 'badge badge-status badge-status--' + (status || 'unknown');
-        el.textContent = status || '—';
+        el.textContent = labels[status] || status || '—';
         return el;
     }
 

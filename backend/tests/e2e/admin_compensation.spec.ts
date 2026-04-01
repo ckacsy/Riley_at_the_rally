@@ -332,7 +332,7 @@ test.describe('POST /api/admin/users/:id/compensations — validations', () => {
     });
     expect(res.status()).toBe(400);
     const body = await res.json();
-    expect(body.error).toMatch(/deleted/i);
+    expect(body.error).toMatch(/удал/i);
   });
 
   test('admin cannot compensate themselves returns 403', async ({ page }) => {

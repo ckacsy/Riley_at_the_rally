@@ -254,6 +254,22 @@
             margin-left: 4px;
         }
 
+        .chat-msg-delete-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
+            opacity: 0.5;
+            padding: 0 2px;
+            margin-left: 4px;
+            vertical-align: middle;
+            line-height: 1;
+        }
+
+        .chat-msg-delete-btn:hover {
+            opacity: 1;
+        }
+
         .chat-empty {
             color: var(--text-secondary);
             font-size: 12px;
@@ -544,13 +560,26 @@
             if (msg.createdAt) {
               var d = new Date(msg.createdAt);
               if (!isNaN(d.getTime())) {
-                timeSpan.textContent = ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                timeSpan.textContent = ' ' + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
               }
             }
 
             div.appendChild(userSpan);
             div.appendChild(textSpan);
             div.appendChild(timeSpan);
+
+            if (window._chatUser && (window._chatUser.role === 'admin' || window._chatUser.role === 'moderator')) {
+              var delBtn = document.createElement('button');
+              delBtn.className = 'chat-msg-delete-btn';
+              delBtn.textContent = '🗑️';
+              delBtn.title = 'Удалить сообщение';
+              (function (msgId) {
+                delBtn.addEventListener('click', function () {
+                  socket.emit('chat:delete', { id: msgId });
+                });
+              }(msg.id));
+              div.appendChild(delBtn);
+            }
           }
           chatMessages.appendChild(div);
 

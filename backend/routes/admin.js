@@ -88,14 +88,14 @@ module.exports = function mountAdminRoutes(app, db, deps) {
       const actor = req.user;
       const targetId = parseInt(req.params.id, 10);
       if (!Number.isInteger(targetId)) {
-        return res.status(400).json({ error: 'Invalid user id' });
+        return res.status(400).json({ error: 'Некорректный ID пользователя' });
       }
 
       const target = stmtGetUserById.get(targetId);
-      if (!target) return res.status(404).json({ error: 'User not found' });
+      if (!target) return res.status(404).json({ error: 'Пользователь не найден' });
 
       if (actor.id === targetId) {
-        return res.status(403).json({ error: 'Cannot ban yourself' });
+        return res.status(403).json({ error: 'Нельзя забанить самого себя' });
       }
 
       if (!canActOn(actor, target)) {
@@ -136,14 +136,14 @@ module.exports = function mountAdminRoutes(app, db, deps) {
       const actor = req.user;
       const targetId = parseInt(req.params.id, 10);
       if (!Number.isInteger(targetId)) {
-        return res.status(400).json({ error: 'Invalid user id' });
+        return res.status(400).json({ error: 'Некорректный ID пользователя' });
       }
 
       const target = stmtGetUserById.get(targetId);
-      if (!target) return res.status(404).json({ error: 'User not found' });
+      if (!target) return res.status(404).json({ error: 'Пользователь не найден' });
 
       if (actor.id === targetId) {
-        return res.status(403).json({ error: 'Cannot act on yourself' });
+        return res.status(403).json({ error: 'Нельзя выполнить действие над собой' });
       }
 
       if (!canActOn(actor, target)) {
@@ -185,14 +185,14 @@ module.exports = function mountAdminRoutes(app, db, deps) {
       const actor = req.user;
       const targetId = parseInt(req.params.id, 10);
       if (!Number.isInteger(targetId)) {
-        return res.status(400).json({ error: 'Invalid user id' });
+        return res.status(400).json({ error: 'Некорректный ID пользователя' });
       }
 
       const target = stmtGetUserById.get(targetId);
-      if (!target) return res.status(404).json({ error: 'User not found' });
+      if (!target) return res.status(404).json({ error: 'Пользователь не найден' });
 
       if (actor.id === targetId) {
-        return res.status(403).json({ error: 'Cannot delete yourself' });
+        return res.status(403).json({ error: 'Нельзя удалить самого себя' });
       }
 
       if (!canActOn(actor, target)) {
@@ -263,7 +263,7 @@ module.exports = function mountAdminRoutes(app, db, deps) {
       if (req.query.page !== undefined) {
         const p = parseInt(req.query.page, 10);
         if (!Number.isInteger(p) || p < 1) {
-          return res.status(400).json({ error: 'Invalid page parameter' });
+          return res.status(400).json({ error: 'Некорректный параметр page' });
         }
         page = p;
       }
@@ -271,7 +271,7 @@ module.exports = function mountAdminRoutes(app, db, deps) {
       if (req.query.limit !== undefined) {
         const l = parseInt(req.query.limit, 10);
         if (!Number.isInteger(l) || l < 1 || l > 100) {
-          return res.status(400).json({ error: 'Invalid limit parameter (1–100)' });
+          return res.status(400).json({ error: 'Некорректный параметр limit (1–100)' });
         }
         limit = l;
       }
@@ -283,7 +283,7 @@ module.exports = function mountAdminRoutes(app, db, deps) {
       if (req.query.admin_id !== undefined) {
         const aid = parseInt(req.query.admin_id, 10);
         if (!Number.isInteger(aid) || aid < 1) {
-          return res.status(400).json({ error: 'Invalid admin_id parameter' });
+          return res.status(400).json({ error: 'Некорректный параметр admin_id' });
         }
         conditions.push('a.admin_id = ?');
         params.push(aid);
@@ -291,7 +291,7 @@ module.exports = function mountAdminRoutes(app, db, deps) {
 
       if (req.query.action !== undefined) {
         if (typeof req.query.action !== 'string' || !req.query.action.trim()) {
-          return res.status(400).json({ error: 'Invalid action parameter' });
+          return res.status(400).json({ error: 'Некорректный параметр action' });
         }
         conditions.push('a.action = ?');
         params.push(req.query.action.trim());
@@ -299,7 +299,7 @@ module.exports = function mountAdminRoutes(app, db, deps) {
 
       if (req.query.target_type !== undefined) {
         if (typeof req.query.target_type !== 'string' || !req.query.target_type.trim()) {
-          return res.status(400).json({ error: 'Invalid target_type parameter' });
+          return res.status(400).json({ error: 'Некорректный параметр target_type' });
         }
         conditions.push('a.target_type = ?');
         params.push(req.query.target_type.trim());
@@ -308,7 +308,7 @@ module.exports = function mountAdminRoutes(app, db, deps) {
       if (req.query.target_id !== undefined) {
         const tid = parseInt(req.query.target_id, 10);
         if (!Number.isInteger(tid) || tid < 1) {
-          return res.status(400).json({ error: 'Invalid target_id parameter' });
+          return res.status(400).json({ error: 'Некорректный параметр target_id' });
         }
         conditions.push('a.target_id = ?');
         params.push(tid);
@@ -318,7 +318,7 @@ module.exports = function mountAdminRoutes(app, db, deps) {
 
       if (req.query.date_from !== undefined) {
         if (!DATE_RE.test(req.query.date_from)) {
-          return res.status(400).json({ error: 'Invalid date_from format (use YYYY-MM-DD)' });
+          return res.status(400).json({ error: 'Некорректный формат date_from (используйте ГГГГ-ММ-ДД)' });
         }
         conditions.push("a.created_at >= ?");
         params.push(req.query.date_from + ' 00:00:00');
@@ -326,7 +326,7 @@ module.exports = function mountAdminRoutes(app, db, deps) {
 
       if (req.query.date_to !== undefined) {
         if (!DATE_RE.test(req.query.date_to)) {
-          return res.status(400).json({ error: 'Invalid date_to format (use YYYY-MM-DD)' });
+          return res.status(400).json({ error: 'Некорректный формат date_to (используйте ГГГГ-ММ-ДД)' });
         }
         // Exclusive upper boundary: next day start
         const nextDay = new Date(req.query.date_to);
@@ -389,11 +389,11 @@ module.exports = function mountAdminRoutes(app, db, deps) {
       const actor = req.user;
       const targetId = parseInt(req.params.id, 10);
       if (!Number.isInteger(targetId)) {
-        return res.status(400).json({ error: 'Invalid user id' });
+        return res.status(400).json({ error: 'Некорректный ID пользователя' });
       }
 
       const target = stmtGetUserById.get(targetId);
-      if (!target) return res.status(404).json({ error: 'User not found' });
+      if (!target) return res.status(404).json({ error: 'Пользователь не найден' });
 
       if (!canActOn(actor, target)) {
         return res.status(403).json({ error: 'forbidden', message: 'Недостаточно прав' });
@@ -404,20 +404,20 @@ module.exports = function mountAdminRoutes(app, db, deps) {
       // Validate amount
       const numAmount = Number(amount);
       if (!Number.isFinite(numAmount) || numAmount === 0) {
-        return res.status(400).json({ error: 'amount must be a finite non-zero number' });
+        return res.status(400).json({ error: 'Сумма должна быть конечным ненулевым числом' });
       }
       if (Math.abs(numAmount) > 1_000_000) {
-        return res.status(400).json({ error: 'amount exceeds allowed limit' });
+        return res.status(400).json({ error: 'Сумма превышает допустимый лимит' });
       }
 
       // Validate comment
       if (!comment || typeof comment !== 'string' || !comment.trim()) {
-        return res.status(400).json({ error: 'comment is required' });
+        return res.status(400).json({ error: 'Поле comment обязательно' });
       }
 
       // Validate idempotency_key
       if (!idempotency_key || typeof idempotency_key !== 'string' || !idempotency_key.trim()) {
-        return res.status(400).json({ error: 'idempotency_key is required' });
+        return res.status(400).json({ error: 'Поле idempotency_key обязательно' });
       }
 
       const result = db.transaction(() => {
@@ -446,7 +446,7 @@ module.exports = function mountAdminRoutes(app, db, deps) {
         const currentUser = stmtGetUserById.get(targetId);
         const newBalance = (currentUser.balance || 0) + numAmount;
         if (newBalance < 0) {
-          return { error: 'insufficient_balance', message: 'Balance would go below zero' };
+          return { error: 'insufficient_balance', message: 'Баланс уйдёт в минус' };
         }
 
         // Update balance
@@ -520,18 +520,18 @@ module.exports = function mountAdminRoutes(app, db, deps) {
       const actor = req.user;
       const targetId = parseInt(req.params.id, 10);
       if (!Number.isInteger(targetId)) {
-        return res.status(400).json({ error: 'Invalid user id' });
+        return res.status(400).json({ error: 'Некорректный ID пользователя' });
       }
 
       if (actor.id === targetId) {
-        return res.status(403).json({ error: 'Cannot compensate yourself' });
+        return res.status(403).json({ error: 'Нельзя начислить компенсацию самому себе' });
       }
 
       const target = stmtGetUserById.get(targetId);
-      if (!target) return res.status(404).json({ error: 'User not found' });
+      if (!target) return res.status(404).json({ error: 'Пользователь не найден' });
 
       if (target.status === 'deleted') {
-        return res.status(400).json({ error: 'Cannot compensate a deleted user' });
+        return res.status(400).json({ error: 'Нельзя начислить компенсацию удалённому пользователю' });
       }
 
       if (!canActOn(actor, target)) {
@@ -543,36 +543,36 @@ module.exports = function mountAdminRoutes(app, db, deps) {
       // Validate amount
       const numAmount = Number(amount);
       if (amount === undefined || amount === null || !Number.isFinite(numAmount)) {
-        return res.status(400).json({ error: 'amount must be a finite number' });
+        return res.status(400).json({ error: 'Сумма должна быть конечным числом' });
       }
       if (numAmount <= 0) {
-        return res.status(400).json({ error: 'amount must be positive' });
+        return res.status(400).json({ error: 'Сумма должна быть положительной' });
       }
       if (numAmount > MAX_COMPENSATION_AMOUNT) {
-        return res.status(400).json({ error: `amount exceeds maximum of ${MAX_COMPENSATION_AMOUNT}` });
+        return res.status(400).json({ error: `Сумма превышает максимум: ${MAX_COMPENSATION_AMOUNT}` });
       }
 
       // Validate reason_code
       if (!reason_code || !COMPENSATION_REASONS.includes(reason_code)) {
-        return res.status(400).json({ error: 'reason_code must be one of: ' + COMPENSATION_REASONS.join(', ') });
+        return res.status(400).json({ error: 'reason_code должен быть одним из: ' + COMPENSATION_REASONS.join(', ') });
       }
 
       // Validate note (optional)
       let trimmedNote = null;
       if (note !== undefined && note !== null) {
         if (typeof note !== 'string') {
-          return res.status(400).json({ error: 'note must be a string' });
+          return res.status(400).json({ error: 'Поле note должно быть строкой' });
         }
         trimmedNote = note.trim();
         if (trimmedNote.length > 500) {
-          return res.status(400).json({ error: 'note must not exceed 500 characters' });
+          return res.status(400).json({ error: 'Поле note не должно превышать 500 символов' });
         }
         if (trimmedNote.length === 0) trimmedNote = null;
       }
 
       // Validate idempotency_key
       if (!idempotency_key || typeof idempotency_key !== 'string' || !idempotency_key.trim()) {
-        return res.status(400).json({ error: 'idempotency_key is required' });
+        return res.status(400).json({ error: 'Поле idempotency_key обязательно' });
       }
 
       const reasonLabel = REASON_LABELS[reason_code];
