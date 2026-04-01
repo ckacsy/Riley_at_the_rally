@@ -576,6 +576,22 @@
             opacity: 0.6;
         }
 
+        .chat-msg-delete-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
+            opacity: 0.5;
+            padding: 0 2px;
+            margin-left: 4px;
+            vertical-align: middle;
+            line-height: 1;
+        }
+
+        .chat-msg-delete-btn:hover {
+            opacity: 1;
+        }
+
         .chat-empty {
             color: var(--text-secondary);
             font-size: 12px;
