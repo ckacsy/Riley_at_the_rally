@@ -80,8 +80,8 @@ function hasRequiredRole(userRole, allowedRoles) {
 function getAccessBlockReason(status) {
   if (status === 'active') return null;
   if (status === 'pending') return { code: 'pending_verification', message: 'Подтвердите email для доступа к этой функции.' };
-  if (status === 'banned')  return { code: 'account_banned',        message: 'Аккаунт заблокирован.' };
-  if (status === 'deleted') return { code: 'account_deleted',       message: 'Аккаунт недоступен.' };
+  if (status === 'banned')  return { code: 'account_banned',       message: 'Аккаунт заблокирован.' };
+  if (status === 'deleted') return { code: 'account_deleted',      message: 'Аккаунт недоступен.' };
   return { code: 'account_inactive', message: 'Аккаунт недоступен.' };
 }
 
