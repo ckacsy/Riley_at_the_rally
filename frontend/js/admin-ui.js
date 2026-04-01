@@ -55,7 +55,7 @@
      * @returns {HTMLElement}
      */
     function statusBadge(status) {
-        var labels = { active: 'Активен', banned: 'Забанен', pending: 'Ожидает', deleted: 'Удалён' };
+        var labels = { active: 'Активен', banned: 'Заблокирован', pending: 'Ожидает подтверждения', deleted: 'Удалён', disabled: 'Отключён' };
         var el = document.createElement('span');
         el.className = 'badge badge-status badge-status--' + (status || 'unknown');
         el.textContent = labels[status] || status || '—';

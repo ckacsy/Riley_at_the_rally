@@ -563,7 +563,7 @@ module.exports = function mountAuthRoutes(app, db, deps) {
     const user = db
       .prepare('SELECT id, username, email, avatar_path, status, role, created_at FROM users WHERE id = ?')
       .get(req.session.userId);
-    if (!user || user.status === 'deleted') {
+    if (!user || user.status === 'deleted' || user.status === 'banned' || user.status === 'disabled') {
       req.session.destroy(() => {});
       return res.json({ user: null });
     }
