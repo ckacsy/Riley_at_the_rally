@@ -459,8 +459,8 @@ const mountAdminInvestigationRoutes = require('./routes/admin-investigation');
 mountAdminInvestigationRoutes(app, db, adminRouteDeps);
 
 const mountAdminChatRoutes = require('./routes/admin-chat');
-// io is available after setupSocketIo; we pass a getter so routes always see the live io ref
-mountAdminChatRoutes(app, db, adminRouteDeps, { get io() { return io; } });
+// io is created at line 72 (before this point), so it is always available when routes are called.
+mountAdminChatRoutes(app, db, adminRouteDeps, { io });
 
 const mountAdminDashboardRoutes = require('./routes/admin-dashboard');
 mountAdminDashboardRoutes(app, db, {

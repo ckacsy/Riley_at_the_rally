@@ -563,6 +563,10 @@ module.exports = function mountAuthRoutes(app, db, deps) {
     const user = db
       .prepare('SELECT id, username, email, avatar_path, status, role, created_at FROM users WHERE id = ?')
       .get(req.session.userId);
+    // Intentionally checks specific statuses rather than getAccessBlockReason():
+    // 'pending' users must keep their session to show the verify-email UI and
+    // resend verification emails.  Only permanently blocked/removed statuses
+    // should have their session destroyed and treated as logged-out.
     if (!user || user.status === 'deleted' || user.status === 'banned' || user.status === 'disabled') {
       req.session.destroy(() => {});
       return res.json({ user: null });
