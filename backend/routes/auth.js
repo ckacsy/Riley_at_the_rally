@@ -460,6 +460,12 @@ module.exports = function mountAuthRoutes(app, db, deps) {
       return res.status(401).json({ error: 'Неверный логин или пароль' });
     }
 
+    if (user.status === 'banned') {
+      metrics.log('warn', 'auth_fail', { event: 'login', reason: 'account_banned', ip: clientIp, userId: user.id });
+      metrics.recordError();
+      return res.status(403).json({ error: 'Аккаунт заблокирован. Обратитесь в поддержку.' });
+    }
+
     if (user.status === 'disabled') {
       metrics.log('warn', 'auth_fail', { event: 'login', reason: 'account_disabled', ip: clientIp, userId: user.id });
       metrics.recordError();

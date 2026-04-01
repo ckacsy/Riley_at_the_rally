@@ -33,7 +33,7 @@
                 '<td>' + escapeHtml(e.carName) + '</td>' +
                 '<td>' + escapeHtml(e.userId) + '</td>' +
                 '<td><strong>' + formatLapTime(e.lapTimeMs) + '</strong></td>' +
-                '<td>' + new Date(e.date).toLocaleDateString() + '</td>' +
+                '<td>' + new Date(e.date).toLocaleDateString('ru-RU') + '</td>' +
                 '</tr>';
         }).join('');
         container.innerHTML =

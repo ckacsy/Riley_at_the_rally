@@ -544,13 +544,24 @@
             if (msg.createdAt) {
               var d = new Date(msg.createdAt);
               if (!isNaN(d.getTime())) {
-                timeSpan.textContent = ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                timeSpan.textContent = ' ' + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
               }
             }
 
             div.appendChild(userSpan);
             div.appendChild(textSpan);
             div.appendChild(timeSpan);
+
+            if (window._chatUser && (window._chatUser.role === 'admin' || window._chatUser.role === 'moderator')) {
+              var delBtn = document.createElement('button');
+              delBtn.className = 'chat-msg-delete-btn';
+              delBtn.textContent = '🗑️';
+              delBtn.title = 'Удалить сообщение';
+              delBtn.addEventListener('click', function () {
+                socket.emit('chat:delete', { id: msg.id });
+              });
+              div.appendChild(delBtn);
+            }
           }
           chatMessages.appendChild(div);
 

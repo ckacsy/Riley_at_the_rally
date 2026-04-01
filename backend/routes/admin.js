@@ -88,14 +88,14 @@ module.exports = function mountAdminRoutes(app, db, deps) {
       const actor = req.user;
       const targetId = parseInt(req.params.id, 10);
       if (!Number.isInteger(targetId)) {
-        return res.status(400).json({ error: 'Invalid user id' });
+        return res.status(400).json({ error: 'Некорректный ID пользователя' });
       }
 
       const target = stmtGetUserById.get(targetId);
-      if (!target) return res.status(404).json({ error: 'User not found' });
+      if (!target) return res.status(404).json({ error: 'Пользователь не найден' });
 
       if (actor.id === targetId) {
-        return res.status(403).json({ error: 'Cannot ban yourself' });
+        return res.status(403).json({ error: 'Нельзя забанить самого себя' });
       }
 
       if (!canActOn(actor, target)) {
@@ -136,14 +136,14 @@ module.exports = function mountAdminRoutes(app, db, deps) {
       const actor = req.user;
       const targetId = parseInt(req.params.id, 10);
       if (!Number.isInteger(targetId)) {
-        return res.status(400).json({ error: 'Invalid user id' });
+        return res.status(400).json({ error: 'Некорректный ID пользователя' });
       }
 
       const target = stmtGetUserById.get(targetId);
-      if (!target) return res.status(404).json({ error: 'User not found' });
+      if (!target) return res.status(404).json({ error: 'Пользователь не найден' });
 
       if (actor.id === targetId) {
-        return res.status(403).json({ error: 'Cannot act on yourself' });
+        return res.status(403).json({ error: 'Нельзя выполнить действие над собой' });
       }
 
       if (!canActOn(actor, target)) {
@@ -185,14 +185,14 @@ module.exports = function mountAdminRoutes(app, db, deps) {
       const actor = req.user;
       const targetId = parseInt(req.params.id, 10);
       if (!Number.isInteger(targetId)) {
-        return res.status(400).json({ error: 'Invalid user id' });
+        return res.status(400).json({ error: 'Некорректный ID пользователя' });
       }
 
       const target = stmtGetUserById.get(targetId);
-      if (!target) return res.status(404).json({ error: 'User not found' });
+      if (!target) return res.status(404).json({ error: 'Пользователь не найден' });
 
       if (actor.id === targetId) {
-        return res.status(403).json({ error: 'Cannot delete yourself' });
+        return res.status(403).json({ error: 'Нельзя удалить самого себя' });
       }
 
       if (!canActOn(actor, target)) {
@@ -389,11 +389,11 @@ module.exports = function mountAdminRoutes(app, db, deps) {
       const actor = req.user;
       const targetId = parseInt(req.params.id, 10);
       if (!Number.isInteger(targetId)) {
-        return res.status(400).json({ error: 'Invalid user id' });
+        return res.status(400).json({ error: 'Некорректный ID пользователя' });
       }
 
       const target = stmtGetUserById.get(targetId);
-      if (!target) return res.status(404).json({ error: 'User not found' });
+      if (!target) return res.status(404).json({ error: 'Пользователь не найден' });
 
       if (!canActOn(actor, target)) {
         return res.status(403).json({ error: 'forbidden', message: 'Недостаточно прав' });
@@ -520,7 +520,7 @@ module.exports = function mountAdminRoutes(app, db, deps) {
       const actor = req.user;
       const targetId = parseInt(req.params.id, 10);
       if (!Number.isInteger(targetId)) {
-        return res.status(400).json({ error: 'Invalid user id' });
+        return res.status(400).json({ error: 'Некорректный ID пользователя' });
       }
 
       if (actor.id === targetId) {
@@ -528,7 +528,7 @@ module.exports = function mountAdminRoutes(app, db, deps) {
       }
 
       const target = stmtGetUserById.get(targetId);
-      if (!target) return res.status(404).json({ error: 'User not found' });
+      if (!target) return res.status(404).json({ error: 'Пользователь не найден' });
 
       if (target.status === 'deleted') {
         return res.status(400).json({ error: 'Cannot compensate a deleted user' });

@@ -754,6 +754,13 @@
             var chatSendBtnEl = document.getElementById('chat-send-btn');
             var chatJumpBtnEl = document.getElementById('chat-jump-btn');
 
+            var _controlChatUser = null;
+            fetch('/api/auth/me').then(function (r) {
+                return r.ok ? r.json() : null;
+            }).then(function (data) {
+                if (data && data.user) _controlChatUser = data.user;
+            }).catch(function () {});
+
             function openDrawer() {
                 document.body.setAttribute('data-chat-open', 'true');
                 drawer.setAttribute('aria-hidden', 'false');
@@ -814,13 +821,26 @@
                     if (msg.createdAt) {
                         var d = new Date(msg.createdAt);
                         if (!isNaN(d.getTime())) {
-                            timeSpan.textContent = ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                            timeSpan.textContent = ' ' + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
                         }
                     }
 
                     div.appendChild(userSpan);
                     div.appendChild(textSpan);
                     div.appendChild(timeSpan);
+
+                    if (_controlChatUser && (_controlChatUser.role === 'admin' || _controlChatUser.role === 'moderator')) {
+                        var delBtn = document.createElement('button');
+                        delBtn.className = 'chat-msg-delete-btn';
+                        delBtn.textContent = '🗑️';
+                        delBtn.title = 'Удалить сообщение';
+                        (function (msgId) {
+                            delBtn.addEventListener('click', function () {
+                                socket.emit('chat:delete', { id: msgId });
+                            });
+                        }(msg.id));
+                        div.appendChild(delBtn);
+                    }
                 }
                 chatMessagesEl.appendChild(div);
 
