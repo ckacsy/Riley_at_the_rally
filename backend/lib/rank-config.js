@@ -24,7 +24,7 @@ const RECENTLY_RESOLVED_GRACE_MS = 5 * 1000;
 const MIN_LAP_TIME_MS = 15000;
 
 // Number of checkpoints a player must hit (in order) before finishing a duel lap
-const DUEL_REQUIRED_CHECKPOINTS = 3;
+const DUEL_REQUIRED_CHECKPOINTS = 2;
 
 // Current ranked season identifier
 const SEASON_ID = 1;

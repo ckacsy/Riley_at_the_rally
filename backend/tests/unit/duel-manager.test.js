@@ -431,6 +431,32 @@ describe('DuelManager — lap validation', () => {
     freshManager.clear();
     freshDb.close();
   });
+
+  test('finish with 0 checkpoints returns checkpoints_incomplete', () => {
+    manager.handleStartLap('sA');
+    const result = manager.handleFinishLap('sA');
+    assert.equal(result.ok, false);
+    assert.equal(result.error, 'checkpoints_incomplete');
+  });
+
+  test('finish with only 1 checkpoint returns checkpoints_incomplete', () => {
+    manager.handleStartLap('sA');
+    manager.handleCheckpoint('sA', 0);
+    const result = manager.handleFinishLap('sA');
+    assert.equal(result.ok, false);
+    assert.equal(result.error, 'checkpoints_incomplete');
+  });
+
+  test('finish with 2 checkpoints succeeds', () => {
+    manager.handleStartLap('sA');
+    const duel = manager.getDuelBySocketId('sA');
+    const player = duel.players.find((p) => p.socketId === 'sA');
+    if (player) player.currentLapStart -= 30_000;
+    manager.handleCheckpoint('sA', 0);
+    manager.handleCheckpoint('sA', 1);
+    const result = manager.handleFinishLap('sA');
+    assert.equal(result.ok, true);
+  });
 });
 
 // ---------------------------------------------------------------------------
