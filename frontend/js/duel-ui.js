@@ -195,7 +195,7 @@
 
         var result = data.result || '';
         var reason = data.reason || result;
-        var rankChange = data.rankChange !== undefined ? data.rankChange : null;
+        var rankChange = data.rankChange != null ? data.rankChange : null;
         var lapTimeMs = data.lapTimeMs != null ? data.lapTimeMs : null;
 
         var title = '';

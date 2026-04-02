@@ -1309,7 +1309,7 @@ if (process.env.NODE_ENV !== 'production') {
     const player = duel.players.find((p) => p.dbUserId === Number(dbUserId));
     if (!player) return res.status(404).json({ error: 'player not found in duel' });
     if (!player.lapStarted) return res.status(409).json({ error: 'lap not started yet' });
-    player.currentLapStart -= MIN_LAP_TIME_MS + 5000;
+    player.currentLapStart -= MIN_LAP_TIME_MS + 5000; // 5 s buffer ensures MIN_LAP_TIME_MS check always passes
     res.json({ success: true });
   });
 
