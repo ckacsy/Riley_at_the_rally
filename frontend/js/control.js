@@ -61,6 +61,22 @@
             document.getElementById('session-timer').textContent = `${minutes}:${seconds}`;
         }, 1000);
 
+        // Compact rank badge
+        (function () {
+            var wrap = document.getElementById('control-rank-wrap');
+            if (!wrap || typeof window.RankUI === 'undefined') return;
+            fetch('/api/profile/rank', { credentials: 'same-origin' })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (data) {
+                    if (!wrap) return;
+                    if (!data) { wrap.style.display = 'none'; return; }
+                    wrap.innerHTML = window.RankUI.renderRankBadge(data, { size: 'compact' });
+                })
+                .catch(function () {
+                    if (wrap) wrap.style.display = 'none';
+                });
+        }());
+
         // ---------- Client-side countdown timers ----------
         let maxCountdownInterval = null;
         let inactivityCountdownInterval = null;

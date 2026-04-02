@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="styles/nav.css">
     <link rel="stylesheet" href="styles/garage.css">
     <link rel="stylesheet" href="styles/daily-bonus.css">
+    <link rel="stylesheet" href="styles/rank.css">
 </head>
 <body>
     <div id="main-nav"></div>
@@ -62,7 +63,7 @@
             <div class="profile-avatar" aria-hidden="true">&#x1F464;</div>
             <div class="profile-info">
                 <div class="profile-username" id="profile-username">Гость</div>
-                <div class="profile-rank">&#x1F3C6;&nbsp;Рейтинг:&nbsp;&#8212;&nbsp;<span class="rank-wip">🚧 В разработке</span></div>
+                <div class="profile-rank" id="profile-rank-badge" aria-label="Текущий ранг"><span class="rank-badge rank-badge-loading">Загрузка…</span></div>
             </div>
         </a>
 
@@ -100,6 +101,13 @@
 
             <!-- Рейтинг -->
             <div class="tab-content" id="tab-ratings">
+                <!-- Live player rankings -->
+                <div class="panel-section">
+                    <div id="rankings-container" aria-live="polite">
+                        <div class="rankings-loading">Загрузка рейтинга…</div>
+                    </div>
+                </div>
+                <!-- Best lap times -->
                 <div class="panel-section">
                     <h3>Топ-5 — лучшие круги</h3>
                     <div id="lb-preview"></div>
@@ -671,6 +679,7 @@
     </div>
 
     <!-- MAIN APP LOGIC (non-module) -->
+    <script src="js/rank-ui.js"></script>
     <script src="js/garage.js"></script>
 
     <script src="vendor/purify.min.js"></script>

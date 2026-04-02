@@ -193,9 +193,85 @@
         function loadAuth() {
             fetch('/api/auth/me', { credentials: 'same-origin' })
                 .then(function (r) { return r.json(); })
-                .then(function (data) { currentUser = data.user || null; renderAuthChip(); updateCTA(); loadDailyBonusStatus(); })
-                .catch(function () { currentUser = null; renderAuthChip(); updateCTA(); loadDailyBonusStatus(); });
+                .then(function (data) { currentUser = data.user || null; renderAuthChip(); updateCTA(); loadDailyBonusStatus(); loadRankBadge(); })
+                .catch(function () { currentUser = null; renderAuthChip(); updateCTA(); loadDailyBonusStatus(); renderGuestRankBadge(); });
         }
+
+        // ---- Rank badge (profile card) ----
+        function renderGuestRankBadge() {
+            var el = document.getElementById('profile-rank-badge');
+            if (!el || typeof window.RankUI === 'undefined') return;
+            el.innerHTML = '<span class="rank-badge rank-badge-guest">—</span>';
+        }
+
+        function loadRankBadge() {
+            var el = document.getElementById('profile-rank-badge');
+            if (!el || typeof window.RankUI === 'undefined') return;
+            if (!currentUser) { renderGuestRankBadge(); return; }
+            el.innerHTML = window.RankUI.renderRankBadge(null, { loading: true });
+            fetch('/api/profile/rank', { credentials: 'same-origin' })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (data) {
+                    if (!el) return;
+                    if (!data) { el.innerHTML = '<span class="rank-badge rank-badge-guest">—</span>'; return; }
+                    el.innerHTML = window.RankUI.renderRankBadge(data, { size: 'normal' });
+                })
+                .catch(function () {
+                    if (el) el.innerHTML = '<span class="rank-badge rank-badge-guest">—</span>';
+                });
+        }
+
+        // ---- Live rankings (ratings tab) ----
+        var _rankingsTimer = null;
+        var _rankingsLoaded = false;
+
+        function loadRankings() {
+            var container = document.getElementById('rankings-container');
+            if (!container || typeof window.RankUI === 'undefined') return;
+            if (!_rankingsLoaded) {
+                container.innerHTML = '<div class="rankings-loading">Загрузка рейтинга…</div>';
+            }
+            fetch('/api/rankings', { credentials: 'same-origin' })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (data) {
+                    if (!container) return;
+                    if (!data) {
+                        container.innerHTML = '<div class="rankings-error">Не удалось загрузить рейтинг</div>';
+                        return;
+                    }
+                    _rankingsLoaded = true;
+                    window.RankUI.renderRankings(container, data);
+                })
+                .catch(function () {
+                    if (container) container.innerHTML = '<div class="rankings-error">Ошибка загрузки рейтинга</div>';
+                });
+        }
+
+        // Auto-refresh rankings every 30 s when tab is visible
+        document.querySelectorAll('.tab-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var tab = btn.getAttribute('data-tab');
+                if (tab === 'ratings') {
+                    loadRankings();
+                    if (!_rankingsTimer) {
+                        _rankingsTimer = setInterval(loadRankings, 30000);
+                    }
+                } else {
+                    if (_rankingsTimer) {
+                        clearInterval(_rankingsTimer);
+                        _rankingsTimer = null;
+                    }
+                }
+            });
+        });
+
+        // Clear rankings timer when page is unloaded
+        window.addEventListener('beforeunload', function () {
+            if (_rankingsTimer) {
+                clearInterval(_rankingsTimer);
+                _rankingsTimer = null;
+            }
+        });
 
         // Balance
         var currentBalance = 0;

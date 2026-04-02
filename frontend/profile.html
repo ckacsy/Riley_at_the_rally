@@ -6,6 +6,7 @@
     <title>Профиль — Riley at the Rally</title>
     <link rel="stylesheet" href="styles/common.css">
     <link rel="stylesheet" href="styles/nav.css">
+    <link rel="stylesheet" href="styles/rank.css">
     <style>
         body {
             margin: 0;
@@ -433,9 +434,16 @@
             </div>
         </div>
 
+        <!-- Rank block -->
+        <div id="rank-section" class="rank-section" style="display:none">
+            <div class="rank-section-title">🎖 Ранговый рейтинг</div>
+            <div id="rank-block-content">
+                <div class="rank-badge rank-badge-loading">Загрузка…</div>
+            </div>
+        </div>
+
         <!-- Best lap -->
         <div id="best-lap-section"></div>
-
         <!-- Recent laps -->
         <div class="recent-section">
             <div class="section-title">🕓 Последние круги</div>
@@ -456,6 +464,7 @@
 
     </div>
 
+    <script src="js/rank-ui.js"></script>
     <script>
         var csrfToken = '';
         fetch('/api/csrf-token', { credentials: 'same-origin' }).then(function(r){return r.json();}).then(function(d){csrfToken=d.csrfToken||'';});
@@ -718,6 +727,73 @@
         });
 
         loadProfile();
+
+        // Load rank block
+        function loadRankBlock() {
+            var section = document.getElementById('rank-section');
+            var content = document.getElementById('rank-block-content');
+            if (!section || !content || typeof window.RankUI === 'undefined') return;
+            fetch('/api/profile/rank', { credentials: 'same-origin' })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (data) {
+                    if (!data) return;
+                    var RankUI = window.RankUI;
+                    var html = '';
+
+                    if (data.isLegend) {
+                        html += '<div class="rank-main-badge">' +
+                                '<div class="rank-main-emoji">🏆</div>' +
+                                '<div class="rank-main-info">' +
+                                '<div class="rank-main-label rank-zone-legend" style="color:var(--rz-color)">' +
+                                'Legend' + (data.legendPosition != null ? ' #' + data.legendPosition : '') +
+                                '</div>' +
+                                '</div>' +
+                                '</div>';
+                    } else {
+                        var display  = data.display || {};
+                        var emoji    = display.emoji || '';
+                        var label    = display.label || String(data.rank);
+                        var zoneClass = RankUI.getRankZoneClass(data.rank, false);
+
+                        html += '<div class="rank-main-badge">' +
+                                '<div class="rank-main-emoji">' + emoji + '</div>' +
+                                '<div class="rank-main-info ' + zoneClass + '">' +
+                                '<div class="rank-main-label">Ранг ' + label + '</div>' +
+                                '<div class="rank-main-stars">' + RankUI.renderStars(data.stars || 0) + '</div>';
+
+                        if (data.stars === 3 && !data.isLegend) {
+                            html += '<div class="rank-promo-hint">Ещё 1 победа до повышения</div>';
+                        }
+
+                        html += '</div>' +
+                                '</div>';
+                    }
+
+                    // Duel stats
+                    var hasDuels = (data.duelsWon || 0) > 0 || (data.duelsLost || 0) > 0;
+                    html += '<div class="rank-duel-stats">' +
+                            '<div class="rank-duel-stat">' +
+                            '<div class="rank-duel-stat-value">' + (data.duelsWon || 0) + '</div>' +
+                            '<div class="rank-duel-stat-label">Дуэлей выиграно</div>' +
+                            '</div>' +
+                            '<div class="rank-duel-stat">' +
+                            '<div class="rank-duel-stat-value">' + (data.duelsLost || 0) + '</div>' +
+                            '<div class="rank-duel-stat-label">Дуэлей проиграно</div>' +
+                            '</div>' +
+                            '</div>';
+
+                    if (!hasDuels) {
+                        html += '<div class="rank-no-duels">Вы ещё не участвовали в дуэлях</div>';
+                    }
+
+                    content.innerHTML = html;
+                    section.style.display = '';
+                })
+                .catch(function () {
+                    // Silently fail — rank block just stays hidden
+                });
+        }
+        loadRankBlock();
 
         // Load balance display
         fetch('/api/balance', { credentials: 'same-origin' })
