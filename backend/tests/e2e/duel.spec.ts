@@ -55,6 +55,19 @@ async function activateUser(
   expect(res.status(), `activateUser failed: ${await res.text()}`).toBe(200);
 }
 
+async function loginUser(
+  page: import('@playwright/test').Page,
+  identifier: string,
+  password = 'Secure#Pass1',
+): Promise<void> {
+  const csrfToken = await getCsrfToken(page);
+  const res = await page.request.post('/api/auth/login', {
+    data: { identifier, password },
+    headers: { 'X-CSRF-Token': csrfToken },
+  });
+  expect(res.status(), `login failed: ${await res.text()}`).toBe(200);
+}
+
 /**
  * Inject fake client-side activeSession into sessionStorage.
  * Prevents /control from redirecting to /garage.
@@ -120,6 +133,14 @@ async function setupSocketCapture(
           const sock = v.apply(this, args);
           (window as any).__testSocket = sock;
 
+          // Capture ALL incoming socket events (including duel:* events
+          // that control.js doesn't register handlers for).
+          sock.onAny((event: string, ...cbArgs: any[]) => {
+            (window as any).__socketEventStore[event] =
+              cbArgs.length === 1 ? cbArgs[0] : cbArgs;
+          });
+
+          // Keep sock.on wrapper so control.js handlers still work.
           const origOn = sock.on.bind(sock);
           sock.on = function (event: string, cb: Function) {
             origOn(event, (...cbArgs: any[]) => {
@@ -200,6 +221,9 @@ test.describe('Duel backend — matchmaking', () => {
       const userB = await registerUser(pageA, 'duel_b', 'duel_b@test.com', 'Secure#Pass1');
       await activateUser(pageA, userB.username);
 
+      // Re-login as userA: registerUser(duel_b) overwrote pageA's session
+      await loginUser(pageA, userA.username);
+
       // Inject server-side active sessions for both users
       await injectServerActiveSession(pageA, 1, userA.id);
       await injectServerActiveSession(pageA, 2, userB.id);
@@ -210,8 +234,9 @@ test.describe('Duel backend — matchmaking', () => {
       await pageA.goto('/control');
       await waitForSocketConnected(pageA);
 
-      // Player B
+      // Player B — login in its own context before connecting
       const pageB = await ctxB.newPage();
+      await loginUser(pageB, userB.username);
       await setupSocketCapture(pageB);
       await injectActiveSession(pageB, 2, userB.username, userB.id);
       await pageB.goto('/control');
@@ -311,6 +336,9 @@ test.describe('Duel backend — lap validation and win', () => {
     const userB = await registerUser(pageA, 'win_b', 'win_b@test.com', 'Secure#Pass1');
     await activateUser(pageA, userB.username);
 
+    // Re-login as userA: registerUser(win_b) overwrote pageA's session
+    await loginUser(pageA, userA.username);
+
     await injectServerActiveSession(pageA, 1, userA.id);
     await injectServerActiveSession(pageA, 2, userB.id);
 
@@ -319,7 +347,9 @@ test.describe('Duel backend — lap validation and win', () => {
     await pageA.goto('/control');
     await waitForSocketConnected(pageA);
 
+    // Login userB in its own context before connecting
     const pageB = await ctxB.newPage();
+    await loginUser(pageB, userB.username);
     await setupSocketCapture(pageB);
     await injectActiveSession(pageB, 2, userB.username, userB.id);
     await pageB.goto('/control');
@@ -402,6 +432,9 @@ test.describe('Duel backend — disconnect handling', () => {
       const userB = await registerUser(pageA, 'disc_b', 'disc_b@test.com', 'Secure#Pass1');
       await activateUser(pageA, userB.username);
 
+      // Re-login as userA: registerUser(disc_b) overwrote pageA's session
+      await loginUser(pageA, userA.username);
+
       await injectServerActiveSession(pageA, 1, userA.id);
       await injectServerActiveSession(pageA, 2, userB.id);
 
@@ -411,6 +444,8 @@ test.describe('Duel backend — disconnect handling', () => {
       await waitForSocketConnected(pageA);
 
       const pageB = await ctxB.newPage();
+      // Login userB in its own context before connecting
+      await loginUser(pageB, userB.username);
       await setupSocketCapture(pageB);
       await injectActiveSession(pageB, 2, userB.username, userB.id);
       await pageB.goto('/control');
@@ -457,6 +492,9 @@ test.describe('Duel backend — disconnect handling', () => {
       const userB = await registerUser(pageA, 'cdisc_b', 'cdisc_b@test.com', 'Secure#Pass1');
       await activateUser(pageA, userB.username);
 
+      // Re-login as userA: registerUser(cdisc_b) overwrote pageA's session
+      await loginUser(pageA, userA.username);
+
       await injectServerActiveSession(pageA, 1, userA.id);
       await injectServerActiveSession(pageA, 2, userB.id);
 
@@ -466,6 +504,8 @@ test.describe('Duel backend — disconnect handling', () => {
       await waitForSocketConnected(pageA);
 
       const pageB = await ctxB.newPage();
+      // Login userB in its own context before connecting
+      await loginUser(pageB, userB.username);
       await setupSocketCapture(pageB);
       await injectActiveSession(pageB, 2, userB.username, userB.id);
       await pageB.goto('/control');

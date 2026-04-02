@@ -757,6 +757,8 @@ test.describe('POST /api/admin/sessions/active/:carId/force-end', () => {
       await setUserRole(page, 'feadmin1', 'admin');
 
       // Start a live socket session as the driver
+      // Re-login as driver: registerUser(feadmin1) overwrote the session
+      await loginUser(page, 'fedriver1');
       await setupSocketCapture(page);
       await injectActiveSession(page, 1, driver.username, driver.id);
       await page.goto('/control');
@@ -808,6 +810,8 @@ test.describe('POST /api/admin/sessions/active/:carId/force-end', () => {
       await activateUser(page, 'feadmin2');
       await setUserRole(page, 'feadmin2', 'admin');
 
+      // Re-login as driver: registerUser(feadmin2) overwrote the session
+      await loginUser(page, 'fedriver2');
       await setupSocketCapture(page);
       await injectActiveSession(page, 1, driver.username, driver.id);
       await page.goto('/control');
@@ -849,6 +853,8 @@ test.describe('POST /api/admin/sessions/active/:carId/force-end', () => {
       await activateUser(page, 'feadmin3');
       await setUserRole(page, 'feadmin3', 'admin');
 
+      // Re-login as driver: registerUser(feadmin3) overwrote the session
+      await loginUser(page, 'fedriver3');
       await setupSocketCapture(page);
       await injectActiveSession(page, 1, driver.username, driver.id);
       await page.goto('/control');
@@ -892,6 +898,8 @@ test.describe('POST /api/admin/sessions/active/:carId/force-end', () => {
       await activateUser(page, 'feadmin4');
       await setUserRole(page, 'feadmin4', 'admin');
 
+      // Re-login as driver: registerUser(feadmin4) overwrote the session
+      await loginUser(page, 'fedriver4');
       await setupSocketCapture(page);
       await injectActiveSession(page, 1, driver.username, driver.id);
       await page.goto('/control');
@@ -944,6 +952,8 @@ test.describe('POST /api/admin/sessions/active/:carId/force-end', () => {
       await activateUser(page, 'feadmin5');
       await setUserRole(page, 'feadmin5', 'admin');
 
+      // Re-login as driver: registerUser(feadmin5) overwrote the session
+      await loginUser(page, 'fedriver5');
       await setupSocketCapture(page);
       await injectActiveSession(page, 1, driver.username, driver.id);
       await page.goto('/control');
@@ -993,6 +1003,8 @@ test.describe('Force-end UI', () => {
       await setUserRole(page, 'uifeadmin1', 'admin');
 
       // Start a live session so it shows up in active tab
+      // Re-login as driver: registerUser(uifeadmin1) overwrote the session
+      await loginUser(page, 'uifedriver1');
       await setupSocketCapture(page);
       await injectActiveSession(page, 1, driver.username, driver.id);
       await page.goto('/control');
@@ -1033,6 +1045,8 @@ test.describe('Force-end UI', () => {
       await setUserRole(page, 'uifemod2', 'moderator');
 
       // Start a live session
+      // Re-login as driver: registerUser(uifemod2) overwrote the session
+      await loginUser(page, 'uifedriver2');
       await setupSocketCapture(page);
       await injectActiveSession(page, 1, driver.username, driver.id);
       await page.goto('/control');
@@ -1071,6 +1085,8 @@ test.describe('Force-end UI', () => {
       await activateUser(page, 'uifeadmin3');
       await setUserRole(page, 'uifeadmin3', 'admin');
 
+      // Re-login as driver: registerUser(uifeadmin3) overwrote the session
+      await loginUser(page, 'uifedriver3');
       await setupSocketCapture(page);
       await injectActiveSession(page, 1, driver.username, driver.id);
       await page.goto('/control');
@@ -1110,6 +1126,8 @@ test.describe('Force-end UI', () => {
       await activateUser(page, 'uifeadmin4');
       await setUserRole(page, 'uifeadmin4', 'admin');
 
+      // Re-login as driver: registerUser(uifeadmin4) overwrote the session
+      await loginUser(page, 'uifedriver4');
       await setupSocketCapture(page);
       await injectActiveSession(page, 1, driver.username, driver.id);
       await page.goto('/control');
