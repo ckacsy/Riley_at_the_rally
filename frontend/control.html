@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="styles/common.css">
     <link rel="stylesheet" href="styles/nav.css">
     <link rel="stylesheet" href="styles/control.css">
+    <link rel="stylesheet" href="styles/rank.css">
 </head>
 <body>
     <div id="main-nav"></div>
@@ -41,6 +42,7 @@
 
     <div class="session-info">
         Машина: <span id="car-name">—</span> &nbsp;|&nbsp; Время сессии: <span id="session-timer">00:00</span>
+        <div class="control-rank-wrap" id="control-rank-wrap" aria-label="Текущий ранг"></div>
     </div>
 
     <!-- Session countdown timer badges -->
@@ -153,6 +155,7 @@
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
+    <script src="js/rank-ui.js"></script>
     <script src="js/control.js"></script>
     <script src="js/nav.js"></script>
 </body>

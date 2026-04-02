@@ -1,0 +1,231 @@
+/* =============================================
+   rank.css — Rank badge & ratings UI styles
+   Used by: garage.html, profile.html, control.html
+   ============================================= */
+
+/* ---- Zone colour tokens ---- */
+/* ranks 10–15: safe / beginner (green-ish) */
+.rank-zone-safe  { --rz-color: #81c784; --rz-bg: rgba(76,175,80,0.14); --rz-border: rgba(76,175,80,0.35); }
+/* ranks 6–9: mid / competitive (yellow-ish) */
+.rank-zone-mid   { --rz-color: #ffb74d; --rz-bg: rgba(255,152,0,0.14); --rz-border: rgba(255,152,0,0.35); }
+/* ranks 1–5: hard / high-stakes (red-ish) */
+.rank-zone-hard  { --rz-color: #ef9a9a; --rz-bg: rgba(244,67,54,0.14); --rz-border: rgba(244,67,54,0.35); }
+/* Legend: gold */
+.rank-zone-legend { --rz-color: #ffd54f; --rz-bg: rgba(255,193,7,0.15); --rz-border: rgba(255,193,7,0.40); }
+
+/* ---- Base rank badge ---- */
+.rank-badge {
+    display:      inline-flex;
+    align-items:  center;
+    gap:          4px;
+    padding:      2px 8px;
+    border-radius: 12px;
+    font-size:    12px;
+    font-weight:  bold;
+    white-space:  nowrap;
+    background:   var(--rz-bg, rgba(255,255,255,0.08));
+    color:        var(--rz-color, rgba(255,255,255,0.75));
+    border:       1px solid var(--rz-border, rgba(255,255,255,0.15));
+    line-height:  1.4;
+    transition:   border-color 0.2s, background 0.2s;
+}
+
+/* Compact badge for control page */
+.rank-badge-compact {
+    font-size: 11px;
+    padding:   1px 6px;
+}
+
+/* Normal badge for garage profile card */
+.rank-badge-normal {
+    font-size: 12px;
+    padding:   2px 8px;
+}
+
+/* Loading / guest states */
+.rank-badge-loading,
+.rank-badge-guest {
+    color:      rgba(255,255,255,0.35);
+    background: rgba(255,255,255,0.05);
+    border:     1px dashed rgba(255,255,255,0.15);
+}
+
+/* ---- Star display ---- */
+.rank-star {
+    font-size:   11px;
+    line-height: 1;
+}
+.rank-star-filled { color: #ffd54f; }
+.rank-star-empty  { color: rgba(255,255,255,0.22); }
+
+/* ---- Full rank block (profile page) ---- */
+.rank-section {
+    background:    var(--bg-card, rgba(255,255,255,0.05));
+    border:        1px solid var(--border-color, rgba(255,255,255,0.1));
+    border-radius: 12px;
+    box-shadow:    0 4px 20px rgba(0,0,0,0.3);
+    padding:       24px 32px;
+    max-width:     860px;
+    margin:        0 auto 24px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+.rank-section-title {
+    font-size:   18px;
+    font-weight: bold;
+    color:       var(--text-primary, #fff);
+    margin:      0 0 18px;
+}
+.rank-main-badge {
+    display:     flex;
+    align-items: center;
+    gap:         14px;
+    flex-wrap:   wrap;
+    margin-bottom: 14px;
+}
+.rank-main-emoji {
+    font-size:   40px;
+    line-height: 1;
+}
+.rank-main-info {}
+.rank-main-label {
+    font-size:   22px;
+    font-weight: bold;
+    color:       var(--rz-color, #fff);
+    line-height: 1.2;
+}
+.rank-main-stars {
+    margin-top: 4px;
+    font-size:  18px;
+}
+.rank-main-stars .rank-star { font-size: 18px; }
+.rank-promo-hint {
+    font-size:  13px;
+    color:      #64b5f6;
+    margin-top: 6px;
+}
+.rank-duel-stats {
+    display:   flex;
+    gap:       20px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255,255,255,0.07);
+}
+.rank-duel-stat {
+    text-align: center;
+    min-width:  80px;
+}
+.rank-duel-stat-value {
+    font-size:   24px;
+    font-weight: bold;
+    color:       var(--accent-secondary, #64b5f6);
+}
+.rank-duel-stat-label {
+    font-size:  12px;
+    color:      var(--text-secondary, rgba(255,255,255,0.5));
+    margin-top: 2px;
+}
+.rank-no-duels {
+    font-size:  13px;
+    color:      rgba(255,255,255,0.4);
+    margin-top: 10px;
+    font-style: italic;
+}
+
+/* ---- Rankings tab (garage left panel) ---- */
+.rankings-loading,
+.rankings-error {
+    font-size: 11px;
+    color:     rgba(255,255,255,0.38);
+    padding:   6px 0;
+}
+.rankings-error { color: #ef9a9a; }
+.rankings-empty {
+    font-size: 11px;
+    color:     rgba(255,255,255,0.32);
+    font-style: italic;
+    padding:   4px 0;
+}
+.rankings-section {
+    margin-bottom: 12px;
+}
+.rankings-section-title {
+    font-size:    10px;
+    font-weight:  bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color:        var(--rz-color, rgba(255,255,255,0.4));
+    margin-bottom: 5px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.rankings-header {
+    display:     flex;
+    align-items: center;
+    gap:         4px;
+    font-size:   9px;
+    color:       rgba(255,255,255,0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    padding:     2px 0;
+    margin-bottom: 2px;
+}
+.rankings-row {
+    display:     flex;
+    align-items: center;
+    gap:         4px;
+    padding:     4px 6px;
+    border-radius: 4px;
+    font-size:   11px;
+    color:       rgba(255,255,255,0.78);
+    background:  rgba(255,255,255,0.02);
+    border-left: 2px solid transparent;
+    border-left-color: var(--rz-border, transparent);
+    margin-bottom: 2px;
+    transition:  background 0.15s;
+}
+.rankings-row:hover { background: rgba(255,255,255,0.07); }
+.rankings-place {
+    width:       22px;
+    flex-shrink: 0;
+    font-size:   10px;
+    color:       var(--rz-color, rgba(255,255,255,0.4));
+    font-weight: bold;
+}
+.rankings-name {
+    flex:        1;
+    overflow:    hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.rankings-rank {
+    width:       44px;
+    flex-shrink: 0;
+    font-size:   10px;
+    color:       var(--rz-color, rgba(255,255,255,0.6));
+    text-align:  center;
+}
+.rankings-stars {
+    width:       36px;
+    flex-shrink: 0;
+    text-align:  center;
+}
+.rankings-stars .rank-star { font-size: 9px; }
+.rankings-wl {
+    width:       30px;
+    flex-shrink: 0;
+    text-align:  right;
+    font-size:   10px;
+    color:       rgba(255,255,255,0.4);
+}
+
+/* ---- Compact rank widget (control page) ---- */
+.control-rank-wrap {
+    display:     inline-flex;
+    align-items: center;
+    gap:         6px;
+    font-size:   12px;
+    color:       rgba(255,255,255,0.65);
+    margin-top:  6px;
+}

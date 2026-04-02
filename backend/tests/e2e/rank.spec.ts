@@ -130,3 +130,94 @@ test.describe('GET /api/rankings', () => {
     expect(body.legend).toEqual([]);
   });
 });
+
+/**
+ * Rank UI smoke tests — verify rank elements appear on pages.
+ */
+
+const UI_TIMEOUT = 10_000;
+
+test.describe('Rank UI — garage page', () => {
+  test('rank badge element exists in profile card as guest', async ({ page }) => {
+    await page.route('/api/auth/me', (route) =>
+      route.fulfill({ json: { user: null } }),
+    );
+    await page.goto('/garage?forceFallback=1');
+    const badge = page.locator('#profile-rank-badge');
+    await expect(badge).toBeAttached({ timeout: UI_TIMEOUT });
+  });
+
+  test('rank badge shows live data for authenticated user', async ({ page }) => {
+    await page.route('/api/auth/me', (route) =>
+      route.fulfill({ json: { user: { id: 1, username: 'tester', status: 'active' } } }),
+    );
+    await page.route('/api/profile/rank', (route) =>
+      route.fulfill({
+        json: {
+          rank: 15, stars: 0, isLegend: false, legendPosition: null,
+          duelsWon: 0, duelsLost: 0,
+          display: { label: '15', emoji: '🛻', starsDisplay: '☆☆☆', text: '🛻 15 ☆☆☆' },
+        },
+      }),
+    );
+    await page.goto('/garage?forceFallback=1');
+    const badge = page.locator('#profile-rank-badge');
+    await expect(badge).toBeAttached({ timeout: UI_TIMEOUT });
+    await expect(badge).toContainText('15', { timeout: UI_TIMEOUT });
+  });
+
+  test('ratings tab shows rankings container', async ({ page }) => {
+    await page.route('/api/rankings', (route) =>
+      route.fulfill({ json: { ladder: [], legend: [] } }),
+    );
+    await page.goto('/garage?forceFallback=1');
+    await page.locator('.tab-btn[data-tab="ratings"]').click();
+    const container = page.locator('#rankings-container');
+    await expect(container).toBeVisible({ timeout: UI_TIMEOUT });
+  });
+
+  test('ratings tab renders legend section heading', async ({ page }) => {
+    await page.route('/api/rankings', (route) =>
+      route.fulfill({ json: { ladder: [], legend: [] } }),
+    );
+    await page.goto('/garage?forceFallback=1');
+    await page.locator('.tab-btn[data-tab="ratings"]').click();
+    const container = page.locator('#rankings-container');
+    await expect(container).toContainText('Легенды', { timeout: UI_TIMEOUT });
+  });
+});
+
+test.describe('Rank UI — profile page', () => {
+  test('rank section is hidden when API fails', async ({ page }) => {
+    await page.route('/api/profile', (route) => route.abort());
+    await page.route('/api/profile/rank', (route) => route.abort());
+    await page.goto('/profile');
+    const section = page.locator('#rank-section');
+    // Section starts hidden and stays hidden on error
+    await expect(section).toBeHidden({ timeout: UI_TIMEOUT });
+  });
+
+  test('rank section appears with live rank data', async ({ page }) => {
+    await page.route('/api/profile', (route) =>
+      route.fulfill({
+        json: {
+          user: { id: 1, username: 'tester', email: 'tester@example.com', created_at: '2024-01-01', status: 'active', avatar_path: null },
+          stats: { totalSessions: 0, totalRaces: 0, totalLaps: 0, totalTimeSec: 0, bestLap: null, recentLaps: [] },
+        },
+      }),
+    );
+    await page.route('/api/profile/rank', (route) =>
+      route.fulfill({
+        json: {
+          rank: 15, stars: 0, isLegend: false, legendPosition: null,
+          duelsWon: 0, duelsLost: 0,
+          display: { label: '15', emoji: '🛻', starsDisplay: '☆☆☆', text: '🛻 15 ☆☆☆' },
+        },
+      }),
+    );
+    await page.goto('/profile');
+    const section = page.locator('#rank-section');
+    await expect(section).toBeVisible({ timeout: UI_TIMEOUT });
+    await expect(section).toContainText('Ранг 15', { timeout: UI_TIMEOUT });
+  });
+});
