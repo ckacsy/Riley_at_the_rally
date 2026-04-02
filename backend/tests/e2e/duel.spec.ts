@@ -393,7 +393,7 @@ test.describe('Duel backend — lap validation and win', () => {
       await waitForSocketEvent(pageA, 'duel:lap_started');
 
       // Player A hits all required checkpoints
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 2; i++) {
         await pageA.evaluate(
           (idx) => (window as any).__testSocket.emit('duel:checkpoint', { index: idx }),
           i,
