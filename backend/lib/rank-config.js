@@ -26,6 +26,9 @@ const MIN_LAP_TIME_MS = 15000;
 // Number of checkpoints a player must hit (in order) before finishing a duel lap
 const DUEL_REQUIRED_CHECKPOINTS = 2;
 
+// Duration of the pre-start countdown phase (ms) after both players confirm ready
+const COUNTDOWN_MS = 3000;
+
 // Current ranked season identifier
 const SEASON_ID = 1;
 
@@ -40,5 +43,6 @@ module.exports = {
   RECENTLY_RESOLVED_GRACE_MS,
   MIN_LAP_TIME_MS,
   DUEL_REQUIRED_CHECKPOINTS,
+  COUNTDOWN_MS,
   SEASON_ID,
 };

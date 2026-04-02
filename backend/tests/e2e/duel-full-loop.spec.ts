@@ -243,6 +243,9 @@ async function doMatchAndReady(
   await pageA.evaluate(() => (window as any).__testSocket.emit('duel:ready'));
   await pageB.evaluate(() => (window as any).__testSocket.emit('duel:ready'));
 
+  await waitForSocketEvent(pageA, 'duel:countdown');
+  await waitForSocketEvent(pageB, 'duel:countdown');
+
   await waitForSocketEvent(pageA, 'duel:start');
   await waitForSocketEvent(pageB, 'duel:start');
 }

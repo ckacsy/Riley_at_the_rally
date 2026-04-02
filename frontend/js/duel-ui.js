@@ -55,7 +55,8 @@
 
     var _socket = null;
     var _hasActiveSession = false;
-    var _duelState = 'idle'; // idle | searching | ready_pending | in_progress | result
+    var _duelState = 'idle'; // idle | searching | ready_pending | countdown | in_progress | result
+    var _countdownInterval = null;
 
     // -------------------------------------------------------------------------
     // DOM references (set in init)
@@ -78,7 +79,7 @@
 
         var isIdle       = state === 'idle';
         var isSearching  = state === 'searching';
-        var isMatched    = state === 'ready_pending' || state === 'in_progress';
+        var isMatched    = state === 'ready_pending' || state === 'countdown' || state === 'in_progress';
         var isResult     = state === 'result';
 
         if (_searchBtn) {
@@ -181,7 +182,48 @@
         if (oppReady) oppReady.textContent = 'Соперник: ✅';
     }
 
+    function _onCountdown() {
+        _setState('countdown');
+        _setStatusText('🏁 Приготовьтесь!');
+
+        var readySection = document.getElementById('duel-ready-section');
+        if (readySection) readySection.style.display = 'none';
+
+        if (_matchCard) {
+            var overlay = document.createElement('div');
+            overlay.className = 'duel-countdown-overlay';
+            overlay.id = 'duel-countdown-overlay';
+            _matchCard.appendChild(overlay);
+
+            var num = 3;
+            function renderNumber(val) {
+                var el = document.createElement('div');
+                el.className = 'duel-countdown-number';
+                el.textContent = String(val);
+                overlay.innerHTML = '';
+                overlay.appendChild(el);
+            }
+            renderNumber(num);
+
+            if (_countdownInterval) clearInterval(_countdownInterval);
+            _countdownInterval = setInterval(function () {
+                num--;
+                if (num > 0) {
+                    renderNumber(num);
+                } else {
+                    clearInterval(_countdownInterval);
+                    _countdownInterval = null;
+                    overlay.innerHTML = '<div class="duel-countdown-number">🏁 СТАРТ!</div>';
+                }
+            }, 1000);
+        }
+    }
+
     function _onDuelStart() {
+        if (_countdownInterval) {
+            clearInterval(_countdownInterval);
+            _countdownInterval = null;
+        }
         _setState('in_progress');
         _setStatusText('⚔️ Дуэль началась!');
         var readySection = document.getElementById('duel-ready-section');
@@ -344,7 +386,7 @@
                             _attachReadyBtnHandler();
                         }
                     }
-                } else if (s === 'in_progress') {
+                } else if (s === 'in_progress' || s === 'countdown') {
                     _setState('in_progress');
                     _setStatusText('⚔️ Дуэль в процессе');
                     if (_socket) _socket.emit('duel:start_lap');
@@ -405,6 +447,7 @@
         socket.on('duel:search_timeout',   _onSearchTimeout);
         socket.on('duel:matched',          _onMatched);
         socket.on('duel:opponent_ready',   _onOpponentReady);
+        socket.on('duel:countdown',        _onCountdown);
         socket.on('duel:start',            _onDuelStart);
         socket.on('duel:result',           _onResult);
         socket.on('duel:error',            _onDuelError);

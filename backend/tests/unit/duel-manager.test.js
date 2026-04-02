@@ -182,6 +182,9 @@ function performValidLap(manager, socketId) {
 function makeInProgress(manager, socketIdA, socketIdB) {
   manager.handleReady(socketIdA);
   manager.handleReady(socketIdB);
+  // Advance past the countdown phase
+  const duel = manager.getDuelBySocketId(socketIdA);
+  if (duel) manager._startDuel(duel.id);
 }
 
 // ---------------------------------------------------------------------------
@@ -876,6 +879,10 @@ describe('DuelManager — ready-state lifecycle', () => {
     manager.handleReady('sA');
     manager.handleReady('sB');
 
+    // After both ready, duel is in countdown phase — advance past it
+    const duel = manager.getDuelBySocketId('sA');
+    manager._startDuel(duel.id);
+
     assert.equal(manager.getDuelStatus(1), 'in_progress');
     assert.equal(manager.getDuelStatus(2), 'in_progress');
 
@@ -883,6 +890,77 @@ describe('DuelManager — ready-state lifecycle', () => {
     const startB = sockB.emitted.find((e) => e.event === 'duel:start');
     assert.ok(startA, 'player A should receive duel:start');
     assert.ok(startB, 'player B should receive duel:start');
+  });
+
+  test('both players ready → duel enters countdown status before in_progress', () => {
+    const sockA = mockIo.sockets.sockets.get('sA');
+    const sockB = mockIo.sockets.sockets.get('sB');
+
+    manager.handleReady('sA');
+    manager.handleReady('sB');
+
+    // Immediately after both ready: countdown, not in_progress
+    assert.equal(manager.getDuelStatus(1), 'countdown');
+    assert.equal(manager.getDuelStatus(2), 'countdown');
+
+    // Both players received duel:countdown
+    const cdA = sockA.emitted.find((e) => e.event === 'duel:countdown');
+    const cdB = sockB.emitted.find((e) => e.event === 'duel:countdown');
+    assert.ok(cdA, 'player A should receive duel:countdown');
+    assert.ok(cdB, 'player B should receive duel:countdown');
+    assert.equal(typeof cdA.data.countdownMs, 'number');
+
+    // duel:start NOT yet emitted
+    const startA = sockA.emitted.find((e) => e.event === 'duel:start');
+    assert.equal(startA, undefined, 'duel:start should not be emitted before countdown ends');
+  });
+
+  test('handleStartLap during countdown returns countdown_in_progress error', () => {
+    manager.handleReady('sA');
+    manager.handleReady('sB');
+
+    // Duel is now in countdown phase
+    const result = manager.handleStartLap('sA');
+    assert.equal(result.ok, false);
+    assert.equal(result.error, 'countdown_in_progress');
+  });
+
+  test('disconnect during countdown cancels duel without rank changes', () => {
+    manager.handleReady('sA');
+    manager.handleReady('sB');
+
+    // Now in countdown — disconnect sA
+    const { affectedDuel } = manager.handleDisconnect('sA');
+    assert.ok(affectedDuel, 'should affect the duel');
+    assert.equal(affectedDuel.resolutionReason, 'cancel');
+
+    const u1 = db.prepare('SELECT duels_won, duels_lost FROM users WHERE id = 1').get();
+    const u2 = db.prepare('SELECT duels_won, duels_lost FROM users WHERE id = 2').get();
+    assert.equal(u1.duels_won + u1.duels_lost, 0, 'no rank change on disconnect during countdown');
+    assert.equal(u2.duels_won + u2.duels_lost, 0);
+  });
+
+  test('after countdown delay, duel transitions to in_progress and emits duel:start', () => {
+    const sockA = mockIo.sockets.sockets.get('sA');
+    const sockB = mockIo.sockets.sockets.get('sB');
+
+    manager.handleReady('sA');
+    manager.handleReady('sB');
+
+    const duel = manager.getDuelBySocketId('sA');
+    assert.equal(duel.status, 'countdown');
+
+    // Simulate countdown completion
+    manager._startDuel(duel.id);
+
+    assert.equal(manager.getDuelStatus(1), 'in_progress');
+    assert.equal(manager.getDuelStatus(2), 'in_progress');
+    assert.ok(duel.startedAt, 'startedAt should be set');
+
+    const startA = sockA.emitted.find((e) => e.event === 'duel:start');
+    const startB = sockB.emitted.find((e) => e.event === 'duel:start');
+    assert.ok(startA, 'player A should receive duel:start after countdown');
+    assert.ok(startB, 'player B should receive duel:start after countdown');
   });
 
   test('handleReady is idempotent (pressing twice does not error)', () => {

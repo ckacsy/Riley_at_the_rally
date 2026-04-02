@@ -29,6 +29,7 @@ const {
   RECENTLY_RESOLVED_GRACE_MS,
   MIN_LAP_TIME_MS,
   DUEL_REQUIRED_CHECKPOINTS,
+  COUNTDOWN_MS,
   SEASON_ID,
 } = require('./rank-config');
 
@@ -337,7 +338,7 @@ class DuelManager {
       userId: player.dbUserId,
     });
 
-    // Both players ready → start the duel
+    // Both players ready → start countdown phase
     if (duel.players.every((p) => p.ready)) {
       // Cancel ready timeout
       if (duel.readyTimeoutHandle) {
@@ -345,21 +346,19 @@ class DuelManager {
         duel.readyTimeoutHandle = null;
       }
 
-      duel.status = 'in_progress';
-      duel.startedAt = new Date().toISOString();
+      duel.status = 'countdown';
 
-      // Start overall duel timeout from this point
-      duel.timeoutHandle = setTimeout(() => {
-        this._handleDuelTimeout(duel.id);
-      }, DUEL_TIMEOUT_MS);
-
-      const startPayload = { duelId: duel.id };
+      const countdownPayload = { duelId: duel.id, countdownMs: COUNTDOWN_MS };
       for (const p of duel.players) {
         const sock = this._io.sockets.sockets.get(p.socketId);
-        if (sock) sock.emit('duel:start', startPayload);
+        if (sock) sock.emit('duel:countdown', countdownPayload);
       }
 
-      this._metrics.log('info', 'duel_start', { duelId: duel.id });
+      this._metrics.log('info', 'duel_countdown', { duelId: duel.id });
+
+      duel.countdownHandle = setTimeout(() => {
+        this._startDuel(duel.id);
+      }, COUNTDOWN_MS);
     }
 
     return { ok: true };
@@ -374,6 +373,33 @@ class DuelManager {
     if (!duel || duel.resolved || duel.status !== 'ready_pending') return;
     this._metrics.log('info', 'duel_ready_timeout', { duelId });
     this._cancelDuel(duel, 'ready_timeout');
+  }
+
+  /**
+   * Transition a duel from countdown to in_progress and emit duel:start.
+   * Called after the countdown timer fires.
+   * @private
+   */
+  _startDuel(duelId) {
+    const duel = this._duels.get(duelId);
+    if (!duel || duel.resolved || duel.status !== 'countdown') return;
+
+    duel.countdownHandle = null;
+    duel.status = 'in_progress';
+    duel.startedAt = new Date().toISOString();
+
+    // Start overall duel timeout from this point
+    duel.timeoutHandle = setTimeout(() => {
+      this._handleDuelTimeout(duel.id);
+    }, DUEL_TIMEOUT_MS);
+
+    const startPayload = { duelId: duel.id };
+    for (const p of duel.players) {
+      const sock = this._io.sockets.sockets.get(p.socketId);
+      if (sock) sock.emit('duel:start', startPayload);
+    }
+
+    this._metrics.log('info', 'duel_start', { duelId: duel.id });
   }
 
   // ---------------------------------------------------------------------------
@@ -395,6 +421,7 @@ class DuelManager {
     }
     if (duel.resolved) return { ok: false, error: 'duel_resolved' };
     if (duel.status === 'ready_pending') return { ok: false, error: 'not_ready' };
+    if (duel.status === 'countdown') return { ok: false, error: 'countdown_in_progress' };
     if (duel.status !== 'in_progress') return { ok: false, error: 'not_in_duel' };
 
     const player = duel.players.find((p) => p.socketId === socketId);
@@ -535,7 +562,7 @@ class DuelManager {
     const disconnectingPlayer = duel.players.find((p) => p.socketId === socketId);
     if (!disconnectingPlayer) return { affectedDuel: null };
 
-    if (duel.status === 'ready_pending') {
+    if (duel.status === 'ready_pending' || duel.status === 'countdown') {
       // Before game has started: cancel without rank penalty
       this._cancelDuel(duel, 'cancel');
       return { affectedDuel: duel };
@@ -592,6 +619,11 @@ class DuelManager {
     if (duel.readyTimeoutHandle) {
       clearTimeout(duel.readyTimeoutHandle);
       duel.readyTimeoutHandle = null;
+    }
+
+    if (duel.countdownHandle) {
+      clearTimeout(duel.countdownHandle);
+      duel.countdownHandle = null;
     }
 
     // Persist result row (no winner/loser, no rank changes)
@@ -933,7 +965,7 @@ class DuelManager {
    * Get the duel status string for a user.
    * Never returns 'cancelled' — that internal state is mapped to 'finished'.
    * @param {number} userId
-   * @returns {'none'|'searching'|'ready_pending'|'in_progress'|'finished'}
+   * @returns {'none'|'searching'|'ready_pending'|'countdown'|'in_progress'|'finished'}
    */
   getDuelStatus(userId) {
     if (this._queue.has(userId)) return 'searching';
@@ -960,6 +992,7 @@ class DuelManager {
     for (const duel of this._duels.values()) {
       if (duel.timeoutHandle) clearTimeout(duel.timeoutHandle);
       if (duel.readyTimeoutHandle) clearTimeout(duel.readyTimeoutHandle);
+      if (duel.countdownHandle) clearTimeout(duel.countdownHandle);
     }
     this._duels.clear();
     this._socketToDuel.clear();
