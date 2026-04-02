@@ -3,6 +3,8 @@
 const { performance } = require('perf_hooks');
 const crypto = require('crypto');
 const { getAccessBlockReason } = require('../middleware/roles');
+const DuelManager = require('../lib/duel-manager');
+const { DUEL_TIMEOUT_MS } = require('../lib/rank-config');
 
 /**
  * Set up all Socket.IO logic.
@@ -72,6 +74,9 @@ function setupSocketIo(io, deps) {
   const leaderboard = []; // sorted array of { userId, carName, lapTimeMs, date }
   const MAX_LEADERBOARD = 20;
   let raceCounter = 0;
+
+  // --- Duel Management ---
+  const duelManager = new DuelManager({ db, io, metrics });
 
   // --- Global Chat (DB-backed) ---
   const CHAT_HISTORY_LIMIT = parseInt(process.env.CHAT_HISTORY_LIMIT, 10) || 500;
@@ -695,6 +700,8 @@ function setupSocketIo(io, deps) {
         activeSessions.delete(socket.id);
       }
       removeFromRace(socket);
+      // Resolve any in-progress duel for this socket (after regular race cleanup)
+      duelManager.handleDisconnect(socket.id);
       if (hadSession) broadcastCarsUpdate();
       broadcastRacesUpdate();
       // Schedule grace-period removal from presence
@@ -787,6 +794,12 @@ function setupSocketIo(io, deps) {
     });
 
     socket.on('leave_race', () => {
+      // If the player is in a duel, treat leave as a duel loss (intentional forfeit)
+      if (duelManager.getDuelBySocketId(socket.id)) {
+        duelManager.handlePlayerLeave(socket.id);
+        socket.emit('race_left');
+        return;
+      }
       const race = findRaceBySocketId(socket.id);
       const raceId = race ? race.id : null;
       removeFromRace(socket);
@@ -870,6 +883,163 @@ function setupSocketIo(io, deps) {
         isGlobalRecord,
         raceId: race.id,
       });
+    });
+
+    // --- Duel events ---
+
+    /**
+     * duel:search
+     * Player requests to be placed in the ranked matchmaking queue.
+     * Eligibility: must be authenticated, active, have an active rental session,
+     * not already in a race/duel/queue, and have sufficient remaining session time.
+     */
+    socket.on('duel:search', () => {
+      const sess = socket.request.session;
+      const dbUserId = sess && sess.userId;
+
+      if (!dbUserId) {
+        socket.emit('duel:error', { code: 'auth_required', message: 'Требуется авторизация.' });
+        return;
+      }
+
+      const user = db.prepare(
+        'SELECT username, status, rank, stars, is_legend, legend_position FROM users WHERE id = ?',
+      ).get(dbUserId);
+
+      if (!user) {
+        socket.emit('duel:error', { code: 'user_not_found', message: 'Пользователь не найден.' });
+        return;
+      }
+
+      const block = getAccessBlockReason(user.status);
+      if (block) {
+        socket.emit('duel:error', { code: block.code, message: block.message });
+        return;
+      }
+
+      // Must have an active rental session
+      const activeSession = [...activeSessions.values()].find(
+        (s) => s.dbUserId === dbUserId,
+      );
+      if (!activeSession) {
+        socket.emit('duel:error', {
+          code: 'no_active_session',
+          message: 'Для участия в дуэли необходима активная аренда машины.',
+        });
+        return;
+      }
+
+      // Enough remaining session time for a full duel
+      const elapsed = Date.now() - activeSession.startTime.getTime();
+      const remaining = SESSION_MAX_DURATION_MS - elapsed;
+      if (remaining < DUEL_TIMEOUT_MS) {
+        socket.emit('duel:error', {
+          code: 'insufficient_session_time',
+          message: 'Недостаточно времени аренды для проведения дуэли.',
+        });
+        return;
+      }
+
+      // Must not already be in a regular race
+      if (findRaceBySocketId(socket.id)) {
+        socket.emit('duel:error', {
+          code: 'in_race',
+          message: 'Нельзя искать дуэль во время гонки.',
+        });
+        return;
+      }
+
+      // Must not already be in a duel or queue
+      if (duelManager.getDuelBySocketId(socket.id) || duelManager.isInQueue(dbUserId)) {
+        socket.emit('duel:error', {
+          code: 'already_in_duel',
+          message: 'Вы уже находитесь в дуэли или очереди поиска.',
+        });
+        return;
+      }
+
+      const result = duelManager.addToQueue({
+        userId: dbUserId,
+        socketId: socket.id,
+        username: user.username,
+        rank: user.rank,
+        stars: user.stars,
+        isLegend: Boolean(user.is_legend),
+        legendPosition: user.legend_position || null,
+        carId: activeSession.carId || null,
+      });
+
+      if (result.error) {
+        socket.emit('duel:error', { code: result.error, message: 'Ошибка при добавлении в очередь.' });
+        return;
+      }
+
+      if (result.queued) {
+        socket.emit('duel:searching', { message: 'Поиск соперника...' });
+        metrics.log('info', 'duel_search_start', { userId: dbUserId });
+      }
+      // If result.matched, duelManager already emitted duel:matched to both sockets
+    });
+
+    /**
+     * duel:cancel_search
+     * Player cancels an active matchmaking search.
+     */
+    socket.on('duel:cancel_search', () => {
+      const sess = socket.request.session;
+      const dbUserId = sess && sess.userId;
+      if (!dbUserId) return;
+
+      const { removed } = duelManager.removeFromQueue(dbUserId);
+      if (removed) {
+        socket.emit('duel:search_cancelled', { message: 'Поиск отменён.' });
+      }
+    });
+
+    /**
+     * duel:start_lap
+     * Player signals the start of their ranked lap in a matched duel.
+     */
+    socket.on('duel:start_lap', () => {
+      const result = duelManager.handleStartLap(socket.id);
+      if (!result.ok) {
+        socket.emit('duel:error', { code: result.error, message: 'Не удалось начать круг.' });
+        return;
+      }
+      socket.emit('duel:lap_started', { startTime: Date.now() });
+    });
+
+    /**
+     * duel:checkpoint
+     * Player reports hitting a checkpoint.
+     * Payload: { index: number }  (0-based)
+     */
+    socket.on('duel:checkpoint', (data) => {
+      const index = data && typeof data.index === 'number' ? data.index : -1;
+      if (index < 0) {
+        socket.emit('duel:error', { code: 'invalid_checkpoint', message: 'Неверный индекс чекпоинта.' });
+        return;
+      }
+      const result = duelManager.handleCheckpoint(socket.id, index);
+      if (!result.ok) {
+        socket.emit('duel:error', { code: result.error, message: 'Чекпоинт не принят.' });
+        return;
+      }
+      socket.emit('duel:checkpoint_ok', { index, nextCheckpoint: result.nextCheckpoint });
+    });
+
+    /**
+     * duel:finish_lap
+     * Player claims to have completed a valid lap.
+     * The first accepted finish wins the duel immediately.
+     */
+    socket.on('duel:finish_lap', () => {
+      const result = duelManager.handleFinishLap(socket.id);
+      if (!result.ok) {
+        socket.emit('duel:error', { code: result.error, message: 'Финиш не принят.' });
+        return;
+      }
+      // duelManager already emitted duel:result to both players
     });
   });
 
@@ -966,6 +1136,7 @@ function setupSocketIo(io, deps) {
     broadcastCarsUpdate,
     processHoldDeduct,
     forceEndSession,
+    duelManager,
   };
 }
 
