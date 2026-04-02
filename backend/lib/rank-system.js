@@ -38,7 +38,7 @@ const TIER_MAP = [
 ];
 
 /**
- * Normalise an incoming state object, filling in sensible defaults.
+ * Normalize an incoming state object, filling in sensible defaults.
  * @param {object} raw
  * @returns {{ rank: number, stars: number, isLegend: boolean, legendPosition: number|null }}
  */
