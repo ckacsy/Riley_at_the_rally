@@ -76,7 +76,12 @@ function setupSocketIo(io, deps) {
   let raceCounter = 0;
 
   // --- Duel Management ---
-  const duelManager = new DuelManager({ db, io, metrics });
+  const duelManager = new DuelManager({
+    db,
+    io,
+    metrics,
+    getActiveSession: (socketId) => activeSessions.get(socketId),
+  });
 
   // --- Global Chat (DB-backed) ---
   const CHAT_HISTORY_LIMIT = parseInt(process.env.CHAT_HISTORY_LIMIT, 10) || 500;
@@ -993,6 +998,18 @@ function setupSocketIo(io, deps) {
       const { removed } = duelManager.removeFromQueue(dbUserId);
       if (removed) {
         socket.emit('duel:search_cancelled', { message: 'Поиск отменён.' });
+      }
+    });
+
+    /**
+     * duel:ready
+     * Player confirms they are ready to start the duel (ready-state gate).
+     * Both players must emit this before the duel transitions to in_progress.
+     */
+    socket.on('duel:ready', () => {
+      const result = duelManager.handleReady(socket.id);
+      if (!result.ok) {
+        socket.emit('duel:error', { code: result.error, message: 'Не удалось подтвердить готовность.' });
       }
     });
 

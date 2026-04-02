@@ -14,6 +14,12 @@ const SOFT_LOSS_FLOOR = 6;
 const DUEL_TIMEOUT_MS = 5 * 60 * 1000;
 const DUEL_SEARCH_TIMEOUT_MS = 60 * 1000;
 
+// Ready-state timeout: both players must press Готов within this window
+const READY_TIMEOUT_MS = 60 * 1000;
+
+// Grace period after duel resolution: late inputs return duel_resolved instead of not_in_duel
+const RECENTLY_RESOLVED_GRACE_MS = 5 * 1000;
+
 // Minimum valid lap time accepted by the ranked system
 const MIN_LAP_TIME_MS = 15000;
 
@@ -30,6 +36,8 @@ module.exports = {
   SOFT_LOSS_FLOOR,
   DUEL_TIMEOUT_MS,
   DUEL_SEARCH_TIMEOUT_MS,
+  READY_TIMEOUT_MS,
+  RECENTLY_RESOLVED_GRACE_MS,
   MIN_LAP_TIME_MS,
   DUEL_REQUIRED_CHECKPOINTS,
   SEASON_ID,
