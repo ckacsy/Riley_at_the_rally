@@ -163,8 +163,10 @@ test.describe('PR1 — requireRole and status enforcement', () => {
     const res = await page.request.get('/api/dev/role-probe/admin');
     expect(res.status()).toBe(403);
     const body = await res.json();
+    // 'disabled' is a legacy status not in the canonical model; it falls through
+    // to the generic 'account_inactive' block in getAccessBlockReason
     expect(body).toMatchObject({
-      error: 'account_banned',
+      error: 'account_inactive',
     });
   });
 
@@ -206,6 +208,23 @@ test.describe('PR1 — requireRole and status enforcement', () => {
   test('unauthenticated request to admin role probe returns 401', async ({ request }) => {
     const res = await request.get('/api/dev/role-probe/admin');
     expect(res.status()).toBe(401);
+  });
+
+  test('banned user cannot log in', async ({ page }) => {
+    await resetDb(page);
+
+    await registerUser(page, 'loginbanned', 'loginbanned@example.com');
+    await activateUser(page, 'loginbanned');
+    await setUserStatus(page, 'loginbanned', 'banned');
+
+    const csrfToken = await getCsrfToken(page);
+    const res = await page.request.post('/api/auth/login', {
+      data: { identifier: 'loginbanned', password: 'Secure#Pass1' },
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+    expect(res.status()).toBe(403);
+    const body = await res.json();
+    expect(body.error).toBe('Аккаунт заблокирован. Обратитесь в поддержку.');
   });
 });
 

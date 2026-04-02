@@ -458,6 +458,10 @@ mountAdminCarsRoutes(app, db, adminRouteDeps, { CARS });
 const mountAdminInvestigationRoutes = require('./routes/admin-investigation');
 mountAdminInvestigationRoutes(app, db, adminRouteDeps);
 
+const mountAdminChatRoutes = require('./routes/admin-chat');
+// io is created at line 72 (before this point), so it is always available when routes are called.
+mountAdminChatRoutes(app, db, adminRouteDeps, { io });
+
 const mountAdminDashboardRoutes = require('./routes/admin-dashboard');
 mountAdminDashboardRoutes(app, db, {
   requireRole,
@@ -858,6 +862,10 @@ app.get('/admin-cars', pageRateLimit, (req, res) => {
 
 app.get('/admin-investigation', pageRateLimit, (req, res) => {
   res.sendFile(path.join(frontendDir, 'admin-investigation.html'));
+});
+
+app.get('/admin-chat', pageRateLimit, (req, res) => {
+  res.sendFile(path.join(frontendDir, 'admin-chat.html'));
 });
 
 // --- Dev-only: reset database (delete all users and sessions) ---

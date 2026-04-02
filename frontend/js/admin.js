@@ -63,8 +63,23 @@
      * @returns {string}
      */
     function auditPreviewLine(item) {
-        var line = esc(item.action);
-        if (item.admin_username) line += ' by ' + esc(item.admin_username);
+        var actionLabels = {
+            ban_user:        'Блокировка пользователя',
+            unban_user:      'Разблокировка пользователя',
+            delete_user:     'Удаление пользователя',
+            balance_adjust:  'Корректировка баланса',
+            compensation:    'Компенсация',
+            delete_message:  'Удаление сообщения',
+            publish_news:    'Публикация новости',
+            archive_news:    'Архивирование новости',
+            create_news:     'Создание новости',
+            update_news:     'Редактирование новости',
+            force_end_session: 'Принудительное завершение сессии',
+            set_role:        'Изменение роли',
+        };
+        var action = actionLabels[item.action] || item.action;
+        var line = esc(action);
+        if (item.admin_username) line += ' — ' + esc(item.admin_username);
         if (item.target_username) line += ' → ' + esc(item.target_username);
         return '<li>' + line + '</li>';
     }

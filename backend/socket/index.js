@@ -2,6 +2,7 @@
 
 const { performance } = require('perf_hooks');
 const crypto = require('crypto');
+const { getAccessBlockReason } = require('../middleware/roles');
 
 /**
  * Set up all Socket.IO logic.
@@ -508,10 +509,14 @@ function setupSocketIo(io, deps) {
     });
 
     socket.on('start_session', (data) => {
-      const { carId, dbUserId } = data;
+      const { carId } = data;
 
-      // Require authenticated & verified user
-      if (!Number.isInteger(dbUserId)) {
+      // Read dbUserId from server-side session (not client payload) to prevent spoofing
+      const sess = socket.request.session;
+      const dbUserId = sess && sess.userId;
+
+      // Require authenticated user
+      if (!dbUserId) {
         metrics.log('warn', 'auth_fail', { event: 'start_session', code: 'auth_required', socketId: socket.id });
         metrics.recordError();
         socket.emit('session_error', { message: 'Требуется авторизация.', code: 'auth_required' });
@@ -524,16 +529,11 @@ function setupSocketIo(io, deps) {
         socket.emit('session_error', { message: 'Пользователь не найден.', code: 'auth_required' });
         return;
       }
-      if (user.status === 'pending') {
-        metrics.log('warn', 'auth_fail', { event: 'start_session', code: 'pending_verification', userId: dbUserId });
+      const block = getAccessBlockReason(user.status);
+      if (block) {
+        metrics.log('warn', 'auth_fail', { event: 'start_session', code: block.code, userId: dbUserId });
         metrics.recordError();
-        socket.emit('session_error', { message: 'Подтвердите email для аренды машины.', code: 'pending_verification' });
-        return;
-      }
-      if (user.status === 'disabled') {
-        metrics.log('warn', 'auth_fail', { event: 'start_session', code: 'account_disabled', userId: dbUserId });
-        metrics.recordError();
-        socket.emit('session_error', { message: 'Аккаунт заблокирован.', code: 'account_disabled' });
+        socket.emit('session_error', { message: block.message, code: block.code });
         return;
       }
 
@@ -643,7 +643,7 @@ function setupSocketIo(io, deps) {
       clearSessionDurationTimeout(socket.id);
       const session = activeSessions.get(socket.id);
       if (!session) {
-        socket.emit('session_error', { message: 'No active session found.' });
+        socket.emit('session_error', { message: 'Активная сессия не найдена.' });
         return;
       }
       const endTime = new Date();
@@ -710,10 +710,14 @@ function setupSocketIo(io, deps) {
     // --- Race events ---
 
     socket.on('join_race', (data) => {
-      const { raceId, carId, carName, dbUserId } = data || {};
+      const { raceId, carId, carName } = data || {};
 
-      // Require authenticated & verified user
-      if (!Number.isInteger(dbUserId)) {
+      // Read dbUserId from server-side session (not client payload) to prevent spoofing
+      const raceSessionData = socket.request.session;
+      const dbUserId = raceSessionData && raceSessionData.userId;
+
+      // Require authenticated user
+      if (!dbUserId) {
         metrics.log('warn', 'auth_fail', { event: 'join_race', code: 'auth_required', socketId: socket.id });
         metrics.recordError();
         socket.emit('race_error', { message: 'Требуется авторизация.', code: 'auth_required' });
@@ -726,16 +730,11 @@ function setupSocketIo(io, deps) {
         socket.emit('race_error', { message: 'Пользователь не найден.', code: 'auth_required' });
         return;
       }
-      if (user.status === 'pending') {
-        metrics.log('warn', 'auth_fail', { event: 'join_race', code: 'pending_verification', userId: dbUserId });
+      const raceBlock = getAccessBlockReason(user.status);
+      if (raceBlock) {
+        metrics.log('warn', 'auth_fail', { event: 'join_race', code: raceBlock.code, userId: dbUserId });
         metrics.recordError();
-        socket.emit('race_error', { message: 'Подтвердите email для участия в гонках.', code: 'pending_verification' });
-        return;
-      }
-      if (user.status === 'disabled') {
-        metrics.log('warn', 'auth_fail', { event: 'join_race', code: 'account_disabled', userId: dbUserId });
-        metrics.recordError();
-        socket.emit('race_error', { message: 'Аккаунт заблокирован.', code: 'account_disabled' });
+        socket.emit('race_error', { message: raceBlock.message, code: raceBlock.code });
         return;
       }
 
@@ -895,7 +894,7 @@ function setupSocketIo(io, deps) {
     }
 
     if (!targetSocketId || !targetSession) {
-      return { ended: false, message: 'No active session' };
+      return { ended: false, message: 'Нет активной сессии' };
     }
 
     // Clear timers
