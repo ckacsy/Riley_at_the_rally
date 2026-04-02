@@ -937,3 +937,8 @@
                 }
             });
         })();
+
+        // ── Duel UI ──
+        if (typeof window.DuelUI !== 'undefined') {
+            window.DuelUI.init(socket, { hasActiveSession: hasSession });
+        }
