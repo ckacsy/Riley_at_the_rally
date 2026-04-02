@@ -514,7 +514,7 @@
             var isManual = source === 'manual';
             if (_dpCp1Btn)    _dpCp1Btn.style.display    = isManual ? '' : 'none';
             if (_dpCp2Btn)    _dpCp2Btn.style.display    = isManual ? '' : 'none';
-            if (_dpFinishBtn) _dpFinishBtn.style.display  = isManual ? '' : 'none';
+            if (_dpFinishBtn) _dpFinishBtn.style.display = isManual ? '' : 'none';
         },
     };
 
