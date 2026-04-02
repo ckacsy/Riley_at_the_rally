@@ -25,6 +25,8 @@ const {
 const {
   DUEL_TIMEOUT_MS,
   DUEL_SEARCH_TIMEOUT_MS,
+  READY_TIMEOUT_MS,
+  RECENTLY_RESOLVED_GRACE_MS,
   MIN_LAP_TIME_MS,
   DUEL_REQUIRED_CHECKPOINTS,
   SEASON_ID,
@@ -35,13 +37,20 @@ class DuelManager {
    * @param {{
    *   db: import('better-sqlite3').Database,
    *   io: import('socket.io').Server,
-   *   metrics: { log: Function, recordError: Function }
+   *   metrics: { log: Function, recordError: Function },
+   *   getActiveSession?: (socketId: string) => object|undefined
    * }} opts
    */
-  constructor({ db, io, metrics }) {
+  constructor({ db, io, metrics, getActiveSession }) {
     this._db = db;
     this._io = io;
     this._metrics = metrics;
+
+    /**
+     * Optional callback to look up the active rental session for a socketId.
+     * Used to revalidate car/session availability at duel creation time.
+     */
+    this._getActiveSession = typeof getActiveSession === 'function' ? getActiveSession : null;
 
     /** Queue: userId (number) → queueEntry */
     this._queue = new Map();
@@ -54,6 +63,13 @@ class DuelManager {
 
     /** Fast lookup: userId (number) → duelId (string) */
     this._userToDuel = new Map();
+
+    /**
+     * Recently-resolved grace period: socketId (string) → expiry timestamp.
+     * Late inputs within RECENTLY_RESOLVED_GRACE_MS after duel cleanup return
+     * 'duel_resolved' instead of 'not_in_duel'.
+     */
+    this._recentlyResolved = new Map();
   }
 
   // ---------------------------------------------------------------------------
@@ -104,6 +120,10 @@ class DuelManager {
           { userId, socketId, username, rankState: playerState, carId },
           other,
         );
+        if (!duel) {
+          // Session validation failed: duel:error already emitted to affected players.
+          return { error: 'match_creation_failed' };
+        }
         this._metrics.log('info', 'duel_matched', {
           duelId: duel.id,
           userA: userId,
@@ -177,6 +197,30 @@ class DuelManager {
    * @private
    */
   _createDuel(playerA, playerB) {
+    // Fix 3: Revalidate active car/session before finalizing the match.
+    if (this._getActiveSession) {
+      const sessionA = this._getActiveSession(playerA.socketId);
+      const sessionB = this._getActiveSession(playerB.socketId);
+      if (!sessionA || !sessionB) {
+        const msg = 'Сессия аренды больше не активна.';
+        const sockA = this._io.sockets.sockets.get(playerA.socketId);
+        const sockB = this._io.sockets.sockets.get(playerB.socketId);
+        if (!sessionA && sockA) {
+          sockA.emit('duel:error', { code: 'session_expired', message: msg });
+        }
+        if (!sessionB && sockB) {
+          sockB.emit('duel:error', { code: 'session_expired', message: msg });
+        }
+        this._metrics.log('warn', 'duel_create_invalid_session', {
+          userA: playerA.userId,
+          userB: playerB.userId,
+          sessionAValid: !!sessionA,
+          sessionBValid: !!sessionB,
+        });
+        return null;
+      }
+    }
+
     const duelId =
       'duel-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
 
@@ -186,6 +230,9 @@ class DuelManager {
       username: p.username,
       carId: p.carId || null,
       rankState: p.rankState,
+      // Ready-state: both players must set this to true before the duel
+      // transitions from ready_pending to in_progress.
+      ready: false,
       // Lap-tracking state
       lapStarted: false,
       currentLapStart: null,
@@ -198,7 +245,7 @@ class DuelManager {
     const duel = {
       id: duelId,
       type: 'duel',
-      status: 'matched',
+      status: 'ready_pending',
       resolved: false,
       winnerUserId: null,
       loserUserId: null,
@@ -207,6 +254,7 @@ class DuelManager {
       finishedAt: null,
       players: [makePlayerState(playerA), makePlayerState(playerB)],
       timeoutHandle: null,
+      readyTimeoutHandle: null,
     };
 
     // Register
@@ -215,6 +263,11 @@ class DuelManager {
     this._socketToDuel.set(playerB.socketId, duelId);
     this._userToDuel.set(playerA.userId, duelId);
     this._userToDuel.set(playerB.userId, duelId);
+
+    // Start ready-state timeout
+    duel.readyTimeoutHandle = setTimeout(() => {
+      this._handleReadyTimeout(duelId);
+    }, READY_TIMEOUT_MS);
 
     // Notify both players
     const sockA = this._io.sockets.sockets.get(playerA.socketId);
@@ -236,6 +289,94 @@ class DuelManager {
   }
 
   // ---------------------------------------------------------------------------
+  // Ready-state lifecycle
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Mark a player as ready for the duel to begin.
+   * When both players are ready, the duel transitions to in_progress and
+   * duel:start is emitted to both.
+   * @param {string} socketId
+   * @returns {{ ok: boolean, error?: string }}
+   */
+  handleReady(socketId) {
+    const duel = this.getDuelBySocketId(socketId);
+    if (!duel) {
+      return {
+        ok: false,
+        error: this._recentlyResolved.has(socketId) ? 'duel_resolved' : 'not_in_duel',
+      };
+    }
+    if (duel.resolved) return { ok: false, error: 'duel_resolved' };
+    if (duel.status !== 'ready_pending') {
+      return { ok: false, error: 'not_in_ready_state' };
+    }
+
+    const player = duel.players.find((p) => p.socketId === socketId);
+    if (!player) return { ok: false, error: 'player_not_found' };
+
+    // Idempotent: already marked ready
+    if (player.ready) return { ok: true };
+
+    player.ready = true;
+
+    // Notify opponent that this player is ready
+    const opponent = duel.players.find((p) => p.socketId !== socketId);
+    if (opponent) {
+      const opponentSock = this._io.sockets.sockets.get(opponent.socketId);
+      if (opponentSock) {
+        opponentSock.emit('duel:opponent_ready', {
+          duelId: duel.id,
+          username: player.username,
+        });
+      }
+    }
+
+    this._metrics.log('info', 'duel_player_ready', {
+      duelId: duel.id,
+      userId: player.dbUserId,
+    });
+
+    // Both players ready → start the duel
+    if (duel.players.every((p) => p.ready)) {
+      // Cancel ready timeout
+      if (duel.readyTimeoutHandle) {
+        clearTimeout(duel.readyTimeoutHandle);
+        duel.readyTimeoutHandle = null;
+      }
+
+      duel.status = 'in_progress';
+      duel.startedAt = new Date().toISOString();
+
+      // Start overall duel timeout from this point
+      duel.timeoutHandle = setTimeout(() => {
+        this._handleDuelTimeout(duel.id);
+      }, DUEL_TIMEOUT_MS);
+
+      const startPayload = { duelId: duel.id };
+      for (const p of duel.players) {
+        const sock = this._io.sockets.sockets.get(p.socketId);
+        if (sock) sock.emit('duel:start', startPayload);
+      }
+
+      this._metrics.log('info', 'duel_start', { duelId: duel.id });
+    }
+
+    return { ok: true };
+  }
+
+  /**
+   * Handle ready-state timeout (both players didn't ready up in time).
+   * @private
+   */
+  _handleReadyTimeout(duelId) {
+    const duel = this._duels.get(duelId);
+    if (!duel || duel.resolved || duel.status !== 'ready_pending') return;
+    this._metrics.log('info', 'duel_ready_timeout', { duelId });
+    this._cancelDuel(duel, 'ready_timeout');
+  }
+
+  // ---------------------------------------------------------------------------
   // Lap events (called from socket event handlers)
   // ---------------------------------------------------------------------------
 
@@ -246,8 +387,15 @@ class DuelManager {
    */
   handleStartLap(socketId) {
     const duel = this.getDuelBySocketId(socketId);
-    if (!duel) return { ok: false, error: 'not_in_duel' };
+    if (!duel) {
+      return {
+        ok: false,
+        error: this._recentlyResolved.has(socketId) ? 'duel_resolved' : 'not_in_duel',
+      };
+    }
     if (duel.resolved) return { ok: false, error: 'duel_resolved' };
+    if (duel.status === 'ready_pending') return { ok: false, error: 'not_ready' };
+    if (duel.status !== 'in_progress') return { ok: false, error: 'not_in_duel' };
 
     const player = duel.players.find((p) => p.socketId === socketId);
     if (!player) return { ok: false, error: 'player_not_found' };
@@ -257,17 +405,6 @@ class DuelManager {
     player.lapStarted = true;
     player.currentLapStart = Date.now();
     player.checkpointIndex = 0;
-
-    // Transition duel to in_progress when the first lap starts
-    if (duel.status === 'matched') {
-      duel.status = 'in_progress';
-      duel.startedAt = new Date().toISOString();
-
-      // Start overall duel timeout
-      duel.timeoutHandle = setTimeout(() => {
-        this._handleDuelTimeout(duel.id);
-      }, DUEL_TIMEOUT_MS);
-    }
 
     this._metrics.log('debug', 'duel_lap_start', {
       duelId: duel.id,
@@ -284,7 +421,12 @@ class DuelManager {
    */
   handleCheckpoint(socketId, checkpointIndex) {
     const duel = this.getDuelBySocketId(socketId);
-    if (!duel) return { ok: false, error: 'not_in_duel' };
+    if (!duel) {
+      return {
+        ok: false,
+        error: this._recentlyResolved.has(socketId) ? 'duel_resolved' : 'not_in_duel',
+      };
+    }
     if (duel.resolved) return { ok: false, error: 'duel_resolved' };
 
     const player = duel.players.find((p) => p.socketId === socketId);
@@ -314,7 +456,12 @@ class DuelManager {
    */
   handleFinishLap(socketId) {
     const duel = this.getDuelBySocketId(socketId);
-    if (!duel) return { ok: false, error: 'not_in_duel' };
+    if (!duel) {
+      return {
+        ok: false,
+        error: this._recentlyResolved.has(socketId) ? 'duel_resolved' : 'not_in_duel',
+      };
+    }
     if (duel.resolved) return { ok: false, error: 'duel_resolved' };
 
     const player = duel.players.find((p) => p.socketId === socketId);
@@ -388,8 +535,8 @@ class DuelManager {
     const disconnectingPlayer = duel.players.find((p) => p.socketId === socketId);
     if (!disconnectingPlayer) return { affectedDuel: null };
 
-    if (duel.status === 'matched') {
-      // Before any lap has started: cancel without rank penalty
+    if (duel.status === 'ready_pending') {
+      // Before game has started: cancel without rank penalty
       this._cancelDuel(duel, 'cancel');
       return { affectedDuel: duel };
     }
@@ -426,20 +573,25 @@ class DuelManager {
   }
 
   /**
-   * Cancel a duel without rank changes (cancel / timeout).
+   * Cancel a duel without rank changes (cancel / timeout / ready_timeout).
    * @private
    */
   _cancelDuel(duel, reason) {
     if (duel.resolved) return;
 
     duel.resolved = true;
-    duel.status = reason === 'timeout' ? 'finished' : 'cancelled';
+    duel.status = (reason === 'timeout' || reason === 'ready_timeout') ? 'finished' : 'cancelled';
     duel.resolutionReason = reason;
     duel.finishedAt = new Date().toISOString();
 
     if (duel.timeoutHandle) {
       clearTimeout(duel.timeoutHandle);
       duel.timeoutHandle = null;
+    }
+
+    if (duel.readyTimeoutHandle) {
+      clearTimeout(duel.readyTimeoutHandle);
+      duel.readyTimeoutHandle = null;
     }
 
     // Persist result row (no winner/loser, no rank changes)
@@ -492,6 +644,11 @@ class DuelManager {
     if (duel.timeoutHandle) {
       clearTimeout(duel.timeoutHandle);
       duel.timeoutHandle = null;
+    }
+
+    if (duel.readyTimeoutHandle) {
+      clearTimeout(duel.readyTimeoutHandle);
+      duel.readyTimeoutHandle = null;
     }
 
     const winnerPlayer = winnerUserId
@@ -714,6 +871,7 @@ class DuelManager {
 
   /**
    * Remove a resolved duel from all lookup maps and cancel its timeout.
+   * Also registers recently-resolved socketIds for the grace period.
    * @private
    */
   _cleanupDuelMaps(duelId) {
@@ -725,9 +883,21 @@ class DuelManager {
       duel.timeoutHandle = null;
     }
 
+    if (duel.readyTimeoutHandle) {
+      clearTimeout(duel.readyTimeoutHandle);
+      duel.readyTimeoutHandle = null;
+    }
+
     for (const p of duel.players) {
       this._socketToDuel.delete(p.socketId);
       this._userToDuel.delete(p.dbUserId);
+
+      // Fix 2: grace period — late inputs return 'duel_resolved' instead of 'not_in_duel'
+      this._recentlyResolved.set(p.socketId, Date.now());
+      const sid = p.socketId;
+      setTimeout(() => {
+        this._recentlyResolved.delete(sid);
+      }, RECENTLY_RESOLVED_GRACE_MS);
     }
 
     this._duels.delete(duelId);
@@ -761,14 +931,16 @@ class DuelManager {
 
   /**
    * Get the duel status string for a user.
+   * Never returns 'cancelled' — that internal state is mapped to 'finished'.
    * @param {number} userId
-   * @returns {'none'|'searching'|'matched'|'in_progress'|'finished'}
+   * @returns {'none'|'searching'|'ready_pending'|'in_progress'|'finished'}
    */
   getDuelStatus(userId) {
     if (this._queue.has(userId)) return 'searching';
     const duel = this.getDuelByUserId(userId);
     if (!duel) return 'none';
-    return duel.status;
+    // Fix 1: never expose raw 'cancelled' to frontend consumers
+    return duel.status === 'cancelled' ? 'finished' : duel.status;
   }
 
   // ---------------------------------------------------------------------------
@@ -787,10 +959,12 @@ class DuelManager {
 
     for (const duel of this._duels.values()) {
       if (duel.timeoutHandle) clearTimeout(duel.timeoutHandle);
+      if (duel.readyTimeoutHandle) clearTimeout(duel.readyTimeoutHandle);
     }
     this._duels.clear();
     this._socketToDuel.clear();
     this._userToDuel.clear();
+    this._recentlyResolved.clear();
   }
 }
 

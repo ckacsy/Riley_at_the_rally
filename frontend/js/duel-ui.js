@@ -55,7 +55,7 @@
 
     var _socket = null;
     var _hasActiveSession = false;
-    var _duelState = 'idle'; // idle | searching | matched | in_progress | result
+    var _duelState = 'idle'; // idle | searching | ready_pending | in_progress | result
 
     // -------------------------------------------------------------------------
     // DOM references (set in init)
@@ -78,7 +78,7 @@
 
         var isIdle       = state === 'idle';
         var isSearching  = state === 'searching';
-        var isMatched    = state === 'matched' || state === 'in_progress';
+        var isMatched    = state === 'ready_pending' || state === 'in_progress';
         var isResult     = state === 'result';
 
         if (_searchBtn) {
@@ -128,22 +128,64 @@
         }, 4000);
     }
 
+    // -------------------------------------------------------------------------
+    // Ready-state helpers
+    // -------------------------------------------------------------------------
+
+    /**
+     * Attach a click handler to the #duel-ready-btn that emits duel:ready,
+     * disables itself, and updates the own-ready indicator.
+     * Extracted to avoid duplication between _onMatched and _restoreStatus.
+     */
+    function _attachReadyBtnHandler() {
+        var readyBtn = document.getElementById('duel-ready-btn');
+        if (!readyBtn) return;
+        readyBtn.addEventListener('click', function () {
+            if (!_socket) return;
+            _socket.emit('duel:ready');
+            readyBtn.disabled = true;
+            var ownReady = document.getElementById('duel-own-ready');
+            if (ownReady) ownReady.textContent = 'Я: ✅';
+        });
+    }
+
     function _onMatched(data) {
-        _setState('matched');
-        _setStatusText('✅ Соперник найден!');
+        _setState('ready_pending');
+        _setStatusText('✅ Соперник найден! Нажмите «Готов»');
 
         if (_matchCard) {
             var opponent = data.opponent || {};
             var checkpoints = data.requiredCheckpoints || 0;
             _matchCard.innerHTML =
-                '<div class="duel-match-title">⚔️ Дуэль началась!</div>' +
+                '<div class="duel-match-title">⚔️ Соперник найден!</div>' +
                 '<div class="duel-match-opponent">' +
                     '<span class="duel-match-label">Соперник:</span> ' +
                     '<span class="duel-opponent-name">' + escHtml(opponent.username) + '</span> ' +
                     renderOpponentBadge(opponent) +
                 '</div>' +
-                '<div class="duel-match-checkpoints">Чекпоинтов: ' + checkpoints + '</div>';
+                '<div class="duel-match-checkpoints">Чекпоинтов: ' + checkpoints + '</div>' +
+                '<div class="duel-ready-section" id="duel-ready-section">' +
+                    '<div class="duel-ready-indicators">' +
+                        '<span class="duel-ready-indicator" id="duel-own-ready">Я: ⬜</span>' +
+                        '<span class="duel-ready-indicator" id="duel-opp-ready">Соперник: ⬜</span>' +
+                    '</div>' +
+                    '<button class="duel-ready-btn" id="duel-ready-btn">✅ Готов</button>' +
+                '</div>';
+
+            _attachReadyBtnHandler();
         }
+    }
+
+    function _onOpponentReady() {
+        var oppReady = document.getElementById('duel-opp-ready');
+        if (oppReady) oppReady.textContent = 'Соперник: ✅';
+    }
+
+    function _onDuelStart() {
+        _setState('in_progress');
+        _setStatusText('⚔️ Дуэль началась!');
+        var readySection = document.getElementById('duel-ready-section');
+        if (readySection) readySection.style.display = 'none';
     }
 
     function _onResult(data) {
@@ -270,9 +312,24 @@
                 if (s === 'searching') {
                     _setState('searching');
                     _setStatusText('🔍 Поиск соперника…');
-                } else if (s === 'matched') {
-                    _setState('matched');
-                    _setStatusText('✅ Соперник найден — начинайте круг!');
+                } else if (s === 'ready_pending') {
+                    _setState('ready_pending');
+                    _setStatusText('✅ Соперник найден — нажмите «Готов»');
+                    if (_matchCard) {
+                        _matchCard.style.display = '';
+                        if (!document.getElementById('duel-ready-btn')) {
+                            _matchCard.innerHTML =
+                                '<div class="duel-match-title">⚔️ Подтвердите готовность</div>' +
+                                '<div class="duel-ready-section" id="duel-ready-section">' +
+                                    '<div class="duel-ready-indicators">' +
+                                        '<span class="duel-ready-indicator" id="duel-own-ready">Я: ⬜</span>' +
+                                        '<span class="duel-ready-indicator" id="duel-opp-ready">Соперник: ⬜</span>' +
+                                    '</div>' +
+                                    '<button class="duel-ready-btn" id="duel-ready-btn">✅ Готов</button>' +
+                                '</div>';
+                            _attachReadyBtnHandler();
+                        }
+                    }
                 } else if (s === 'in_progress') {
                     _setState('in_progress');
                     _setStatusText('⚔️ Дуэль в процессе');
@@ -331,6 +388,8 @@
         socket.on('duel:search_cancelled', _onSearchCancelled);
         socket.on('duel:search_timeout',   _onSearchTimeout);
         socket.on('duel:matched',          _onMatched);
+        socket.on('duel:opponent_ready',   _onOpponentReady);
+        socket.on('duel:start',            _onDuelStart);
         socket.on('duel:result',           _onResult);
         socket.on('duel:error',            _onDuelError);
 
