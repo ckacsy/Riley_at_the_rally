@@ -230,7 +230,8 @@ class DuelManager {
       username: p.username,
       carId: p.carId || null,
       rankState: p.rankState,
-      // Ready-state
+      // Ready-state: both players must set this to true before the duel
+      // transitions from ready_pending to in_progress.
       ready: false,
       // Lap-tracking state
       lapStarted: false,

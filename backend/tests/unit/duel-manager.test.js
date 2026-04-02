@@ -357,7 +357,7 @@ describe('DuelManager — lap validation', () => {
     db.close();
   });
 
-  test('handleStartLap succeeds when duel is in_progress', () => {
+  test('handleStartLap succeeds when duel is in_progress after both players ready', () => {
     const result = manager.handleStartLap('sA');
     assert.equal(result.ok, true);
     assert.equal(manager.getDuelStatus(1), 'in_progress');
@@ -505,14 +505,11 @@ describe('DuelManager — first valid finish wins', () => {
   test('second finish attempt is ignored (duel already resolved)', () => {
     performValidLap(manager, 'sA');
 
-    // Player B also tries to finish after the duel is resolved.
-    // After cleanup, sB is in the recently-resolved grace period, so error is 'duel_resolved'.
+    // Player B tries to finish after the duel is resolved.
+    // sB is within the recently-resolved grace period, so error must be 'duel_resolved'.
     const resultB = performValidLap(manager, 'sB');
     assert.equal(resultB.ok, false);
-    assert.ok(
-      resultB.error === 'duel_resolved' || resultB.error === 'not_in_duel',
-      `expected duel_resolved or not_in_duel, got ${resultB.error}`,
-    );
+    assert.equal(resultB.error, 'duel_resolved', 'should return duel_resolved during grace period');
   });
 
   test('duel_results row is persisted exactly once', () => {

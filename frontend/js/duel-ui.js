@@ -128,6 +128,27 @@
         }, 4000);
     }
 
+    // -------------------------------------------------------------------------
+    // Ready-state helpers
+    // -------------------------------------------------------------------------
+
+    /**
+     * Attach a click handler to the #duel-ready-btn that emits duel:ready,
+     * disables itself, and updates the own-ready indicator.
+     * Extracted to avoid duplication between _onMatched and _restoreStatus.
+     */
+    function _attachReadyBtnHandler() {
+        var readyBtn = document.getElementById('duel-ready-btn');
+        if (!readyBtn) return;
+        readyBtn.addEventListener('click', function () {
+            if (!_socket) return;
+            _socket.emit('duel:ready');
+            readyBtn.disabled = true;
+            var ownReady = document.getElementById('duel-own-ready');
+            if (ownReady) ownReady.textContent = 'Я: ✅';
+        });
+    }
+
     function _onMatched(data) {
         _setState('ready_pending');
         _setStatusText('✅ Соперник найден! Нажмите «Готов»');
@@ -151,16 +172,7 @@
                     '<button class="duel-ready-btn" id="duel-ready-btn">✅ Готов</button>' +
                 '</div>';
 
-            var readyBtn = document.getElementById('duel-ready-btn');
-            if (readyBtn) {
-                readyBtn.addEventListener('click', function () {
-                    if (!_socket) return;
-                    _socket.emit('duel:ready');
-                    readyBtn.disabled = true;
-                    var ownReady = document.getElementById('duel-own-ready');
-                    if (ownReady) ownReady.textContent = 'Я: ✅';
-                });
-            }
+            _attachReadyBtnHandler();
         }
     }
 
@@ -315,16 +327,7 @@
                                     '</div>' +
                                     '<button class="duel-ready-btn" id="duel-ready-btn">✅ Готов</button>' +
                                 '</div>';
-                            var readyBtn = document.getElementById('duel-ready-btn');
-                            if (readyBtn) {
-                                readyBtn.addEventListener('click', function () {
-                                    if (!_socket) return;
-                                    _socket.emit('duel:ready');
-                                    readyBtn.disabled = true;
-                                    var ownReady = document.getElementById('duel-own-ready');
-                                    if (ownReady) ownReady.textContent = 'Я: ✅';
-                                });
-                            }
+                            _attachReadyBtnHandler();
                         }
                     }
                 } else if (s === 'in_progress') {
