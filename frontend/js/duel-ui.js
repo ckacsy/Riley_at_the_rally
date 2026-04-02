@@ -186,10 +186,20 @@
         _setState('countdown');
         _setStatusText('🏁 Приготовьтесь!');
 
+        // Clear any existing interval before setting up a new one (e.g. on reconnect)
+        if (_countdownInterval) {
+            clearInterval(_countdownInterval);
+            _countdownInterval = null;
+        }
+
         var readySection = document.getElementById('duel-ready-section');
         if (readySection) readySection.style.display = 'none';
 
         if (_matchCard) {
+            // Remove any existing countdown overlay to avoid duplicates
+            var existing = document.getElementById('duel-countdown-overlay');
+            if (existing) existing.parentNode.removeChild(existing);
+
             var overlay = document.createElement('div');
             overlay.className = 'duel-countdown-overlay';
             overlay.id = 'duel-countdown-overlay';
@@ -205,7 +215,6 @@
             }
             renderNumber(num);
 
-            if (_countdownInterval) clearInterval(_countdownInterval);
             _countdownInterval = setInterval(function () {
                 num--;
                 if (num > 0) {
@@ -213,7 +222,6 @@
                 } else {
                     clearInterval(_countdownInterval);
                     _countdownInterval = null;
-                    overlay.innerHTML = '<div class="duel-countdown-number">🏁 СТАРТ!</div>';
                 }
             }, 1000);
         }
@@ -223,6 +231,11 @@
         if (_countdownInterval) {
             clearInterval(_countdownInterval);
             _countdownInterval = null;
+        }
+        // Show СТАРТ! briefly before transitioning to racing state
+        var overlay = document.getElementById('duel-countdown-overlay');
+        if (overlay) {
+            overlay.innerHTML = '<div class="duel-countdown-number">🏁 СТАРТ!</div>';
         }
         _setState('in_progress');
         _setStatusText('⚔️ Дуэль началась!');
@@ -387,6 +400,8 @@
                         }
                     }
                 } else if (s === 'in_progress' || s === 'countdown') {
+                    // Treat countdown as in_progress on restore: the 3s window is too short
+                    // to reconstruct the countdown UI, so go straight to active racing state.
                     _setState('in_progress');
                     _setStatusText('⚔️ Дуэль в процессе');
                     if (_socket) _socket.emit('duel:start_lap');
