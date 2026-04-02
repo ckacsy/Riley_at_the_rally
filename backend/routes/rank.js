@@ -62,10 +62,11 @@ module.exports = function mountRankRoutes(app, db, deps) {
 
       const legendRows = db.prepare(
         `SELECT id, username, display_name, avatar_path,
-                rank, stars, legend_position, duels_won, duels_lost
+                rank, stars, legend_position, duels_won, duels_lost,
+                ROW_NUMBER() OVER (ORDER BY legend_position ASC NULLS LAST) AS display_position
          FROM users
          WHERE is_legend = 1 AND status = 'active' AND deleted_at IS NULL
-         ORDER BY legend_position ASC`
+         ORDER BY legend_position ASC NULLS LAST`
       ).all();
 
       const ladder = ladderRows.map((r) => {
@@ -90,7 +91,7 @@ module.exports = function mountRankRoutes(app, db, deps) {
           username: r.username,
           displayName: r.display_name || r.username,
           avatarPath: r.avatar_path || null,
-          legendPosition: r.legend_position,
+          legendPosition: r.display_position,
           duelsWon: r.duels_won || 0,
           duelsLost: r.duels_lost || 0,
           display: getRankDisplay(state),

@@ -1275,9 +1275,57 @@ if (process.env.NODE_ENV !== 'production') {
       res.status(500).json({ error: err.message });
     }
   });
+  // Dev helper: set a user's rank state (rank, stars, is_legend, legend_position).
+  // Used by e2e tests to set up specific rank scenarios.
+  app.post('/api/dev/set-user-rank', devLimiter, (req, res) => {
+    const { username, rank, stars, is_legend, legend_position } = req.body || {};
+    if (!username) return res.status(400).json({ error: 'username required' });
+    const usernameNorm = normalizeUsername(username);
+    const user = db.prepare('SELECT id FROM users WHERE username_normalized = ?').get(usernameNorm);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    db.prepare(
+      `UPDATE users SET rank = ?, stars = ?, is_legend = ?, legend_position = ? WHERE id = ?`
+    ).run(
+      rank != null ? Number(rank) : 15,
+      stars != null ? Number(stars) : 0,
+      is_legend ? 1 : 0,
+      legend_position != null ? Number(legend_position) : null,
+      user.id,
+    );
+    res.json({ success: true });
+  });
+
+  // Dev helper: rewind the lap start time for a duel player so the MIN_LAP_TIME_MS
+  // check passes immediately. Used by e2e tests to simulate a valid lap completion.
+  app.post('/api/dev/rewind-lap-start', devLimiter, (req, res) => {
+    const { dbUserId } = req.body || {};
+    if (!dbUserId) return res.status(400).json({ error: 'dbUserId required' });
+    const dm = socketState && socketState.duelManager;
+    if (!dm) return res.status(503).json({ error: 'duel manager not ready' });
+    const duel = dm.getDuelByUserId(Number(dbUserId));
+    if (!duel) return res.status(404).json({ error: 'no active duel for user' });
+    const player = duel.players.find((p) => p.dbUserId === Number(dbUserId));
+    if (!player) return res.status(404).json({ error: 'player not found in duel' });
+    if (!player.lapStarted) return res.status(409).json({ error: 'lap not started yet' });
+    const { MIN_LAP_TIME_MS } = require('./lib/rank-config');
+    player.currentLapStart -= MIN_LAP_TIME_MS + 5000;
+    res.json({ success: true });
+  });
+
+  // Dev helper: force-trigger the duel timeout for a given user's active duel.
+  // Used by e2e tests to verify timeout flow without waiting DUEL_TIMEOUT_MS.
+  app.post('/api/dev/trigger-duel-timeout-for-user', devLimiter, (req, res) => {
+    const { dbUserId } = req.body || {};
+    if (!dbUserId) return res.status(400).json({ error: 'dbUserId required' });
+    const dm = socketState && socketState.duelManager;
+    if (!dm) return res.status(503).json({ error: 'duel manager not ready' });
+    const duel = dm.getDuelByUserId(Number(dbUserId));
+    if (!duel) return res.status(404).json({ error: 'no active duel for user' });
+    dm._handleDuelTimeout(duel.id);
+    res.json({ success: true });
+  });
 }
 
-const MAX_PORT_RETRIES = 10;
 const BASE_PORT = parseInt(PORT, 10) || 5000;
 
 function startServer(port, attempt) {
