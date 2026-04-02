@@ -251,11 +251,9 @@
                     } else if (newRankNum > oldRankNum) {
                         changeHtml = '<span style="color:red">▼ Ранг ' + oldRankNum + ' → Ранг ' + newRankNum + '</span>';
                     } else if (newStars > oldStars) {
-                        var starStr = '';
-                        for (var si = 0; si < newStars; si++) { starStr += '★'; }
-                        changeHtml = '<span style="color:green">' + starStr + '</span>';
+                        changeHtml = '<span style="color:green">' + '★'.repeat(newStars) + '</span>';
                     }
-                    rankHtml = '<div class="duel-result-rank">Ранг ' + oldRankNum + ' → Ранг ' + newRankNum + ' ' + changeHtml + '</div>';
+                    rankHtml = '<div class="duel-result-rank">' + changeHtml + '</div>';
                 }
             }
         }

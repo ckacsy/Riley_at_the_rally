@@ -960,6 +960,8 @@ if (process.env.NODE_ENV !== 'production') {
     skip: () => process.env.NODE_ENV === 'test',
   });
 
+  const { MIN_LAP_TIME_MS } = require('./lib/rank-config');
+
   // Dev helper: retrieve the current pending verification link for a user by email.
   // Useful when SMTP is misconfigured and emails cannot be delivered.
   app.get('/api/dev/verification-link', devLimiter, (req, res) => {
@@ -1307,7 +1309,6 @@ if (process.env.NODE_ENV !== 'production') {
     const player = duel.players.find((p) => p.dbUserId === Number(dbUserId));
     if (!player) return res.status(404).json({ error: 'player not found in duel' });
     if (!player.lapStarted) return res.status(409).json({ error: 'lap not started yet' });
-    const { MIN_LAP_TIME_MS } = require('./lib/rank-config');
     player.currentLapStart -= MIN_LAP_TIME_MS + 5000;
     res.json({ success: true });
   });
