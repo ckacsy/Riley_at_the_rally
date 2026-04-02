@@ -1327,6 +1327,7 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
+const MAX_PORT_RETRIES = 10;
 const BASE_PORT = parseInt(PORT, 10) || 5000;
 
 function startServer(port, attempt) {
