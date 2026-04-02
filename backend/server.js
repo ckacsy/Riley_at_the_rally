@@ -426,6 +426,25 @@ db.exec(`
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_player_ranks_user_id ON player_ranks(user_id)'); } catch (e) { /* ignore */ }
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_player_ranks_race_id ON player_ranks(race_id)'); } catch (e) { /* ignore */ }
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_player_ranks_created_at ON player_ranks(created_at)'); } catch (e) { /* ignore */ }
+
+  // --- PR 3 (duel backend): duel_results table ---
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS duel_results (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      season_id INTEGER DEFAULT 1,
+      race_id TEXT NOT NULL,
+      winner_id INTEGER,
+      loser_id INTEGER,
+      result_type TEXT NOT NULL,
+      winner_lap_time_ms INTEGER,
+      loser_lap_time_ms INTEGER,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_duel_results_race_id ON duel_results(race_id)'); } catch (e) { /* ignore */ }
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_duel_results_winner_id ON duel_results(winner_id)'); } catch (e) { /* ignore */ }
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_duel_results_loser_id ON duel_results(loser_id)'); } catch (e) { /* ignore */ }
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_duel_results_created_at ON duel_results(created_at)'); } catch (e) { /* ignore */ }
 })();
 
 // --- File uploads (avatars) ---
@@ -519,6 +538,15 @@ mountAdminDashboardRoutes(app, db, {
 
 const mountRankRoutes = require('./routes/rank');
 mountRankRoutes(app, db, { requireAuth, apiReadLimiter });
+
+const mountDuelRoutes = require('./routes/duel');
+// getDuelManager is a lazy accessor so the route module can always fetch the
+// current DuelManager instance after socketState is initialized below.
+mountDuelRoutes(app, db, {
+  requireAuth,
+  apiReadLimiter,
+  getDuelManager: () => socketState && socketState.duelManager,
+});
 
 function saveRentalSession(dbUserId, carId, durationSeconds, cost, sessionRef) {
   if (!dbUserId) return;
@@ -1009,8 +1037,9 @@ if (process.env.NODE_ENV !== 'production') {
         db.exec('DELETE FROM users');
         db.exec('DELETE FROM car_maintenance');
         db.exec('DELETE FROM player_ranks');
+        db.exec('DELETE FROM duel_results');
         // Reset autoincrement counters
-        db.exec("DELETE FROM sqlite_sequence WHERE name IN ('users','lap_times','rental_sessions','email_verification_tokens','password_reset_tokens','chat_messages','magic_links','transactions','payment_orders','news','admin_audit_log','daily_checkins','player_ranks')");
+        db.exec("DELETE FROM sqlite_sequence WHERE name IN ('users','lap_times','rental_sessions','email_verification_tokens','password_reset_tokens','chat_messages','magic_links','transactions','payment_orders','news','admin_audit_log','daily_checkins','player_ranks','duel_results')");
       })();
       req.session.destroy((err) => { if (err) console.error('Session destroy error:', err); });
       if (_devVerificationLinks) _devVerificationLinks.clear();
@@ -1031,6 +1060,8 @@ if (process.env.NODE_ENV !== 'production') {
       socketState.broadcastPresenceUpdate();
       // Clear chat rate limits (messages already removed from DB above)
       socketState.chatRateLimits.clear();
+      // Clear in-memory duel state (queue, active duels)
+      if (socketState.duelManager) socketState.duelManager.clear();
       // Broadcast clean car state to all connected sockets
       socketState.broadcastCarsUpdate();
       console.log('[DEV] Database reset: all users and sessions deleted.');
@@ -1062,15 +1093,16 @@ if (process.env.NODE_ENV !== 'production') {
   // Dev helper: inject a fake active session into the in-memory activeSessions map.
   // Used by e2e tests to simulate a car with an ongoing session (e.g. to trigger the 409
   // conflict when trying to enable maintenance on a car that is in use).
+  // Accepts optional dbUserId to associate the injected session with a real user (for duel tests).
   app.post('/api/dev/inject-active-session', devLimiter, (req, res) => {
-    const { carId } = req.body || {};
+    const { carId, dbUserId: injectedDbUserId } = req.body || {};
     if (!carId) return res.status(400).json({ error: 'carId required' });
     const sessionId = `dev-injected-${carId}-${Date.now()}`;
     const crypto = require('crypto');
     socketState.activeSessions.set(sessionId, {
       carId: Number(carId),
       userId: 'dev-test',
-      dbUserId: 0,
+      dbUserId: injectedDbUserId != null ? Number(injectedDbUserId) : 0,
       startTime: new Date(),
       holdAmount: 0,
       sessionRef: crypto.randomUUID(),

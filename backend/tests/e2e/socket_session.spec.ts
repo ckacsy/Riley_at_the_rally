@@ -47,6 +47,19 @@ async function activateUser(
   expect(res.status(), `activateUser failed: ${await res.text()}`).toBe(200);
 }
 
+async function loginUser(
+  page: import('@playwright/test').Page,
+  identifier: string,
+  password = 'Secure#Pass1',
+): Promise<void> {
+  const csrfToken = await getCsrfToken(page);
+  const res = await page.request.post('/api/auth/login', {
+    data: { identifier, password },
+    headers: { 'X-CSRF-Token': csrfToken },
+  });
+  expect(res.status(), `login failed: ${await res.text()}`).toBe(200);
+}
+
 /**
  * Inject fake activeSession into sessionStorage before navigating to /control.
  * This prevents the page from redirecting to /garage.
@@ -273,7 +286,9 @@ test.describe('Socket.IO session flow', () => {
       await waitForSocketEvent(pageA, 'session_started');
 
       // Context B (same user): try to start a session on car 2
+      // Login the same user in context B so the server-side session is authenticated
       const pageB = await ctxB.newPage();
+      await loginUser(pageB, user.username);
       await setupSocketCapture(pageB);
       await injectActiveSession(pageB, 2, user.username, user.id);
       await pageB.goto('/control');

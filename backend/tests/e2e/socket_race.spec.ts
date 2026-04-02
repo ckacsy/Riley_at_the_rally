@@ -47,6 +47,19 @@ async function activateUser(
   expect(res.status(), `activateUser failed: ${await res.text()}`).toBe(200);
 }
 
+async function loginUser(
+  page: import('@playwright/test').Page,
+  identifier: string,
+  password = 'Secure#Pass1',
+): Promise<void> {
+  const csrfToken = await getCsrfToken(page);
+  const res = await page.request.post('/api/auth/login', {
+    data: { identifier, password },
+    headers: { 'X-CSRF-Token': csrfToken },
+  });
+  expect(res.status(), `login failed: ${await res.text()}`).toBe(200);
+}
+
 /**
  * Inject fake activeSession into sessionStorage before navigating to /control.
  * This prevents the page from redirecting to /garage.
@@ -232,6 +245,9 @@ test.describe('Socket.IO race flow', () => {
       const userB = await registerUser(pageA, 'race_join_b', 'race_join_b@example.com', 'Secure#Pass1');
       await activateUser(pageA, userB.username);
 
+      // Re-login as userA: registerUser(race_join_b) overwrote pageA's session
+      await loginUser(pageA, userA.username);
+
       // Player A creates a new race
       await setupSocketCapture(pageA);
       await injectActiveSession(pageA, 1, userA.username, userA.id);
@@ -241,8 +257,9 @@ test.describe('Socket.IO race flow', () => {
       const raceId = raceA.raceId as string;
       expect(raceId).toBeTruthy();
 
-      // Player B joins the existing race
+      // Player B joins the existing race — login in its own context first
       const pageB = await ctxB.newPage();
+      await loginUser(pageB, userB.username);
       await setupSocketCapture(pageB);
       await injectActiveSession(pageB, 2, userB.username, userB.id);
       await pageB.goto('/control');

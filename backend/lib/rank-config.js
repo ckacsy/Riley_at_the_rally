@@ -17,6 +17,9 @@ const DUEL_SEARCH_TIMEOUT_MS = 60 * 1000;
 // Minimum valid lap time accepted by the ranked system
 const MIN_LAP_TIME_MS = 15000;
 
+// Number of checkpoints a player must hit (in order) before finishing a duel lap
+const DUEL_REQUIRED_CHECKPOINTS = 3;
+
 // Current ranked season identifier
 const SEASON_ID = 1;
 
@@ -28,5 +31,6 @@ module.exports = {
   DUEL_TIMEOUT_MS,
   DUEL_SEARCH_TIMEOUT_MS,
   MIN_LAP_TIME_MS,
+  DUEL_REQUIRED_CHECKPOINTS,
   SEASON_ID,
 };
