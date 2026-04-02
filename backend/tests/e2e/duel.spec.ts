@@ -133,7 +133,7 @@ async function setupSocketCapture(
           const sock = v.apply(this, args);
           (window as any).__testSocket = sock;
 
-          // Capture ALL incoming socket events (including duel:* events
+          // Capture all incoming socket events (including duel:* events
           // that control.js doesn't register handlers for).
           sock.onAny((event: string, ...cbArgs: any[]) => {
             (window as any).__socketEventStore[event] =
