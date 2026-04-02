@@ -232,7 +232,7 @@
             clearInterval(_countdownInterval);
             _countdownInterval = null;
         }
-        // Show СТАРТ! briefly before transitioning to racing state
+        // Show СТАРТ! for 500ms so the user can see it before the lap begins
         var overlay = document.getElementById('duel-countdown-overlay');
         if (overlay) {
             overlay.innerHTML = '<div class="duel-countdown-number">🏁 СТАРТ!</div>';
@@ -241,8 +241,10 @@
         _setStatusText('⚔️ Дуэль началась!');
         var readySection = document.getElementById('duel-ready-section');
         if (readySection) readySection.style.display = 'none';
-        if (_socket) _socket.emit('duel:start_lap');
-        window.DuelProgress.activate();
+        setTimeout(function () {
+            if (_socket) _socket.emit('duel:start_lap');
+            window.DuelProgress.activate();
+        }, 500);
     }
 
     function _onResult(data) {

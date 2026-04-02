@@ -455,6 +455,7 @@ class DuelManager {
       };
     }
     if (duel.resolved) return { ok: false, error: 'duel_resolved' };
+    if (duel.status === 'countdown') return { ok: false, error: 'countdown_in_progress' };
 
     const player = duel.players.find((p) => p.socketId === socketId);
     if (!player) return { ok: false, error: 'player_not_found' };
@@ -490,6 +491,7 @@ class DuelManager {
       };
     }
     if (duel.resolved) return { ok: false, error: 'duel_resolved' };
+    if (duel.status === 'countdown') return { ok: false, error: 'countdown_in_progress' };
 
     const player = duel.players.find((p) => p.socketId === socketId);
     if (!player) return { ok: false, error: 'player_not_found' };
