@@ -99,7 +99,7 @@
             return '<span class="rank-badge ' + zoneClass + ' rank-badge-compact" title="Ранг ' + label + '">' +
                    '<span class="rank-badge-emoji">' + emoji + '</span>' +
                    '<span class="rank-badge-label">' + label + '</span>' +
-                   '<span class="rank-badge-stars" aria-label="' + (data.stars || 0) + ' звезды из 3">' +
+                   '<span class="rank-badge-stars" aria-label="' + starsLabel(data.stars || 0) + '">' +
                    renderStars(data.stars || 0) + '</span>' +
                    '</span>';
         }
@@ -107,7 +107,7 @@
         return '<span class="rank-badge ' + zoneClass + ' rank-badge-normal">' +
                '<span class="rank-badge-emoji">' + emoji + '</span>' +
                '<span class="rank-badge-label">Ранг ' + label + '</span>' +
-               '<span class="rank-badge-stars" aria-label="' + (data.stars || 0) + ' звезды из 3">' +
+               '<span class="rank-badge-stars" aria-label="' + starsLabel(data.stars || 0) + '">' +
                renderStars(data.stars || 0) + '</span>' +
                '</span>';
     }
@@ -205,7 +205,15 @@
         container.innerHTML = html;
     }
 
-    // Internal HTML escape helper
+    // Internal Russian plural helper for stars
+    function starsLabel(n) {
+        var mod10 = n % 10;
+        var mod100 = n % 100;
+        if (mod100 >= 11 && mod100 <= 14) return n + ' звёзд из 3';
+        if (mod10 === 1) return n + ' звезда из 3';
+        if (mod10 >= 2 && mod10 <= 4) return n + ' звезды из 3';
+        return n + ' звёзд из 3';
+    }
     function esc(str) {
         if (str == null) return '—';
         return String(str)

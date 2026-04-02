@@ -265,6 +265,14 @@
             });
         });
 
+        // Clear rankings timer when page is unloaded
+        window.addEventListener('beforeunload', function () {
+            if (_rankingsTimer) {
+                clearInterval(_rankingsTimer);
+                _rankingsTimer = null;
+            }
+        });
+
         // Balance
         var currentBalance = 0;
         var currentActiveHold = 0;
