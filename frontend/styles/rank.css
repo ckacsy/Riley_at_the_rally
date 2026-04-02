@@ -229,3 +229,32 @@
     color:       rgba(255,255,255,0.65);
     margin-top:  6px;
 }
+
+/* ---- Duel countdown overlay ---- */
+.duel-countdown-overlay {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    min-height: 120px;
+}
+
+.duel-countdown-number {
+    font-size: 72px;
+    font-weight: bold;
+    animation: duel-countdown-pulse 0.8s ease-out;
+    color: var(--accent, #ffcc00);
+    text-shadow: 0 0 20px rgba(255, 204, 0, 0.5);
+}
+
+@keyframes duel-countdown-pulse {
+    0% { transform: scale(1.5); opacity: 0.3; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.duel-countdown-label {
+    font-size: 14px;
+    color: var(--text-secondary, #aaa);
+    margin-top: 8px;
+}

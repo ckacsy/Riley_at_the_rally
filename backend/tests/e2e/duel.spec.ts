@@ -361,6 +361,15 @@ test.describe('Duel backend — lap validation and win', () => {
     await waitForSocketEvent(pageA, 'duel:matched');
     await waitForSocketEvent(pageB, 'duel:matched');
 
+    await pageA.evaluate(() => (window as any).__testSocket.emit('duel:ready'));
+    await pageB.evaluate(() => (window as any).__testSocket.emit('duel:ready'));
+
+    await waitForSocketEvent(pageA, 'duel:countdown');
+    await waitForSocketEvent(pageB, 'duel:countdown');
+
+    await waitForSocketEvent(pageA, 'duel:start');
+    await waitForSocketEvent(pageB, 'duel:start');
+
     return { ctxA, ctxB, pageA, pageB, userA, userB };
   }
 
@@ -457,7 +466,15 @@ test.describe('Duel backend — disconnect handling', () => {
       await waitForSocketEvent(pageA, 'duel:matched');
       await waitForSocketEvent(pageB, 'duel:matched');
 
-      // Player A starts lap (duel moves to in_progress)
+      // Ready handshake + countdown
+      await pageA.evaluate(() => (window as any).__testSocket.emit('duel:ready'));
+      await pageB.evaluate(() => (window as any).__testSocket.emit('duel:ready'));
+      await waitForSocketEvent(pageA, 'duel:countdown');
+      await waitForSocketEvent(pageB, 'duel:countdown');
+      await waitForSocketEvent(pageA, 'duel:start');
+      await waitForSocketEvent(pageB, 'duel:start');
+
+      // Player A starts lap (duel is now in_progress)
       await pageA.evaluate(() => (window as any).__testSocket.emit('duel:start_lap'));
       await waitForSocketEvent(pageA, 'duel:lap_started');
 
