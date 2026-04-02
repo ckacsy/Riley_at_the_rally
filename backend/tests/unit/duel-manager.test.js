@@ -141,17 +141,29 @@ function sleep(ms) {
  *   handleStartLap → handleCheckpoint x DUEL_REQUIRED_CHECKPOINTS → handleFinishLap
  * To bypass MIN_LAP_TIME_MS, we monkey-patch Date.now before start and restore after.
  */
+/**
+ * Perform a complete valid lap sequence for a player:
+ *   handleStartLap → handleCheckpoint x DUEL_REQUIRED_CHECKPOINTS → handleFinishLap
+ *
+ * To bypass MIN_LAP_TIME_MS without sleeping 15 s, we directly backdate the
+ * player's currentLapStart inside the duel's internal state after calling
+ * handleStartLap. This is a testing-only technique: production code never
+ * accesses this field externally; unit tests must do so to keep the test
+ * suite fast. The behavior under test (checkpoint order enforcement, finish
+ * validation) is fully exercised because the lap-time backdating only affects
+ * the clock check, not the checkpoint-sequence logic.
+ */
 function performValidLap(manager, socketId) {
-  // Patch currentLapStart to be far in the past so lap time passes MIN check
   const startResult = manager.handleStartLap(socketId);
   if (!startResult.ok) return startResult;
 
-  // Reach into the internal duel to backdate the lap start
+  // Reach into the internal duel to backdate the lap start so elapsed time
+  // exceeds MIN_LAP_TIME_MS (15 s) without sleeping in the test.
   const duel = manager.getDuelBySocketId(socketId);
   if (duel) {
     const player = duel.players.find((p) => p.socketId === socketId);
     if (player && player.currentLapStart) {
-      player.currentLapStart -= 30_000; // subtract 30 s (> MIN_LAP_TIME_MS=15 s)
+      player.currentLapStart -= 30_000; // subtract 30 s (> MIN_LAP_TIME_MS)
     }
   }
 

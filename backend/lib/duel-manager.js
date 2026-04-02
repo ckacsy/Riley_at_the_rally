@@ -551,9 +551,19 @@ class DuelManager {
   }
 
   /**
-   * Apply rank win/loss to both players, update users table, insert player_ranks
-   * and duel_results rows — all in a single DB transaction.
+   * Apply rank win/loss to both players, update the users table, and insert
+   * player_ranks history + duel_results rows — all in a single DB transaction.
+   *
    * @private
+   * @param {object} duel                   The resolved duel object (for race_id logging).
+   * @param {number|null} winnerId          DB user id of the winner, or null if no winner.
+   * @param {number|null} loserId           DB user id of the loser, or null if no loser.
+   * @param {string} reason                 Resolution reason ('win' | 'disconnect').
+   * @param {number|null} winnerLapTimeMs   Winner's recorded lap time in ms, or null.
+   * @param {number|null} loserLapTimeMs    Loser's recorded lap time in ms, or null.
+   * @returns {{ winnerChange: object|null, loserChange: object|null }}
+   *   winnerChange / loserChange are { old: rankState, new: rankState } or null
+   *   when the corresponding player was not found in the DB.
    */
   _applyRankChanges(duel, winnerId, loserId, reason, winnerLapTimeMs, loserLapTimeMs) {
     const db = this._db;

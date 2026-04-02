@@ -353,14 +353,16 @@ test.describe('Duel backend — lap validation and win', () => {
     }
   });
 
-  test('first player to complete a valid lap wins', async ({ browser }) => {
-    const { ctxA, ctxB, pageA, pageB, userA } = await setupDuelPair(browser);
+  test('MIN_LAP_TIME_MS anti-cheat guard rejects instant finish after all checkpoints', async ({
+    browser,
+  }) => {
+    const { ctxA, ctxB, pageA } = await setupDuelPair(browser);
     try {
       // Player A starts lap
       await pageA.evaluate(() => (window as any).__testSocket.emit('duel:start_lap'));
       await waitForSocketEvent(pageA, 'duel:lap_started');
 
-      // Player A hits all 3 checkpoints
+      // Player A hits all required checkpoints
       for (let i = 0; i < 3; i++) {
         await pageA.evaluate(
           (idx) => (window as any).__testSocket.emit('duel:checkpoint', { index: idx }),
@@ -369,13 +371,11 @@ test.describe('Duel backend — lap validation and win', () => {
         await waitForSocketEvent(pageA, 'duel:checkpoint_ok');
       }
 
-      // Artificial delay: wait >15 s worth of fake time is impractical in E2E.
-      // Instead, we just verify the anti-cheat guard triggers on immediate finish
-      // and trust unit tests for the lap-time bypass path.
+      // Finish immediately — should be rejected because elapsed time < MIN_LAP_TIME_MS.
+      // (We cannot wait a real 15 s in E2E; the full win path is covered by unit tests.)
       await pageA.evaluate(() => (window as any).__testSocket.emit('duel:finish_lap'));
       const err = await waitForSocketEvent(pageA, 'duel:error');
-      // Expect lap_too_fast since we can't wait real 15 s in E2E
-      expect(['lap_too_fast', 'duel_resolved']).toContain(err.code);
+      expect(err.code).toBe('lap_too_fast');
     } finally {
       await ctxA.close();
       await ctxB.close();
