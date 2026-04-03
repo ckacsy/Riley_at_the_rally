@@ -170,7 +170,9 @@
         cancelReadyBtn.addEventListener('click', function () {
             if (!_socket) return;
             _socket.emit('duel:cancel_ready');
-            cancelReadyBtn.disabled = true;
+            // Do not disable the button here — the server responds with duel:cancelled
+            // which resets the entire UI. Keeping the button active allows retries if
+            // the emit is lost before the server processes it.
         });
     }
 

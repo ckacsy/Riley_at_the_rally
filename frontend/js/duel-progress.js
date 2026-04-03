@@ -24,6 +24,12 @@
 
     function CheckpointSource(socket, mode) {
         this.socket = socket;
+        /**
+         * 'manual' — clickable buttons on the control UI (current stage).
+         * 'sensor' — future: receive triggers from hardware/sensor API.
+         * The mode is stored for future use; manual mode renders the UI buttons
+         * that are populated by DuelProgress.activate().
+         */
         this.mode   = mode || 'manual';
     }
 

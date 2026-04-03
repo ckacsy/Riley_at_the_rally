@@ -399,6 +399,9 @@ class DuelManager {
     }
 
     try {
+      // duel_results.race_id is a TEXT column storing the duel's UUID identifier,
+      // not a foreign key to the races table. This mirrors the pattern used by
+      // _cancelDuel() and _resolveDuel() throughout this class.
       this._db
         .prepare(
           `INSERT INTO duel_results
