@@ -71,6 +71,31 @@
     var _noSessionMsg = null;   // #duel-no-session-msg
 
     // -------------------------------------------------------------------------
+    // Race action availability sync
+    // -------------------------------------------------------------------------
+
+    /**
+     * Disable or enable the free-play race create/join buttons depending on
+     * whether a duel is currently active (searching / matched / in progress).
+     */
+    function syncRaceActionAvailability() {
+        var duelActive = _duelState !== 'idle' && _duelState !== 'result';
+        var createBtn = document.getElementById('create-race-btn');
+        var joinBtn   = document.getElementById('join-race-btn');
+        if (createBtn) {
+            createBtn.disabled = duelActive;
+        }
+        if (joinBtn) {
+            if (duelActive) {
+                joinBtn.disabled = true;
+            } else {
+                var raceSelect = document.getElementById('race-select');
+                joinBtn.disabled = !(raceSelect && raceSelect.value);
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
     // UI state transitions
     // -------------------------------------------------------------------------
 
@@ -98,6 +123,8 @@
         if (_resultCard) {
             _resultCard.style.display = isResult ? '' : 'none';
         }
+
+        syncRaceActionAvailability();
     }
 
     function _setStatusText(text) {
@@ -132,6 +159,22 @@
     // -------------------------------------------------------------------------
     // Ready-state helpers
     // -------------------------------------------------------------------------
+
+    /**
+     * Attach a click handler to the #duel-cancel-ready-btn that emits
+     * duel:cancel_ready and disables the button to prevent double-sends.
+     */
+    function _attachCancelReadyBtnHandler() {
+        var cancelReadyBtn = document.getElementById('duel-cancel-ready-btn');
+        if (!cancelReadyBtn) return;
+        cancelReadyBtn.addEventListener('click', function () {
+            if (!_socket) return;
+            _socket.emit('duel:cancel_ready');
+            // Do not disable the button here — the server responds with duel:cancelled
+            // which resets the entire UI. Keeping the button active allows retries if
+            // the emit is lost before the server processes it.
+        });
+    }
 
     /**
      * Attach a click handler to the #duel-ready-btn that emits duel:ready,
@@ -174,9 +217,11 @@
                         '<span class="duel-ready-indicator" id="duel-opp-ready">Соперник: ⬜</span>' +
                     '</div>' +
                     '<button class="duel-ready-btn" id="duel-ready-btn">✅ Готов</button>' +
+                    '<button class="duel-cancel-ready-btn" id="duel-cancel-ready-btn">✖ Отмена</button>' +
                 '</div>';
 
             _attachReadyBtnHandler();
+            _attachCancelReadyBtnHandler();
         }
     }
 
@@ -357,6 +402,16 @@
         }, 4000);
     }
 
+    function _onDuelCancelled() {
+        _setState('idle');
+        _setStatusText('Дуэль отменена.');
+        if (_matchCard) _matchCard.innerHTML = '';
+        window.DuelProgress.reset();
+        setTimeout(function () {
+            if (_duelState === 'idle') _setStatusText('');
+        }, 2500);
+    }
+
     // -------------------------------------------------------------------------
     // Rank badge refresh
     // -------------------------------------------------------------------------
@@ -400,8 +455,10 @@
                                         '<span class="duel-ready-indicator" id="duel-opp-ready">Соперник: ⬜</span>' +
                                     '</div>' +
                                     '<button class="duel-ready-btn" id="duel-ready-btn">✅ Готов</button>' +
+                                    '<button class="duel-cancel-ready-btn" id="duel-cancel-ready-btn">✖ Отмена</button>' +
                                 '</div>';
                             _attachReadyBtnHandler();
+                            _attachCancelReadyBtnHandler();
                         }
                     }
                 } else if (s === 'in_progress' || s === 'countdown') {
@@ -470,6 +527,7 @@
         socket.on('duel:countdown',        _onCountdown);
         socket.on('duel:start',            _onDuelStart);
         socket.on('duel:result',           _onResult);
+        socket.on('duel:cancelled',        _onDuelCancelled);
         socket.on('duel:error',            _onDuelError);
 
         // DuelProgress socket wiring

@@ -12,7 +12,7 @@ const SOFT_LOSS_FLOOR = 6;
 
 // Duel timing constants (reserved for future duel gameplay PRs)
 const DUEL_TIMEOUT_MS = 5 * 60 * 1000;
-const DUEL_SEARCH_TIMEOUT_MS = 60 * 1000;
+const DUEL_SEARCH_TIMEOUT_MS = 180 * 1000; // 3 minutes
 
 // Ready-state timeout: both players must press Готов within this window
 const READY_TIMEOUT_MS = 60 * 1000;

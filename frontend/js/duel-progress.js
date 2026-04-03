@@ -17,10 +17,36 @@
     'use strict';
 
     // -------------------------------------------------------------------------
+    // CheckpointSource — abstraction layer for checkpoint/finish triggering.
+    //   mode='manual'  → clickable buttons (current stage)
+    //   mode='sensor'  → future: hardware sensor API
+    // -------------------------------------------------------------------------
+
+    function CheckpointSource(socket, mode) {
+        this.socket = socket;
+        /**
+         * 'manual' — clickable buttons on the control UI (current stage).
+         * 'sensor' — future: receive triggers from hardware/sensor API.
+         * The mode is stored for future use; manual mode renders the UI buttons
+         * that are populated by DuelProgress.activate().
+         */
+        this.mode   = mode || 'manual';
+    }
+
+    CheckpointSource.prototype.triggerCheckpoint = function (index) {
+        this.socket.emit('duel:checkpoint', { index: index });
+    };
+
+    CheckpointSource.prototype.triggerFinish = function () {
+        this.socket.emit('duel:finish_lap');
+    };
+
+    // -------------------------------------------------------------------------
     // Module state
     // -------------------------------------------------------------------------
 
     var _socket              = null;
+    var _checkpointSource    = null;
     var _active              = false;
     var _checkpoints         = [];    // Array of { hit: boolean, timestamp: null|number }
     var _requiredCheckpoints = 2;     // Default; overridden by setRequiredCheckpoints()
@@ -45,6 +71,73 @@
 
     function _getFinishEl() {
         return document.getElementById('duel-progress-finish');
+    }
+
+    function _getEmulationEl() {
+        return document.getElementById('duel-emulation-controls');
+    }
+
+    // -------------------------------------------------------------------------
+    // Emulation button helpers
+    // -------------------------------------------------------------------------
+
+    function _renderEmulationButtons() {
+        var container = _getEmulationEl();
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        var label = document.createElement('div');
+        label.className = 'duel-emulation-label';
+        label.textContent = '🧪 Эмуляция трассы';
+        container.appendChild(label);
+
+        for (var i = 0; i < _requiredCheckpoints; i++) {
+            var btn = document.createElement('button');
+            btn.className = 'duel-emulation-btn';
+            btn.id = 'duel-emu-btn-' + i;
+            btn.textContent = 'Чекпоинт ' + (i + 1);
+            btn.disabled = (i !== 0); // only first button active
+            (function (idx) {
+                btn.addEventListener('click', function () {
+                    if (_checkpointSource) _checkpointSource.triggerCheckpoint(idx);
+                });
+            }(i));
+            container.appendChild(btn);
+        }
+
+        var finishBtn = document.createElement('button');
+        finishBtn.className = 'duel-emulation-btn duel-emulation-finish';
+        finishBtn.id = 'duel-emu-finish-btn';
+        finishBtn.textContent = 'Финиш';
+        finishBtn.disabled = true;
+        finishBtn.addEventListener('click', function () {
+            if (_checkpointSource) _checkpointSource.triggerFinish();
+        });
+        container.appendChild(finishBtn);
+    }
+
+    function _updateEmulationButtons(confirmedIndex) {
+        var confirmedBtn = document.getElementById('duel-emu-btn-' + confirmedIndex);
+        if (confirmedBtn) {
+            confirmedBtn.textContent = 'Чекпоинт ' + (confirmedIndex + 1) + ' ✅';
+            confirmedBtn.disabled = true;
+        }
+
+        var nextIndex = confirmedIndex + 1;
+        if (nextIndex < _requiredCheckpoints) {
+            var nextBtn = document.getElementById('duel-emu-btn-' + nextIndex);
+            if (nextBtn) nextBtn.disabled = false;
+        } else {
+            // All checkpoints done — activate finish button
+            var finishBtn = document.getElementById('duel-emu-finish-btn');
+            if (finishBtn) finishBtn.disabled = false;
+        }
+    }
+
+    function _resetEmulationButtons() {
+        var container = _getEmulationEl();
+        if (container) container.innerHTML = '';
     }
 
     // -------------------------------------------------------------------------
@@ -157,6 +250,9 @@
                 finishEl.className = 'duel-progress-finish ready';
             }
         }
+
+        // Update emulation button for this checkpoint
+        _updateEmulationButtons(index);
     }
 
     function _onResult() {
@@ -164,6 +260,7 @@
             clearInterval(_elapsedInterval);
             _elapsedInterval = null;
         }
+        _resetEmulationButtons();
     }
 
     // -------------------------------------------------------------------------
@@ -178,6 +275,7 @@
          */
         init: function (socket) {
             _socket = socket;
+            _checkpointSource = new CheckpointSource(socket, 'manual');
             socket.on('duel:lap_started', function () {
                 _onLapStarted();
             });
@@ -225,8 +323,11 @@
                 finishEl.className = 'duel-progress-finish';
             }
 
-            // Render checkpoint items
+            // Render checkpoint items (status indicators)
             _renderCheckpoints();
+
+            // Render emulation control buttons (manual trigger harness)
+            _renderEmulationButtons();
         },
 
         /**
@@ -259,6 +360,8 @@
                 finishEl.textContent = '🏁 Финиш: ожидание';
                 finishEl.className = 'duel-progress-finish';
             }
+
+            _resetEmulationButtons();
         },
     };
 
