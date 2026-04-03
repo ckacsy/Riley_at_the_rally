@@ -409,6 +409,35 @@ describe('DuelManager — lap validation', () => {
     assert.equal(result.error, 'lap_too_fast');
   });
 
+  test('handleFinishLap too-fast cancels duel for both players with duel:cancelled', () => {
+    manager.handleStartLap('sA');
+    for (let i = 0; i < DUEL_REQUIRED_CHECKPOINTS; i++) {
+      manager.handleCheckpoint('sA', i);
+    }
+    // Do NOT backdate — instant finish triggers lap_too_fast cancellation
+    const result = manager.handleFinishLap('sA');
+    assert.equal(result.ok, false);
+    assert.equal(result.error, 'lap_too_fast');
+    assert.equal(result.cancelled, true, 'cancelled flag should be set');
+
+    // Both players must receive duel:cancelled with reason finish_rejected
+    const sockA = mockIo.sockets.sockets.get('sA');
+    const sockB = mockIo.sockets.sockets.get('sB');
+    const cancelledA = sockA.emitted.find((e) => e.event === 'duel:cancelled');
+    const cancelledB = sockB.emitted.find((e) => e.event === 'duel:cancelled');
+    assert.ok(cancelledA, 'player A should receive duel:cancelled');
+    assert.ok(cancelledB, 'player B should receive duel:cancelled');
+    assert.equal(cancelledA.data.reason, 'finish_rejected');
+    assert.equal(cancelledB.data.reason, 'finish_rejected');
+
+    // duel:result must NOT be emitted (would trap players in result card)
+    const resultA = sockA.emitted.find((e) => e.event === 'duel:result');
+    assert.equal(resultA, undefined, 'duel:result should not be emitted on fast-finish cancel');
+
+    // Duel should be resolved and cleaned up
+    assert.equal(manager.getDuelBySocketId('sA'), null, 'duel should be cleaned up after cancel');
+  });
+
   test('handleFinishLap without prior start is rejected', () => {
     const result = manager.handleFinishLap('sA');
     assert.equal(result.ok, false);

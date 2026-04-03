@@ -578,7 +578,9 @@ class DuelManager {
         userId: player.dbUserId,
         lapTimeMs,
       });
-      return { ok: false, error: 'lap_too_fast' };
+      // Cancel the duel for both players so neither is stuck in limbo
+      this._cancelDuel(duel, 'finish_rejected');
+      return { ok: false, error: 'lap_too_fast', cancelled: true };
     }
 
     player.finished = true;
@@ -705,10 +707,18 @@ class DuelManager {
     }
 
     // Notify both players
-    const payload = { duelId: duel.id, result: reason, rankChange: null };
-    for (const p of duel.players) {
-      const sock = this._io.sockets.sockets.get(p.socketId);
-      if (sock) sock.emit('duel:result', payload);
+    if (reason === 'finish_rejected') {
+      // Fast-finish: return to idle state on both sides without a result card
+      for (const p of duel.players) {
+        const sock = this._io.sockets.sockets.get(p.socketId);
+        if (sock) sock.emit('duel:cancelled', { reason: 'finish_rejected' });
+      }
+    } else {
+      const payload = { duelId: duel.id, result: reason, rankChange: null };
+      for (const p of duel.players) {
+        const sock = this._io.sockets.sockets.get(p.socketId);
+        if (sock) sock.emit('duel:result', payload);
+      }
     }
 
     this._cleanupDuelMaps(duel.id);

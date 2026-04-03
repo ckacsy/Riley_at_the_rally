@@ -51,6 +51,15 @@
             { collapsed: '\u25c4', expanded: '\u25b6' }
         );
 
+        // Click on collapsed right panel icons → expand panel
+        document.querySelectorAll('.rp-icon').forEach(function(icon) {
+            icon.addEventListener('click', function() {
+                if (rightPanelCollapse.isCollapsed()) {
+                    rightPanelCollapse.setCollapsed(false);
+                }
+            });
+        });
+
         // Tab switching (auto-expands left panel if collapsed)
         document.querySelectorAll('.tab-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {

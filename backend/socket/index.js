@@ -1067,7 +1067,10 @@ function setupSocketIo(io, deps) {
     socket.on('duel:finish_lap', () => {
       const result = duelManager.handleFinishLap(socket.id);
       if (!result.ok) {
-        socket.emit('duel:error', { code: result.error, message: 'Финиш не принят.' });
+        // When cancelled is true the duel:cancelled event was already emitted to both players
+        if (!result.cancelled) {
+          socket.emit('duel:error', { code: result.error, message: 'Финиш не принят.' });
+        }
         return;
       }
       // duelManager already emitted duel:result to both players

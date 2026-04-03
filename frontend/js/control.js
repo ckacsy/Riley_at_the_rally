@@ -229,11 +229,9 @@
 
         // Flag to prevent double-ending the session
         let sessionEnded = false;
-        // Set to true when user explicitly clicks "exit to garage" to skip beforeunload re-emit
-        let sessionEndingGracefully = false;
 
         function endSessionOnLeave() {
-            if (sessionEnded || sessionEndingGracefully) return;
+            if (sessionEnded) return;
             sessionEnded = true;
             clearInterval(timerInterval);
             stopCountdownTimers();
@@ -368,10 +366,6 @@
             resetRaceUiState();
             setSessionChromeHidden(false);
             sessionStorage.removeItem('activeSession');
-            if (sessionEndingGracefully) {
-                window.location.href = '/garage';
-                return;
-            }
             const durationSec = data.durationSeconds || 0;
             const cost = data.cost || 0;
             const minutes = Math.floor(durationSec / 60);
@@ -435,11 +429,6 @@
 
         document.getElementById('end-rental').addEventListener('click', function () {
             sessionEnded = true;
-            socket.emit('end_session', { carId: carId });
-        });
-
-        document.getElementById('end-rental-exit').addEventListener('click', function () {
-            sessionEndingGracefully = true;
             socket.emit('end_session', { carId: carId });
         });
 
