@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type APIRequestContext } from '@playwright/test';
 
 async function resetDb(page: import('@playwright/test').Page): Promise<void> {
   await page.request.post('/api/dev/reset-db');
@@ -50,6 +50,31 @@ async function loginUser(
 }
 
 /**
+ * Register, activate, and log in a fresh user using the given APIRequestContext.
+ * After this call the request context carries a valid session cookie, so
+ * subsequent requests will be treated as authenticated by the server.
+ */
+async function authenticateRequest(
+  request: APIRequestContext,
+  username: string,
+  email: string,
+  password = 'Password123!',
+): Promise<void> {
+  await request.post('/api/dev/reset-db');
+  const csrfRes = await request.get('/api/csrf-token');
+  const { csrfToken } = await csrfRes.json();
+  await request.post('/api/auth/register', {
+    data: { username, email, password, confirm_password: password },
+    headers: { 'X-CSRF-Token': csrfToken },
+  });
+  await request.post('/api/dev/activate-user', { data: { username } });
+  await request.post('/api/auth/login', {
+    data: { identifier: username, password },
+    headers: { 'X-CSRF-Token': csrfToken },
+  });
+}
+
+/**
  * Server route availability and core API endpoint tests.
  *
  * Validates that all three static page routes return HTTP 200,
@@ -80,10 +105,14 @@ test.describe('Static page routes', () => {
     expect(res.headers()['content-type']).toMatch(/text\/html/);
   });
 
-  test('GET /garage serves complete HTML document with garage-canvas', async ({ request }) => {
-    const res = await request.get('/garage');
-    expect(res.status()).toBe(200);
-    const body = await res.text();
+  test('GET /garage serves complete HTML document with garage-canvas', async ({ page }) => {
+    await resetDb(page);
+    await registerUser(page, 'garagetest', 'garagetest@test.com', 'Password123!');
+    await activateUser(page, 'garagetest');
+    await loginUser(page, 'garagetest', 'Password123!');
+    const res = await page.goto('/garage');
+    expect(res?.status()).toBe(200);
+    const body = await page.content();
     expect(body).toMatch(/<!DOCTYPE html>/i);
     expect(body).toContain('garage-canvas');
   });
@@ -95,6 +124,7 @@ test.describe('Static page routes', () => {
   });
 
   test('GET /control serves complete HTML document with control-panel elements', async ({ request }) => {
+    await authenticateRequest(request, 'ctrl1', 'ctrl1@test.com');
     const res = await request.get('/control');
     expect(res.status()).toBe(200);
     const body = await res.text();
@@ -276,5 +306,37 @@ test.describe('Control page (content smoke)', () => {
     await page.goto('/control');
     await expect(page.locator('#chat-input')).toBeAttached();
     await expect(page.locator('#chat-toggle-btn')).toBeAttached();
+  });
+});
+
+test.describe('Auth-guarded page routes', () => {
+  test('GET /control unauthenticated redirects to /login', async ({ request }) => {
+    const res = await request.get('/control', { maxRedirects: 0 });
+    expect(res.status()).toBe(302);
+    expect(res.headers()['location']).toContain('/login');
+  });
+
+  test('GET /garage unauthenticated redirects to /login', async ({ request }) => {
+    const res = await request.get('/garage', { maxRedirects: 0 });
+    expect(res.status()).toBe(302);
+    expect(res.headers()['location']).toContain('/login');
+  });
+
+  test('GET /control authenticated returns 200 with HTML', async ({ request }) => {
+    await authenticateRequest(request, 'authctrl', 'authctrl@test.com');
+    const res = await request.get('/control');
+    expect(res.status()).toBe(200);
+    expect(res.headers()['content-type']).toMatch(/text\/html/);
+    const body = await res.text();
+    expect(body).toContain('Управление RC-машиной');
+  });
+
+  test('GET /garage authenticated returns 200 with HTML', async ({ request }) => {
+    await authenticateRequest(request, 'authgrg', 'authgrg@test.com');
+    const res = await request.get('/garage');
+    expect(res.status()).toBe(200);
+    expect(res.headers()['content-type']).toMatch(/text\/html/);
+    const body = await res.text();
+    expect(body).toContain('garage-canvas');
   });
 });

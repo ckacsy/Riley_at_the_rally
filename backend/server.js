@@ -860,6 +860,7 @@ app.get('/leaderboard', pageRateLimit, (req, res) => {
 });
 
 app.get('/control', pageRateLimit, (req, res) => {
+  if (!req.session || !req.session.userId) return res.redirect('/login');
   res.sendFile(path.join(frontendDir, 'control.html'));
 });
 
@@ -892,6 +893,7 @@ app.get('/magic-link', pageRateLimit, (req, res) => {
 });
 
 app.get('/garage', pageRateLimit, (req, res) => {
+  if (!req.session || !req.session.userId) return res.redirect('/login');
   res.sendFile(path.join(frontendDir, 'garage.html'));
 });
 

@@ -264,11 +264,11 @@ test.describe('Control page timer UI — stubbed', () => {
 // Redirect guard
 // ---------------------------------------------------------------------------
 test.describe('Control page redirect guard', () => {
-  test('redirects to /garage when no active session exists', async ({ page }) => {
-    // Do NOT inject a fake session — sessionStorage is empty
+  test('unauthenticated visit to /control redirects to /login', async ({ page }) => {
+    // Do NOT inject a fake session — sessionStorage is empty and no server-side auth
     await page.goto('/control');
-    // The inline script checks sessionStorage and calls window.location.replace('/garage')
-    await expect(page).toHaveURL(/\/garage/, { timeout: 10_000 });
+    // The server-side auth guard redirects unauthenticated users to /login
+    await expect(page).toHaveURL(/\/login/, { timeout: 10_000 });
   });
 });
 
