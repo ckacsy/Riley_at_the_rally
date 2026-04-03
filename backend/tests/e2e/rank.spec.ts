@@ -138,7 +138,16 @@ test.describe('GET /api/rankings', () => {
 const UI_TIMEOUT = 10_000;
 
 test.describe('Rank UI — garage page', () => {
+  // /garage is auth-guarded: authenticate before each test.
+  test.beforeEach(async ({ page }) => {
+    await resetDb(page.request);
+    const user = await registerUser(page.request, 'rankgarage', 'rankgarage@test.com', 'Secure#Pass1');
+    await activateUser(page.request, user.username);
+    await loginUser(page.request, user.username, 'Secure#Pass1');
+  });
+
   test('rank badge element exists in profile card as guest', async ({ page }) => {
+    // Mock /api/auth/me to return null so the client-side JS sees guest state.
     await page.route('/api/auth/me', (route) =>
       route.fulfill({ json: { user: null } }),
     );

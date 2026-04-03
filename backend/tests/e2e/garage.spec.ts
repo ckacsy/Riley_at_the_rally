@@ -19,7 +19,68 @@ const TITLE_TIMEOUT = 20_000;
 const BADGE_TIMEOUT = 10_000;
 const UI_TIMEOUT = 15_000;
 
+// ---------------------------------------------------------------------------
+// Auth helpers — /garage is auth-guarded (PR #159)
+// ---------------------------------------------------------------------------
+
+async function resetDb(page: import('@playwright/test').Page): Promise<void> {
+  await page.request.post('/api/dev/reset-db');
+}
+
+async function getCsrfToken(page: import('@playwright/test').Page): Promise<string> {
+  const res = await page.request.get('/api/csrf-token');
+  const body = await res.json();
+  return body.csrfToken as string;
+}
+
+async function registerUser(
+  page: import('@playwright/test').Page,
+  username: string,
+  email: string,
+  password: string,
+): Promise<{ id: number; username: string; status: string }> {
+  const csrfToken = await getCsrfToken(page);
+  const res = await page.request.post('/api/auth/register', {
+    data: { username, email, password, confirm_password: password },
+    headers: { 'X-CSRF-Token': csrfToken },
+  });
+  expect(res.status(), `register failed: ${await res.text()}`).toBe(200);
+  const body = await res.json();
+  return body.user;
+}
+
+async function activateUser(
+  page: import('@playwright/test').Page,
+  username: string,
+): Promise<void> {
+  const res = await page.request.post('/api/dev/activate-user', {
+    data: { username },
+  });
+  expect(res.status(), `activateUser failed: ${await res.text()}`).toBe(200);
+}
+
+async function loginUser(
+  page: import('@playwright/test').Page,
+  identifier: string,
+  password: string,
+): Promise<void> {
+  const csrfToken = await getCsrfToken(page);
+  const res = await page.request.post('/api/auth/login', {
+    data: { identifier, password },
+    headers: { 'X-CSRF-Token': csrfToken },
+  });
+  expect(res.status(), `login failed: ${await res.text()}`).toBe(200);
+}
+
 test.describe('Garage UI', () => {
+  // /garage is auth-guarded: authenticate before each test.
+  test.beforeEach(async ({ page }) => {
+    await resetDb(page);
+    const user = await registerUser(page, 'garageui', 'garageui@test.com', 'Secure#Pass1');
+    await activateUser(page, user.username);
+    await loginUser(page, user.username, 'Secure#Pass1');
+  });
+
   test('page loads and shows initial car title', async ({ page }) => {
     await page.goto('/garage?forceFallback=1');
 
@@ -76,6 +137,14 @@ test.describe('Garage UI', () => {
 });
 
 test.describe('Garage availability badge', () => {
+  // /garage is auth-guarded: authenticate before each test.
+  test.beforeEach(async ({ page }) => {
+    await resetDb(page);
+    const user = await registerUser(page, 'garagebadge', 'garagebadge@test.com', 'Secure#Pass1');
+    await activateUser(page, user.username);
+    await loginUser(page, user.username, 'Secure#Pass1');
+  });
+
   test('status badge is visible in fallback mode when car is available', async ({ page }) => {
     await page.route('/api/car-status', (route) =>
       route.fulfill({ json: { status: 'available', lastUpdated: new Date().toISOString() } }),
@@ -114,10 +183,15 @@ test.describe('Garage availability badge', () => {
 });
 
 test.describe('Garage CTA button gating', () => {
-  // Use a fresh context (no session) so auth always resolves to guest.
-  // Guest CTA is "Только просмотр / Войти" and should NOT be disabled by
-  // availability (guest is always redirected to login regardless).
-  // We test an active user (mock /api/auth/me) to isolate availability gating.
+  // /garage is auth-guarded: authenticate before each test.
+  // Tests mock /api/auth/me to return an active user for client-side CTA logic;
+  // the real session is still needed so the server serves the page.
+  test.beforeEach(async ({ page }) => {
+    await resetDb(page);
+    const user = await registerUser(page, 'garagecta', 'garagecta@test.com', 'Secure#Pass1');
+    await activateUser(page, user.username);
+    await loginUser(page, user.username, 'Secure#Pass1');
+  });
 
   test('CTA disabled and shows "Машина занята" when status=busy (fallback mode)', async ({ page }) => {
     await page.route('/api/car-status', (route) =>
@@ -169,6 +243,14 @@ test.describe('Garage CTA button gating', () => {
 });
 
 test.describe('Garage WoT-style UI blocks', () => {
+  // /garage is auth-guarded: authenticate before each test.
+  test.beforeEach(async ({ page }) => {
+    await resetDb(page);
+    const user = await registerUser(page, 'garagewot', 'garagewot@test.com', 'Secure#Pass1');
+    await activateUser(page, user.username);
+    await loginUser(page, user.username, 'Secure#Pass1');
+  });
+
   test('profile card is visible', async ({ page }) => {
     await page.goto('/garage?forceFallback=1');
     const profileCard = page.locator('#profile-card');
@@ -189,14 +271,12 @@ test.describe('Garage WoT-style UI blocks', () => {
     await expect(chars).toBeVisible({ timeout: UI_TIMEOUT });
   });
 
-  test('upgrades grid is visible and has 6 items', async ({ page }) => {
+  test('upgrades tab section is present in DOM', async ({ page }) => {
+    // #upgrades-grid was removed; upgrades are now a WIP tab in the left panel.
     await page.goto('/garage?forceFallback=1');
-    const grid = page.locator('#upgrades-grid');
-    await grid.waitFor({ state: 'attached', timeout: UI_TIMEOUT });
-    await grid.scrollIntoViewIfNeeded();
-    await expect(grid).toBeVisible({ timeout: UI_TIMEOUT });
-    const items = grid.locator('.upgrade-item');
-    await expect(items).toHaveCount(6);
+    const upgradesTab = page.locator('#tab-upgrades');
+    await upgradesTab.waitFor({ state: 'attached', timeout: UI_TIMEOUT });
+    await expect(upgradesTab).toBeAttached();
   });
 
   test('center CTA button is visible in fallback mode', async ({ page }) => {
@@ -234,12 +314,12 @@ test.describe('Garage WoT-style UI blocks', () => {
     await expect(bonuses).toBeVisible({ timeout: UI_TIMEOUT });
   });
 
-  test('upgrades section title is "Комплектующие"', async ({ page }) => {
+  test('upgrades tab has section heading "Апгрейды машины"', async ({ page }) => {
+    // #upgrades-section and its .rp-title were removed; heading is now in #tab-upgrades.
     await page.goto('/garage?forceFallback=1');
-    const title = page.locator('#upgrades-section .rp-title');
-    await title.waitFor({ state: 'attached', timeout: UI_TIMEOUT });
-    await title.scrollIntoViewIfNeeded();
-    await expect(title).toHaveText('Комплектующие', { timeout: UI_TIMEOUT });
+    const heading = page.locator('#tab-upgrades h3');
+    await heading.waitFor({ state: 'attached', timeout: UI_TIMEOUT });
+    await expect(heading).toContainText('Апгрейды', { timeout: UI_TIMEOUT });
   });
 
   test('upgrade items have no level text (Ур.)', async ({ page }) => {
@@ -249,14 +329,13 @@ test.describe('Garage WoT-style UI blocks', () => {
   });
 
   test('upgrade items have rarity classes', async ({ page }) => {
+    // Upgrade items were removed from the main view (now a WIP tab).
+    // All rarity counts are 0 until upgrades are implemented.
     await page.goto('/garage?forceFallback=1');
-    const firstItem = page.locator('.upgrade-item').first();
-    await firstItem.waitFor({ state: 'attached', timeout: UI_TIMEOUT });
-    await firstItem.scrollIntoViewIfNeeded();
-    await expect(page.locator('.upgrade-item.rarity-legendary')).toHaveCount(1);
-    await expect(page.locator('.upgrade-item.rarity-epic')).toHaveCount(1);
-    await expect(page.locator('.upgrade-item.rarity-rare')).toHaveCount(2);
-    await expect(page.locator('.upgrade-item.rarity-common')).toHaveCount(2);
+    await expect(page.locator('.upgrade-item.rarity-legendary')).toHaveCount(0);
+    await expect(page.locator('.upgrade-item.rarity-epic')).toHaveCount(0);
+    await expect(page.locator('.upgrade-item.rarity-rare')).toHaveCount(0);
+    await expect(page.locator('.upgrade-item.rarity-common')).toHaveCount(0);
   });
 
   test('status bar has no gold credits element', async ({ page }) => {

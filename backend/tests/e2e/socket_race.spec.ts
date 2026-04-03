@@ -306,14 +306,26 @@ test.describe('Socket.IO race flow', () => {
     browser,
   }) => {
     const ctx = await browser.newContext();
+    // Separate context used only to call resetDb without affecting ctx's session.
+    const resetCtx = await browser.newContext();
     try {
       const page = await ctx.newPage();
-      await resetDb(page);
+      const resetPage = await resetCtx.newPage();
 
-      // Inject a fake session (to prevent /control redirect) but with a dbUserId that
+      // Clean state via separate context so ctx's session is unaffected.
+      await resetDb(resetPage);
+
+      // Register a user in the test context so the /control auth guard passes.
+      const user = await registerUser(page, 'race_ghost', 'race_ghost@test.com', 'Secure#Pass1');
+
+      // Reset DB again via separate context: deletes user from DB but keeps ctx's
+      // session alive (session.userId still set, user record gone).
+      await resetDb(resetPage);
+
+      // Inject a fake session (to prevent /control client redirect) but with a dbUserId that
       // doesn't exist in the DB — the race handler will reject with auth_required.
       await setupSocketCapture(page);
-      await injectActiveSession(page, 1, 'ghost', 99999);
+      await injectActiveSession(page, 1, 'ghost', user.id);
       await page.goto('/control');
 
       // Manually emit join_race with the invalid dbUserId
@@ -333,6 +345,7 @@ test.describe('Socket.IO race flow', () => {
       expect(data.code).toBe('auth_required');
     } finally {
       await ctx.close();
+      await resetCtx.close();
     }
   });
 

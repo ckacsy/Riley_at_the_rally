@@ -253,9 +253,21 @@ test.describe('Duel UI — panel visibility and gating', () => {
 
   test('page loads without crashing when no active session (guest-like)', async ({ browser }) => {
     const ctx = await browser.newContext();
+    const resetCtx = await browser.newContext();
     try {
       const page = await ctx.newPage();
-      // Inject a fake session to prevent redirect but simulate no server session
+      const resetPage = await resetCtx.newPage();
+
+      // Clean state via separate context so ctx's session is unaffected.
+      await resetDb(resetPage);
+
+      // Register a user so the /control auth guard passes.
+      const user = await registerUser(page, 'dui_guest', 'dui_guest@test.com', 'Secure#Pass1');
+
+      // Delete the user from DB via separate context, keeping ctx's session alive.
+      await resetDb(resetPage);
+
+      // Inject a fake session to prevent client redirect, simulating no server session.
       await page.addInitScript(() => {
         sessionStorage.setItem(
           'activeSession',
@@ -272,7 +284,7 @@ test.describe('Duel UI — panel visibility and gating', () => {
         );
       });
 
-      // No register/login — server won't know this user
+      // Server session has userId from register (user now deleted from DB)
       await page.goto('/control');
 
       // Page should not throw a JS error that breaks it entirely
@@ -284,6 +296,7 @@ test.describe('Duel UI — panel visibility and gating', () => {
       await expect(btn).toBeVisible();
     } finally {
       await ctx.close();
+      await resetCtx.close();
     }
   });
 });
