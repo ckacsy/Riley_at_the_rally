@@ -365,6 +365,62 @@ class DuelManager {
   }
 
   /**
+   * Cancel a duel that is in the ready_pending state (player voluntarily cancels
+   * before both sides confirmed ready).  Does NOT emit socket events — the caller
+   * (socket handler) is responsible for notifying players via duel:cancelled.
+   *
+   * @param {string} socketId
+   * @returns {{ cancelled: boolean, affectedSocketIds?: string[] }}
+   */
+  cancelReady(socketId) {
+    const duel = this.getDuelBySocketId(socketId);
+    if (!duel || duel.resolved || duel.status !== 'ready_pending') {
+      return { cancelled: false };
+    }
+
+    const affectedSocketIds = duel.players.map((p) => p.socketId);
+
+    duel.resolved = true;
+    duel.status = 'cancelled';
+    duel.resolutionReason = 'player_cancelled';
+    duel.finishedAt = new Date().toISOString();
+
+    if (duel.timeoutHandle) {
+      clearTimeout(duel.timeoutHandle);
+      duel.timeoutHandle = null;
+    }
+    if (duel.readyTimeoutHandle) {
+      clearTimeout(duel.readyTimeoutHandle);
+      duel.readyTimeoutHandle = null;
+    }
+    if (duel.countdownHandle) {
+      clearTimeout(duel.countdownHandle);
+      duel.countdownHandle = null;
+    }
+
+    try {
+      this._db
+        .prepare(
+          `INSERT INTO duel_results
+             (season_id, race_id, winner_id, loser_id, result_type,
+              winner_lap_time_ms, loser_lap_time_ms)
+           VALUES (?, ?, NULL, NULL, ?, NULL, NULL)`,
+        )
+        .run(SEASON_ID, duel.id, 'player_cancelled');
+    } catch (e) {
+      this._metrics.log('error', 'duel_result_persist_fail', {
+        duelId: duel.id,
+        error: e.message,
+      });
+    }
+
+    this._cleanupDuelMaps(duel.id);
+    this._metrics.log('info', 'duel_cancelled', { duelId: duel.id, reason: 'player_cancelled' });
+
+    return { cancelled: true, affectedSocketIds };
+  }
+
+  /**
    * Handle ready-state timeout (both players didn't ready up in time).
    * @private
    */

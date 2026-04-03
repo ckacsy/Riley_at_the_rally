@@ -1002,6 +1002,20 @@ function setupSocketIo(io, deps) {
     });
 
     /**
+     * duel:cancel_ready
+     * Player cancels while in ready_pending state (before countdown starts).
+     * Both matched players receive duel:cancelled.
+     */
+    socket.on('duel:cancel_ready', () => {
+      const result = duelManager.cancelReady(socket.id);
+      if (result.cancelled) {
+        result.affectedSocketIds.forEach((sid) => {
+          io.to(sid).emit('duel:cancelled', { reason: 'player_cancelled' });
+        });
+      }
+    });
+
+    /**
      * duel:ready
      * Player confirms they are ready to start the duel (ready-state gate).
      * Both players must emit this before the duel transitions to in_progress.

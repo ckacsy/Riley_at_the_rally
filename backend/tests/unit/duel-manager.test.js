@@ -1241,3 +1241,104 @@ describe('DuelManager — car/session validation at match time', () => {
     assert.equal(manager.getDuelBySocketId('sB'), null, 'no duel should exist');
   });
 });
+
+// ---------------------------------------------------------------------------
+// New tests: cancelReady
+// ---------------------------------------------------------------------------
+
+describe('DuelManager — cancelReady', () => {
+  let db, mockIo, addSocket, manager;
+
+  function setupMatchedDuel() {
+    addSocket('sA');
+    addSocket('sB');
+    manager.addToQueue({ userId: 1, socketId: 'sA', username: 'u1', rank: 10, stars: 0, isLegend: false, legendPosition: null, carId: 1 });
+    manager.addToQueue({ userId: 2, socketId: 'sB', username: 'u2', rank: 10, stars: 0, isLegend: false, legendPosition: null, carId: 2 });
+  }
+
+  beforeEach(() => {
+    db = createTestDb();
+    ({ mockIo, addSocket } = createMockIo());
+    manager = new DuelManager({ db, io: mockIo, metrics: createMockMetrics() });
+    insertUser(db, 1, { rank: 10, stars: 0 });
+    insertUser(db, 2, { rank: 10, stars: 0 });
+    setupMatchedDuel();
+  });
+
+  afterEach(() => {
+    manager.clear();
+    db.close();
+  });
+
+  test('cancelReady after one player readied — returns both socket IDs', () => {
+    manager.handleReady('sA');
+
+    const result = manager.cancelReady('sA');
+    assert.equal(result.cancelled, true);
+    assert.ok(Array.isArray(result.affectedSocketIds), 'affectedSocketIds should be an array');
+    assert.ok(result.affectedSocketIds.includes('sA'), 'should include socket A');
+    assert.ok(result.affectedSocketIds.includes('sB'), 'should include socket B');
+  });
+
+  test('cancelReady — duel is cleaned up after cancellation', () => {
+    manager.cancelReady('sA');
+
+    assert.equal(manager.getDuelBySocketId('sA'), null, 'duel should be gone for A');
+    assert.equal(manager.getDuelBySocketId('sB'), null, 'duel should be gone for B');
+    assert.equal(manager.getDuelStatus(1), 'none');
+    assert.equal(manager.getDuelStatus(2), 'none');
+  });
+
+  test('cancelReady — idempotent: second call returns cancelled: false', () => {
+    const first = manager.cancelReady('sA');
+    assert.equal(first.cancelled, true);
+
+    const second = manager.cancelReady('sB');
+    assert.equal(second.cancelled, false, 'second cancel should return false (already resolved)');
+  });
+
+  test('cancelReady — result row is persisted with player_cancelled reason', () => {
+    manager.cancelReady('sA');
+
+    const row = db.prepare('SELECT result_type FROM duel_results').get();
+    assert.ok(row, 'a duel_results row should exist');
+    assert.equal(row.result_type, 'player_cancelled');
+  });
+
+  test('cancelReady in idle state (no duel) → cancelled: false', () => {
+    // Clear the duel first
+    manager.cancelReady('sA');
+
+    // Try again with a socket that has no active duel
+    const result = manager.cancelReady('sA');
+    assert.equal(result.cancelled, false);
+  });
+
+  test('cancelReady while in_progress → cancelled: false', () => {
+    makeInProgress(manager, 'sA', 'sB');
+
+    const result = manager.cancelReady('sA');
+    assert.equal(result.cancelled, false, 'should not cancel when duel is already in_progress');
+  });
+
+  test('cancelReady after ready_timeout already fired → cancelled: false', () => {
+    const duel = manager.getDuelBySocketId('sA');
+    const duelId = duel.id;
+
+    // Fire ready timeout
+    manager._handleReadyTimeout(duelId);
+
+    // Duel is now resolved; cancelReady should return false
+    const result = manager.cancelReady('sA');
+    assert.equal(result.cancelled, false, 'should not cancel when duel already timed out');
+  });
+
+  test('cancelReady — no rank changes occur', () => {
+    manager.cancelReady('sA');
+
+    const u1 = db.prepare('SELECT duels_won, duels_lost FROM users WHERE id = 1').get();
+    const u2 = db.prepare('SELECT duels_won, duels_lost FROM users WHERE id = 2').get();
+    assert.equal(u1.duels_won + u1.duels_lost, 0, 'no rank changes for player 1');
+    assert.equal(u2.duels_won + u2.duels_lost, 0, 'no rank changes for player 2');
+  });
+});
