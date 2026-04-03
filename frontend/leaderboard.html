@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Рейтинги — Riley at the Rally</title>
+    <link rel="stylesheet" href="styles/common.css">
+    <link rel="stylesheet" href="styles/nav.css">
+    <link rel="stylesheet" href="styles/rank.css">
+    <link rel="stylesheet" href="styles/leaderboard.css">
+</head>
+<body>
+    <div id="main-nav"></div>
+
+    <div class="lb-page-wrap">
+        <h1 id="top">🏆 Рейтинги</h1>
+        <p class="lb-subtitle"><a href="/garage">← Вернуться в гараж</a></p>
+
+        <!-- Section tabs -->
+        <div class="lb-section-tabs">
+            <button class="lb-section-tab active" data-section="track">🕐 Рекорды трассы</button>
+            <button class="lb-section-tab" data-section="ladder">🎖 Ранговая таблица</button>
+            <button class="lb-section-tab" data-section="legends">🏆 Зал Легенд</button>
+        </div>
+
+        <!-- ======================== TRACK RECORDS ======================== -->
+        <div class="lb-section" data-section="track">
+            <div class="lb-track-actions">
+                <div class="lb-range-tabs">
+                    <button class="lb-range-tab active" data-range="all">Все</button>
+                    <button class="lb-range-tab" data-range="week">Неделя</button>
+                    <button class="lb-range-tab" data-range="day">Сутки</button>
+                </div>
+                <button class="lb-copy-btn" id="lb-copy-btn" title="Скопировать ссылку">
+                    🔗 Скопировать ссылку
+                </button>
+            </div>
+            <div id="lb-track-container">
+                <p class="lb-loading">Загрузка рекордов…</p>
+            </div>
+        </div>
+
+        <!-- ======================== RANK LADDER ======================== -->
+        <div class="lb-section hidden" data-section="ladder">
+            <p class="lb-section-title">🎖 Ранговая таблица</p>
+            <div id="lb-ladder-container">
+                <p class="lb-loading">Загрузка…</p>
+            </div>
+        </div>
+
+        <!-- ======================== HALL OF LEGENDS ======================== -->
+        <div class="lb-section hidden" data-section="legends">
+            <p class="lb-section-title legend-title">🏆 Зал Легенд</p>
+            <div id="lb-legends-container">
+                <p class="lb-loading">Загрузка…</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/shared-utils.js"></script>
+    <script src="js/rank-ui.js"></script>
+    <script src="js/leaderboard.js"></script>
+    <script>
+        if (window.LeaderboardPage) { window.LeaderboardPage.init(); }
+    </script>
+    <script src="js/nav.js"></script>
+</body>
+</html>

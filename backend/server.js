@@ -856,7 +856,7 @@ app.get('/', pageRateLimit, (req, res) => {
 });
 
 app.get('/leaderboard', pageRateLimit, (req, res) => {
-  res.sendFile(path.join(frontendDir, 'index.html'));
+  res.sendFile(path.join(frontendDir, 'leaderboard.html'));
 });
 
 app.get('/control', pageRateLimit, (req, res) => {
