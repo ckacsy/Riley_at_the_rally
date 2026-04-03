@@ -118,13 +118,6 @@
             <div class="tab-content" id="tab-settings">
                 <div class="panel-section">
                     <h3>Настройки</h3>
-                    <div class="settings-row disabled-row">
-                        <span>Тени <span class="wip-label">🚧</span></span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="setting-shadows" checked disabled>
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
                     <div class="settings-row">
                         <span>Авт. вращение</span>
                         <label class="toggle-switch">
@@ -132,10 +125,17 @@
                             <span class="toggle-slider"></span>
                         </label>
                     </div>
-                    <div class="settings-row disabled-row">
-                        <span>Туман <span class="wip-label">🚧</span></span>
+                    <div class="settings-row">
+                        <span>Авт. скрывать левую панель</span>
                         <label class="toggle-switch">
-                            <input type="checkbox" id="setting-fog" checked disabled>
+                            <input type="checkbox" id="setting-autohide-left">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="settings-row">
+                        <span>Авт. скрывать правую панель</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="setting-autohide-right">
                             <span class="toggle-slider"></span>
                         </label>
                     </div>
@@ -263,9 +263,12 @@
 
     <!-- RIGHT PANEL -->
     <div class="right-panel" id="right-panel">
+        <button class="panel-toggle" id="right-panel-toggle" title="Свернуть / развернуть панель" aria-label="Свернуть правую панель">&#9654;</button>
+        <div class="rp-content">
 
         <!-- Balance -->
         <div id="balance-section" class="rp-section">
+            <span class="rp-icon" aria-hidden="true">💰</span>
             <div class="rp-title">Баланс</div>
             <div class="balance-credits" id="rp-credits">0.00 RC</div>
             <div class="balance-label">1 RC = 1 ₽</div>
@@ -274,6 +277,7 @@
 
         <!-- Bonuses -->
         <div id="bonuses-section" class="rp-section">
+            <span class="rp-icon" aria-hidden="true">🎁</span>
             <div class="rp-title">Бонусы</div>
             <div id="daily-bonus-widget" class="daily-bonus-widget">
                 <div class="daily-bonus-loading">Загрузка…</div>
@@ -282,6 +286,7 @@
 
         <!-- Characteristics -->
         <div id="characteristics-section" class="rp-section">
+            <span class="rp-icon" aria-hidden="true">📊</span>
             <div class="rp-title">Характеристики</div>
             <div class="char-row">
                 <span class="char-icon" aria-label="Заряд батареи">&#x1F50B;</span>
@@ -307,6 +312,7 @@
             <div class="char-type">&#x1F30D;&nbsp;Тип: Ралли</div>
         </div>
 
+        </div>
     </div>
     <div class="carousel-wrap" id="carousel-wrap">
         <div class="carousel-controls">
@@ -327,16 +333,16 @@
                     <option value="busy">Занятые</option>
                 </select>
                 <input class="search-input" id="carousel-search" type="text"
-                       placeholder="Поиск ливреи…" aria-label="Поиск ливреи">
+                       placeholder="Поиск авто…" aria-label="Поиск авто">
             </div>
             <button class="fullscreen-btn" id="fullscreen-btn" title="Полноэкранный вид (Space)">
                 &#x26F6; Полный экран
             </button>
         </div>
         <div class="carousel-row">
-            <button class="carousel-arrow" id="carousel-prev" aria-label="Предыдущая ливрея">&#9664;</button>
-            <div class="carousel" id="car-carousel" role="listbox" aria-label="Выбор ливреи машины"></div>
-            <button class="carousel-arrow" id="carousel-next" aria-label="Следующая ливрея">&#9654;</button>
+            <button class="carousel-arrow" id="carousel-prev" aria-label="Предыдущее авто">&#9664;</button>
+            <div class="carousel" id="car-carousel" role="listbox" aria-label="Выбор авто"></div>
+            <button class="carousel-arrow" id="carousel-next" aria-label="Следующее авто">&#9654;</button>
         </div>
     </div>
 
@@ -414,9 +420,7 @@
         let fpsCounter = 0, lastFpsTime = performance.now(), currentFps = 0;
 
         window._garageScene = {
-            setShadows:    (v) => { if (renderer) renderer.shadowMap.enabled = v; },
             setAutoRotate: (v) => { autoRotate = v; },
-            setFog:        (v) => { if (scene) scene.fog = v ? new THREE.FogExp2(0x0d1525, 0.025) : null; },
             getFps:        ()  => currentFps,
         };
         window.CAR_VARIANTS_REF = CAR_VARIANTS;
@@ -442,16 +446,16 @@
 
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x0d1525);
-            scene.fog = new THREE.FogExp2(0x0d1525, 0.025);
+            scene.fog = new THREE.FogExp2(0x0d1525, 0.005);
 
-            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 500);
             camera.position.set(0, 2.8, 7);
 
             controls = new OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.06;
             controls.minDistance = 3;
-            controls.maxDistance = 14;
+            controls.maxDistance = 50;
             controls.maxPolarAngle = Math.PI / 2 - 0.04;
             controls.target.set(0, 0.5, 0);
             controls.update();
@@ -490,29 +494,29 @@
 
         function addEnvironment() {
             const floor = new THREE.Mesh(
-                new THREE.PlaneGeometry(60, 60),
+                new THREE.PlaneGeometry(200, 200),
                 new THREE.MeshStandardMaterial({ color: 0x080d1a, roughness: 0.85, metalness: 0.3 })
             );
             floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
-            const grid = new THREE.GridHelper(60, 60, 0x1a2a4a, 0x141e30);
+            const grid = new THREE.GridHelper(200, 200, 0x1a2a4a, 0x141e30);
             grid.material.opacity = 0.45; grid.material.transparent = true; scene.add(grid);
             const ceil = new THREE.Mesh(
-                new THREE.PlaneGeometry(30, 30),
+                new THREE.PlaneGeometry(100, 100),
                 new THREE.MeshStandardMaterial({ color: 0x050810, roughness: 1, side: THREE.BackSide })
             );
-            ceil.position.y = 12; ceil.rotation.x = Math.PI / 2; scene.add(ceil);
-            [[-12, 0], [12, Math.PI]].forEach(([x, ry]) => {
+            ceil.position.y = 25; ceil.rotation.x = Math.PI / 2; scene.add(ceil);
+            [[-60, 0], [60, Math.PI]].forEach(([x, ry]) => {
                 const wall = new THREE.Mesh(
-                    new THREE.PlaneGeometry(30, 14),
+                    new THREE.PlaneGeometry(100, 30),
                     new THREE.MeshStandardMaterial({ color: 0x09101f, roughness: 1, side: THREE.BackSide })
                 );
                 wall.position.set(x, 6, 0); wall.rotation.y = ry + Math.PI / 2; scene.add(wall);
             });
             const back = new THREE.Mesh(
-                new THREE.PlaneGeometry(30, 14),
+                new THREE.PlaneGeometry(100, 30),
                 new THREE.MeshStandardMaterial({ color: 0x09101f, roughness: 1, side: THREE.BackSide })
             );
-            back.position.set(0, 6, -14); scene.add(back);
+            back.position.set(0, 6, -60); scene.add(back);
             const lineMat = new THREE.MeshBasicMaterial({ color: 0xe53935, opacity: 0.25, transparent: true });
             [-0.9, 0.9].forEach(x => {
                 const line = new THREE.Mesh(new THREE.PlaneGeometry(0.04, 8), lineMat);
@@ -633,7 +637,7 @@
             if (!any) {
                 const empty = document.createElement('div');
                 empty.className = 'carousel-empty';
-                empty.textContent = '\u041d\u0435\u0442 \u043b\u0438\u0432\u0440\u0435\u0439 \u043f\u043e \u0444\u0438\u043b\u044c\u0442\u0440\u0443';
+                empty.textContent = 'Нет авто по фильтру';
                 el.appendChild(empty);
             }
         }
