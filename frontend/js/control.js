@@ -557,22 +557,6 @@
             return sessionData.userId || ('user-' + socket.id);
         }
 
-        function escapeHtml(str) {
-            if (str == null) return '';
-            return String(str)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#39;');
-        }
-
-        function formatLapTime(ms) {
-            const mins = String(Math.floor(ms / 60000)).padStart(2, '0');
-            const secs = String(Math.floor((ms % 60000) / 1000)).padStart(2, '0');
-            const millis = String(ms % 1000).padStart(3, '0');
-            return `${mins}:${secs}.${millis}`;
-        }
 
         function showRaceUI(inRace) {
             document.getElementById('race-no-session').style.display = inRace ? 'none' : 'flex';
@@ -605,10 +589,10 @@
             const tbody = document.getElementById('positions-body');
             tbody.innerHTML = sorted.map(function (p, i) {
                 const isMe = p.socketId === socket.id;
-                const best = p.bestLapTime != null ? formatLapTime(p.bestLapTime) : '—';
+                const best = p.bestLapTime != null ? SharedUtils.formatLapTime(p.bestLapTime) : '—';
                 return `<tr class="${isMe ? 'me' : ''}">
                     <td>${i + 1}</td>
-                    <td>${escapeHtml(p.carName)}${isMe ? ' (вы)' : ''}</td>
+                    <td>${SharedUtils.escapeHtml(p.carName)}${isMe ? ' (вы)' : ''}</td>
                     <td>${p.lapCount}</td>
                     <td>${best}</td>
                 </tr>`;
@@ -624,9 +608,9 @@
             tbody.innerHTML = entries.slice(0, 5).map(function (e, i) {
                 return `<tr>
                     <td>${i + 1}</td>
-                    <td>${escapeHtml(e.carName)}</td>
-                    <td>${escapeHtml(e.userId)}</td>
-                    <td><strong>${formatLapTime(e.lapTimeMs)}</strong></td>
+                    <td>${SharedUtils.escapeHtml(e.carName)}</td>
+                    <td>${SharedUtils.escapeHtml(e.userId)}</td>
+                    <td><strong>${SharedUtils.formatLapTime(e.lapTimeMs)}</strong></td>
                 </tr>`;
             }).join('');
         }
@@ -722,7 +706,7 @@
             document.getElementById('stop-lap-btn').disabled = false;
             lapDisplayInterval = setInterval(function () {
                 const elapsed = Date.now() - lapStartTime;
-                document.getElementById('lap-time-display').textContent = formatLapTime(elapsed);
+                document.getElementById('lap-time-display').textContent = SharedUtils.formatLapTime(elapsed);
             }, 50);
         });
 
@@ -734,16 +718,16 @@
                 lapDisplayInterval = null;
                 document.getElementById('start-lap-btn').disabled = false;
                 document.getElementById('stop-lap-btn').disabled = true;
-                document.getElementById('lap-time-display').textContent = formatLapTime(data.lapTimeMs);
+                document.getElementById('lap-time-display').textContent = SharedUtils.formatLapTime(data.lapTimeMs);
                 if (data.isGlobalRecord) {
-                    flashMessage('🏆 Новый рекорд трассы: ' + formatLapTime(data.lapTimeMs) + '!', true);
+                    flashMessage('🏆 Новый рекорд трассы: ' + SharedUtils.formatLapTime(data.lapTimeMs) + '!', true);
                 } else if (data.isPersonalBest) {
-                    flashMessage('🎉 Личный рекорд: ' + formatLapTime(data.lapTimeMs), false);
+                    flashMessage('🎉 Личный рекорд: ' + SharedUtils.formatLapTime(data.lapTimeMs), false);
                 } else {
-                    flashMessage('Круг: ' + formatLapTime(data.lapTimeMs), false);
+                    flashMessage('Круг: ' + SharedUtils.formatLapTime(data.lapTimeMs), false);
                 }
             } else if (data.isGlobalRecord) {
-                flashMessage('🏆 ' + data.userId + ' побил рекорд трассы: ' + formatLapTime(data.lapTimeMs) + '!', true);
+                flashMessage('🏆 ' + data.userId + ' побил рекорд трассы: ' + SharedUtils.formatLapTime(data.lapTimeMs) + '!', true);
             }
             loadLeaderboard();
         });
@@ -800,184 +784,10 @@
             if (!currentRaceId) loadActiveRaces();
         }, 30000);
 
-        // ── Chat drawer ──
-        (function () {
-            var toggleBtn = document.getElementById('chat-toggle-btn');
-            var drawer = document.getElementById('chat-drawer');
-            var closeBtn = document.getElementById('chat-drawer-close');
-            var chatMessagesEl = document.getElementById('chat-messages');
-            var chatEmptyEl = document.getElementById('chat-empty');
-            var chatInputEl = document.getElementById('chat-input');
-            var chatSendBtnEl = document.getElementById('chat-send-btn');
-            var chatJumpBtnEl = document.getElementById('chat-jump-btn');
-
-            var _controlChatUser = null;
-            fetch('/api/auth/me').then(function (r) {
-                return r.ok ? r.json() : null;
-            }).then(function (data) {
-                if (data && data.user) _controlChatUser = data.user;
-            }).catch(function () {});
-
-            function openDrawer() {
-                document.body.setAttribute('data-chat-open', 'true');
-                drawer.setAttribute('aria-hidden', 'false');
-                chatInputEl.focus();
-            }
-
-            function closeDrawer() {
-                document.body.setAttribute('data-chat-open', 'false');
-                drawer.setAttribute('aria-hidden', 'true');
-            }
-
-            toggleBtn.addEventListener('click', function () {
-                var isOpen = document.body.getAttribute('data-chat-open') === 'true';
-                if (isOpen) closeDrawer(); else openDrawer();
-            });
-
-            closeBtn.addEventListener('click', closeDrawer);
-
-            document.addEventListener('keydown', function (e) {
-                if (e.key === 'Escape' && document.body.getAttribute('data-chat-open') === 'true') {
-                    closeDrawer();
-                }
-            });
-
-            function isScrolledToBottom() {
-                return chatMessagesEl.scrollHeight - chatMessagesEl.scrollTop - chatMessagesEl.clientHeight < 40;
-            }
-
-            function scrollToBottom() {
-                chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
-            }
-
-            function appendMessage(msg) {
-                var wasAtBottom = isScrolledToBottom();
-                chatEmptyEl.style.display = 'none';
-
-                var div = document.createElement('div');
-                div.className = 'chat-msg';
-                div.setAttribute('data-msg-id', msg.id);
-
-                if (msg.deleted) {
-                    div.classList.add('chat-msg-deleted');
-                    var deletedSpan = document.createElement('span');
-                    deletedSpan.className = 'chat-msg-text chat-msg-deleted-text';
-                    deletedSpan.textContent = 'Сообщение удалено';
-                    div.appendChild(deletedSpan);
-                } else {
-                    var userSpan = document.createElement('span');
-                    userSpan.className = 'chat-msg-user';
-                    userSpan.textContent = msg.username + ':';
-
-                    var textSpan = document.createElement('span');
-                    textSpan.className = 'chat-msg-text';
-                    textSpan.textContent = ' ' + msg.message;
-
-                    var timeSpan = document.createElement('span');
-                    timeSpan.className = 'chat-msg-time';
-                    if (msg.createdAt) {
-                        var d = new Date(msg.createdAt);
-                        if (!isNaN(d.getTime())) {
-                            timeSpan.textContent = ' ' + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-                        }
-                    }
-
-                    div.appendChild(userSpan);
-                    div.appendChild(textSpan);
-                    div.appendChild(timeSpan);
-
-                    if (_controlChatUser && (_controlChatUser.role === 'admin' || _controlChatUser.role === 'moderator')) {
-                        var delBtn = document.createElement('button');
-                        delBtn.className = 'chat-msg-delete-btn';
-                        delBtn.textContent = '🗑️';
-                        delBtn.title = 'Удалить сообщение';
-                        (function (msgId) {
-                            delBtn.addEventListener('click', function () {
-                                socket.emit('chat:delete', { id: msgId });
-                            });
-                        }(msg.id));
-                        div.appendChild(delBtn);
-                    }
-                }
-                chatMessagesEl.appendChild(div);
-
-                if (wasAtBottom) {
-                    scrollToBottom();
-                    chatJumpBtnEl.classList.remove('visible');
-                } else {
-                    chatJumpBtnEl.classList.add('visible');
-                }
-            }
-
-            function markDeleted(id) {
-                var el = chatMessagesEl.querySelector('[data-msg-id="' + id + '"]');
-                if (!el) return;
-                el.innerHTML = '';
-                el.classList.add('chat-msg-deleted');
-                var span = document.createElement('span');
-                span.className = 'chat-msg-text chat-msg-deleted-text';
-                span.textContent = 'Сообщение удалено';
-                el.appendChild(span);
-            }
-
-            chatMessagesEl.addEventListener('scroll', function () {
-                if (isScrolledToBottom()) chatJumpBtnEl.classList.remove('visible');
-            });
-
-            chatJumpBtnEl.addEventListener('click', function () {
-                scrollToBottom();
-                chatJumpBtnEl.classList.remove('visible');
-            });
-
-            function sendChatMessage() {
-                var text = chatInputEl.value.trim();
-                if (!text) return;
-                socket.emit('chat:send', {
-                    message: text,
-                    userId: sessionData.dbUserId || null,
-                    username: sessionData.userId || null,
-                });
-                chatInputEl.value = '';
-            }
-
-            chatSendBtnEl.addEventListener('click', sendChatMessage);
-            chatInputEl.addEventListener('keydown', function (e) {
-                if (e.key === 'Enter') sendChatMessage();
-            });
-
-            socket.on('chat:history', function (data) {
-                var msgs = chatMessagesEl.querySelectorAll('.chat-msg');
-                msgs.forEach(function (el) { el.remove(); });
-                var history = Array.isArray(data) ? data : (data && data.messages ? data.messages : []);
-                if (!history || history.length === 0) {
-                    chatEmptyEl.style.display = '';
-                    return;
-                }
-                chatEmptyEl.style.display = 'none';
-                history.forEach(function (msg) { appendMessage(msg); });
-                scrollToBottom();
-            });
-
-            socket.on('chat:message', function (msg) {
-                appendMessage(msg);
-            });
-
-            socket.on('chat:deleted', function (data) {
-                if (data && data.id != null) markDeleted(data.id);
-            });
-
-            socket.on('chat:error', function (err) {
-                if (err && err.code === 'rate_limited') {
-                    chatInputEl.disabled = true;
-                    chatSendBtnEl.disabled = true;
-                    setTimeout(function () {
-                        chatInputEl.disabled = false;
-                        chatSendBtnEl.disabled = false;
-                        chatInputEl.focus();
-                    }, 1500);
-                }
-            });
-        })();
+        // ── Chat drawer (extracted to chat-drawer.js) ──
+        if (window.ChatDrawer) {
+            window.ChatDrawer.init(socket, sessionData);
+        }
 
         // ── Duel UI ──
         if (typeof window.DuelUI !== 'undefined') {

@@ -17,27 +17,10 @@
     // Helpers
     // -------------------------------------------------------------------------
 
-    function escHtml(str) {
-        if (str == null) return '';
-        return String(str)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-    }
-
-    function fmtLapTime(ms) {
-        if (ms == null) return '—';
-        var mins = String(Math.floor(ms / 60000)).padStart(2, '0');
-        var secs = String(Math.floor((ms % 60000) / 1000)).padStart(2, '0');
-        var millis = String(ms % 1000).padStart(3, '0');
-        return mins + ':' + secs + '.' + millis;
-    }
 
     function renderOpponentBadge(opponent) {
         if (typeof window.RankUI === 'undefined') {
-            return '<span class="rank-badge rank-badge-compact">' + escHtml(opponent.username) + '</span>';
+            return '<span class="rank-badge rank-badge-compact">' + SharedUtils.escapeHtml(opponent.username) + '</span>';
         }
         var rankData = {
             rank: opponent.rank,
@@ -213,7 +196,7 @@
                 '<div class="duel-match-title">⚔️ Соперник найден!</div>' +
                 '<div class="duel-match-opponent">' +
                     '<span class="duel-match-label">Соперник:</span> ' +
-                    '<span class="duel-opponent-name">' + escHtml(opponent.username) + '</span> ' +
+                    '<span class="duel-opponent-name">' + SharedUtils.escapeHtml(opponent.username) + '</span> ' +
                     renderOpponentBadge(opponent) +
                 '</div>' +
                 '<div class="duel-match-checkpoints">Чекпоинтов: ' + checkpoints + '</div>' +
@@ -366,8 +349,8 @@
         // Time comparison section (for win/loss with at least one lap time)
         var timesHtml = '';
         if (result === 'win' || result === 'loss') {
-            var myTimeStr  = lapTimeMs ? fmtLapTime(lapTimeMs) : '—';
-            var oppTimeStr = (opponent && opponent.lapTimeMs) ? fmtLapTime(opponent.lapTimeMs) : '—';
+            var myTimeStr  = lapTimeMs ? SharedUtils.formatLapTime(lapTimeMs) : '—';
+            var oppTimeStr = (opponent && opponent.lapTimeMs) ? SharedUtils.formatLapTime(opponent.lapTimeMs) : '—';
 
             var diffHtml = '';
             if (lapTimeMs && opponent && opponent.lapTimeMs) {
@@ -383,17 +366,17 @@
                 '<div class="duel-result-times">' +
                     '<div class="duel-result-time-col">' +
                         '<div class="duel-result-time-label">Ваше время</div>' +
-                        '<div class="duel-result-time-val">' + escHtml(myTimeStr) + '</div>' +
+                        '<div class="duel-result-time-val">' + SharedUtils.escapeHtml(myTimeStr) + '</div>' +
                     '</div>' +
                     '<div class="duel-result-time-col">' +
                         '<div class="duel-result-time-label">Соперник</div>' +
-                        '<div class="duel-result-time-val">' + escHtml(oppTimeStr) + '</div>' +
+                        '<div class="duel-result-time-val">' + SharedUtils.escapeHtml(oppTimeStr) + '</div>' +
                     '</div>' +
                 '</div>' +
                 diffHtml;
         } else if (lapTimeMs && lapTimeMs > 0) {
             timesHtml = '<div class="duel-result-lap">Время круга: <strong>' +
-                escHtml(fmtLapTime(lapTimeMs)) + '</strong></div>';
+                SharedUtils.escapeHtml(SharedUtils.formatLapTime(lapTimeMs)) + '</strong></div>';
         }
 
         var rankHtml = _buildRankHtml(rankChange);
@@ -401,14 +384,14 @@
         var opponentHtml = '';
         if (opponent && opponent.username) {
             opponentHtml = '<div class="duel-result-opponent">vs. <strong>' +
-                escHtml(opponent.username) + '</strong></div>';
+                SharedUtils.escapeHtml(opponent.username) + '</strong></div>';
         }
 
         if (_resultCard) {
             _resultCard.className = 'duel-result-card ' + resultClass;
             _resultCard.removeAttribute('style');
             _resultCard.innerHTML =
-                '<div class="duel-result-label">' + escHtml(title) + '</div>' +
+                '<div class="duel-result-label">' + SharedUtils.escapeHtml(title) + '</div>' +
                 timesHtml +
                 rankHtml +
                 opponentHtml +
