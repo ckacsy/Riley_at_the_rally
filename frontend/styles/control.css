@@ -810,3 +810,21 @@
             transition: background-color var(--transition-speed);
         }
         .duel-result-dismiss:hover { background: var(--accent-secondary-hover); }
+        /* Exit-to-garage button: secondary styling distinct from "end rental" */
+        .end-rental-exit-btn {
+            margin-top: 8px;
+            background-color: var(--accent-secondary);
+        }
+        .end-rental-exit-btn:hover {
+            background-color: var(--accent-secondary-hover);
+        }
+        /* Hide navbar and remove its padding when session is active */
+        body.session-active #main-nav {
+            display: none !important;
+        }
+        body.session-active {
+            padding-top: 0 !important;
+        }
+        body.session-active #chat-toggle-btn {
+            top: 10px;
+        }

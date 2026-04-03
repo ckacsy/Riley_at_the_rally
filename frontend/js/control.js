@@ -25,6 +25,19 @@
             window.location.replace('/garage');
         }
 
+        function setSessionChromeHidden(hidden) {
+            if (hidden) {
+                document.body.classList.add('session-active');
+            } else {
+                document.body.classList.remove('session-active');
+            }
+        }
+
+        // Hide navbar immediately if session is already active (e.g. page reload)
+        if (sessionStorage.getItem('activeSession')) {
+            setSessionChromeHidden(true);
+        }
+
         // Handle bfcache back navigation: re-check session on pageshow
         window.addEventListener('pageshow', function (event) {
             if (event.persisted) {
@@ -216,9 +229,11 @@
 
         // Flag to prevent double-ending the session
         let sessionEnded = false;
+        // Set to true when user explicitly clicks "exit to garage" to skip beforeunload re-emit
+        let sessionEndingGracefully = false;
 
         function endSessionOnLeave() {
-            if (sessionEnded) return;
+            if (sessionEnded || sessionEndingGracefully) return;
             sessionEnded = true;
             clearInterval(timerInterval);
             stopCountdownTimers();
@@ -331,6 +346,7 @@
             // Update sessionStorage with new socket-based sessionId and sessionRef
             const updated = Object.assign({}, sessionData, { sessionId: data.sessionId, sessionRef: data.sessionRef || null });
             sessionStorage.setItem('activeSession', JSON.stringify(updated));
+            setSessionChromeHidden(true);
             // Start client-side countdown timers if server provided values
             if (data.sessionMaxDurationMs && data.inactivityTimeoutMs) {
                 inactivityTimeoutMsFromServer = data.inactivityTimeoutMs;
@@ -349,7 +365,13 @@
             sessionEnded = true;
             clearInterval(timerInterval);
             stopCountdownTimers();
+            resetRaceUiState();
+            setSessionChromeHidden(false);
             sessionStorage.removeItem('activeSession');
+            if (sessionEndingGracefully) {
+                window.location.href = '/garage';
+                return;
+            }
             const durationSec = data.durationSeconds || 0;
             const cost = data.cost || 0;
             const minutes = Math.floor(durationSec / 60);
@@ -395,6 +417,8 @@
         socket.on('session_error', function (data) {
             clearInterval(timerInterval);
             stopCountdownTimers();
+            resetRaceUiState();
+            setSessionChromeHidden(false);
             disableControls();
             const msg = document.getElementById('session-inactive-msg');
             msg.innerHTML = '';
@@ -411,6 +435,11 @@
 
         document.getElementById('end-rental').addEventListener('click', function () {
             sessionEnded = true;
+            socket.emit('end_session', { carId: carId });
+        });
+
+        document.getElementById('end-rental-exit').addEventListener('click', function () {
+            sessionEndingGracefully = true;
             socket.emit('end_session', { carId: carId });
         });
 
@@ -453,6 +482,7 @@
         // Keyboard controls: arrow keys for continuous movement
         const pressedKeys = new Set();
         let keyControlInterval = null;
+        let lastCommandSignature = '';
 
         function updateKeyButtonHighlights() {
             ['forward', 'backward', 'left', 'right'].forEach(function (id) {
@@ -468,6 +498,15 @@
 
         function sendKeyCommand() {
             resetInactivityCountdown();
+            var sig = '';
+            if (pressedKeys.has('ArrowUp')) sig += (sig ? ' + ' : '') + 'Вперёд';
+            if (pressedKeys.has('ArrowDown')) sig += (sig ? ' + ' : '') + 'Назад';
+            if (pressedKeys.has('ArrowLeft')) sig += (sig ? ' + ' : '') + 'Влево';
+            if (pressedKeys.has('ArrowRight')) sig += (sig ? ' + ' : '') + 'Вправо';
+            if (sig !== lastCommandSignature) {
+                lastCommandSignature = sig;
+                addCmdLogEntry('⌨️ ' + (sig || 'Стоп'));
+            }
             const speed = parseInt(speedSlider.value, 10);
             const cmd = {};
             if (pressedKeys.has('ArrowUp')) {
@@ -509,6 +548,10 @@
                     clearInterval(keyControlInterval);
                     keyControlInterval = null;
                     socket.emit('control_command', { direction: 'stop', speed: 0 });
+                    if (lastCommandSignature !== '') {
+                        lastCommandSignature = '';
+                        addCmdLogEntry('⌨️ Стоп');
+                    }
                 } else {
                     sendKeyCommand();
                 }
@@ -548,6 +591,18 @@
             document.getElementById('race-status-bar').style.display = inRace ? 'block' : 'none';
             document.getElementById('lap-timer-section').style.display = inRace ? 'flex' : 'none';
             document.getElementById('positions-section').style.display = inRace ? 'block' : 'none';
+        }
+
+        function resetRaceUiState() {
+            document.getElementById('start-lap-btn').disabled = false;
+            document.getElementById('stop-lap-btn').disabled = true;
+            document.getElementById('lap-time-display').textContent = '00:00.000';
+            lapRunning = false;
+            lapStartTime = null;
+            clearInterval(lapDisplayInterval);
+            lapDisplayInterval = null;
+            var flashEl = document.getElementById('lap-flash');
+            if (flashEl) { clearTimeout(flashEl._timeout); flashEl.textContent = ''; }
         }
 
         function renderPositions(players) {
@@ -666,10 +721,7 @@
 
         socket.on('race_left', function () {
             currentRaceId = null;
-            lapRunning = false;
-            clearInterval(lapDisplayInterval);
-            lapDisplayInterval = null;
-            document.getElementById('lap-time-display').textContent = '00:00.000';
+            resetRaceUiState();
             showRaceUI(false);
             loadActiveRaces();
         });
