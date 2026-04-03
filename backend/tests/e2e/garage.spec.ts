@@ -194,6 +194,9 @@ test.describe('Garage CTA button gating', () => {
   });
 
   test('CTA disabled and shows "Машина занята" when status=busy (fallback mode)', async ({ page }) => {
+    await page.route('/api/cars', (route) =>
+      route.fulfill({ json: { cars: [], ratePerMinute: 0.5 } }),
+    );
     await page.route('/api/car-status', (route) =>
       route.fulfill({ json: { status: 'busy', lastUpdated: new Date().toISOString() } }),
     );
@@ -210,6 +213,9 @@ test.describe('Garage CTA button gating', () => {
   });
 
   test('CTA disabled and shows "Машина недоступна" when status=offline (fallback mode)', async ({ page }) => {
+    await page.route('/api/cars', (route) =>
+      route.fulfill({ json: { cars: [], ratePerMinute: 0.5 } }),
+    );
     await page.route('/api/car-status', (route) =>
       route.fulfill({ json: { status: 'offline', lastUpdated: new Date().toISOString() } }),
     );
@@ -226,6 +232,9 @@ test.describe('Garage CTA button gating', () => {
   });
 
   test('CTA enabled and shows "НА ТРЕК" when status=available (fallback mode)', async ({ page }) => {
+    await page.route('/api/cars', (route) =>
+      route.fulfill({ json: { cars: [], ratePerMinute: 0.5 } }),
+    );
     await page.route('/api/car-status', (route) =>
       route.fulfill({ json: { status: 'available', lastUpdated: new Date().toISOString() } }),
     );

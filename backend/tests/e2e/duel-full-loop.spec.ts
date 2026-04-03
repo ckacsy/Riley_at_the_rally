@@ -97,9 +97,10 @@ async function injectServerActiveSession(
   page: import('@playwright/test').Page,
   carId: number,
   dbUserId: number,
+  socketId?: string,
 ): Promise<void> {
   const res = await page.request.post('/api/dev/inject-active-session', {
-    data: { carId, dbUserId },
+    data: { carId, dbUserId, socketId },
   });
   expect(res.status(), `injectServerActiveSession failed: ${await res.text()}`).toBe(200);
 }
@@ -308,13 +309,12 @@ async function setupDuelUsers(
   // Re-login as userA after registering userB (registration overwrites session)
   await loginUser(pageA, userA.username);
 
-  await injectServerActiveSession(pageA, 1, userA.id);
-  await injectServerActiveSession(pageA, 2, userB.id);
-
   await setupSocketCapture(pageA);
   await injectActiveSession(pageA, 1, userA.username, userA.id);
   await pageA.goto('/control');
   await waitForSocketConnected(pageA);
+  const socketIdA = await pageA.evaluate(() => (window as any).__testSocket.id);
+  await injectServerActiveSession(pageA, 1, userA.id, socketIdA);
 
   const pageB = await ctxB.newPage();
   await loginUser(pageB, userB.username);
@@ -322,6 +322,8 @@ async function setupDuelUsers(
   await injectActiveSession(pageB, 2, userB.username, userB.id);
   await pageB.goto('/control');
   await waitForSocketConnected(pageB);
+  const socketIdB = await pageB.evaluate(() => (window as any).__testSocket.id);
+  await injectServerActiveSession(pageB, 2, userB.id, socketIdB);
 
   return { ctxA, ctxB, pageA, pageB, userA, userB };
 }

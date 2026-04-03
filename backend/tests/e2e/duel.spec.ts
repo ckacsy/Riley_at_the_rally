@@ -106,9 +106,10 @@ async function injectServerActiveSession(
   page: import('@playwright/test').Page,
   carId: number,
   dbUserId: number,
+  socketId?: string,
 ): Promise<void> {
   const res = await page.request.post('/api/dev/inject-active-session', {
-    data: { carId, dbUserId },
+    data: { carId, dbUserId, socketId },
   });
   expect(res.status(), `injectServerActiveSession failed: ${await res.text()}`).toBe(200);
 }
@@ -224,15 +225,13 @@ test.describe('Duel backend — matchmaking', () => {
       // Re-login as userA: registerUser(duel_b) overwrote pageA's session
       await loginUser(pageA, userA.username);
 
-      // Inject server-side active sessions for both users
-      await injectServerActiveSession(pageA, 1, userA.id);
-      await injectServerActiveSession(pageA, 2, userB.id);
-
       // Player A — log in and connect
       await setupSocketCapture(pageA);
       await injectActiveSession(pageA, 1, userA.username, userA.id);
       await pageA.goto('/control');
       await waitForSocketConnected(pageA);
+      const socketIdA = await pageA.evaluate(() => (window as any).__testSocket.id);
+      await injectServerActiveSession(pageA, 1, userA.id, socketIdA);
 
       // Player B — login in its own context before connecting
       const pageB = await ctxB.newPage();
@@ -241,6 +240,8 @@ test.describe('Duel backend — matchmaking', () => {
       await injectActiveSession(pageB, 2, userB.username, userB.id);
       await pageB.goto('/control');
       await waitForSocketConnected(pageB);
+      const socketIdB = await pageB.evaluate(() => (window as any).__testSocket.id);
+      await injectServerActiveSession(pageB, 2, userB.id, socketIdB);
 
       // Both emit duel:search
       await pageA.evaluate(() => (window as any).__testSocket.emit('duel:search'));
@@ -270,12 +271,13 @@ test.describe('Duel backend — matchmaking', () => {
 
       const user = await registerUser(page, 'status_user', 'status@test.com', 'Secure#Pass1');
       await activateUser(page, user.username);
-      await injectServerActiveSession(page, 1, user.id);
 
       await setupSocketCapture(page);
       await injectActiveSession(page, 1, user.username, user.id);
       await page.goto('/control');
       await waitForSocketConnected(page);
+      const socketId = await page.evaluate(() => (window as any).__testSocket.id);
+      await injectServerActiveSession(page, 1, user.id, socketId);
 
       await page.evaluate(() => (window as any).__testSocket.emit('duel:search'));
       await waitForSocketEvent(page, 'duel:searching');
@@ -297,12 +299,13 @@ test.describe('Duel backend — matchmaking', () => {
 
       const user = await registerUser(page, 'cancel_user', 'cancel@test.com', 'Secure#Pass1');
       await activateUser(page, user.username);
-      await injectServerActiveSession(page, 1, user.id);
 
       await setupSocketCapture(page);
       await injectActiveSession(page, 1, user.username, user.id);
       await page.goto('/control');
       await waitForSocketConnected(page);
+      const socketId = await page.evaluate(() => (window as any).__testSocket.id);
+      await injectServerActiveSession(page, 1, user.id, socketId);
 
       await page.evaluate(() => (window as any).__testSocket.emit('duel:search'));
       await waitForSocketEvent(page, 'duel:searching');
@@ -339,13 +342,12 @@ test.describe('Duel backend — lap validation and win', () => {
     // Re-login as userA: registerUser(win_b) overwrote pageA's session
     await loginUser(pageA, userA.username);
 
-    await injectServerActiveSession(pageA, 1, userA.id);
-    await injectServerActiveSession(pageA, 2, userB.id);
-
     await setupSocketCapture(pageA);
     await injectActiveSession(pageA, 1, userA.username, userA.id);
     await pageA.goto('/control');
     await waitForSocketConnected(pageA);
+    const socketIdA = await pageA.evaluate(() => (window as any).__testSocket.id);
+    await injectServerActiveSession(pageA, 1, userA.id, socketIdA);
 
     // Login userB in its own context before connecting
     const pageB = await ctxB.newPage();
@@ -354,6 +356,8 @@ test.describe('Duel backend — lap validation and win', () => {
     await injectActiveSession(pageB, 2, userB.username, userB.id);
     await pageB.goto('/control');
     await waitForSocketConnected(pageB);
+    const socketIdB = await pageB.evaluate(() => (window as any).__testSocket.id);
+    await injectServerActiveSession(pageB, 2, userB.id, socketIdB);
 
     await pageA.evaluate(() => (window as any).__testSocket.emit('duel:search'));
     await pageB.evaluate(() => (window as any).__testSocket.emit('duel:search'));
@@ -444,13 +448,12 @@ test.describe('Duel backend — disconnect handling', () => {
       // Re-login as userA: registerUser(disc_b) overwrote pageA's session
       await loginUser(pageA, userA.username);
 
-      await injectServerActiveSession(pageA, 1, userA.id);
-      await injectServerActiveSession(pageA, 2, userB.id);
-
       await setupSocketCapture(pageA);
       await injectActiveSession(pageA, 1, userA.username, userA.id);
       await pageA.goto('/control');
       await waitForSocketConnected(pageA);
+      const socketIdA = await pageA.evaluate(() => (window as any).__testSocket.id);
+      await injectServerActiveSession(pageA, 1, userA.id, socketIdA);
 
       const pageB = await ctxB.newPage();
       // Login userB in its own context before connecting
@@ -459,6 +462,8 @@ test.describe('Duel backend — disconnect handling', () => {
       await injectActiveSession(pageB, 2, userB.username, userB.id);
       await pageB.goto('/control');
       await waitForSocketConnected(pageB);
+      const socketIdB = await pageB.evaluate(() => (window as any).__testSocket.id);
+      await injectServerActiveSession(pageB, 2, userB.id, socketIdB);
 
       // Match
       await pageA.evaluate(() => (window as any).__testSocket.emit('duel:search'));
@@ -512,13 +517,12 @@ test.describe('Duel backend — disconnect handling', () => {
       // Re-login as userA: registerUser(cdisc_b) overwrote pageA's session
       await loginUser(pageA, userA.username);
 
-      await injectServerActiveSession(pageA, 1, userA.id);
-      await injectServerActiveSession(pageA, 2, userB.id);
-
       await setupSocketCapture(pageA);
       await injectActiveSession(pageA, 1, userA.username, userA.id);
       await pageA.goto('/control');
       await waitForSocketConnected(pageA);
+      const socketIdA = await pageA.evaluate(() => (window as any).__testSocket.id);
+      await injectServerActiveSession(pageA, 1, userA.id, socketIdA);
 
       const pageB = await ctxB.newPage();
       // Login userB in its own context before connecting
@@ -527,6 +531,8 @@ test.describe('Duel backend — disconnect handling', () => {
       await injectActiveSession(pageB, 2, userB.username, userB.id);
       await pageB.goto('/control');
       await waitForSocketConnected(pageB);
+      const socketIdB = await pageB.evaluate(() => (window as any).__testSocket.id);
+      await injectServerActiveSession(pageB, 2, userB.id, socketIdB);
 
       // Match
       await pageA.evaluate(() => (window as any).__testSocket.emit('duel:search'));

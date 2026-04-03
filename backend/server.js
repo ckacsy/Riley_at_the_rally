@@ -1098,12 +1098,22 @@ if (process.env.NODE_ENV !== 'production') {
   // Used by e2e tests to simulate a car with an ongoing session (e.g. to trigger the 409
   // conflict when trying to enable maintenance on a car that is in use).
   // Accepts optional dbUserId to associate the injected session with a real user (for duel tests).
+  // Accepts optional socketId to key the session by socket ID so duel matching works correctly.
   app.post('/api/dev/inject-active-session', devLimiter, (req, res) => {
-    const { carId, dbUserId: injectedDbUserId } = req.body || {};
+    const { carId, dbUserId: injectedDbUserId, socketId } = req.body || {};
     if (!carId) return res.status(400).json({ error: 'carId required' });
-    const sessionId = `dev-injected-${carId}-${Date.now()}`;
     const crypto = require('crypto');
-    socketState.activeSessions.set(sessionId, {
+    // If socketId provided, remove any existing dev-injected session for this dbUserId
+    // to avoid session_already_active conflicts when control.js emits start_session.
+    if (socketId && injectedDbUserId != null) {
+      for (const [key, sess] of socketState.activeSessions) {
+        if (sess.dbUserId === Number(injectedDbUserId) && key.startsWith('dev-injected-')) {
+          socketState.activeSessions.delete(key);
+        }
+      }
+    }
+    const key = socketId || `dev-injected-${carId}-${Date.now()}`;
+    socketState.activeSessions.set(key, {
       carId: Number(carId),
       userId: 'dev-test',
       dbUserId: injectedDbUserId != null ? Number(injectedDbUserId) : 0,
@@ -1111,7 +1121,7 @@ if (process.env.NODE_ENV !== 'production') {
       holdAmount: 0,
       sessionRef: crypto.randomUUID(),
     });
-    res.json({ success: true, sessionId });
+    res.json({ success: true, sessionId: key });
   });
 
   // Dev helper: insert a transaction directly for testing.

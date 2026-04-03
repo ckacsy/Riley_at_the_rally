@@ -93,9 +93,10 @@ async function injectServerActiveSession(
   page: import('@playwright/test').Page,
   carId: number,
   dbUserId: number,
+  socketId?: string,
 ): Promise<void> {
   const res = await page.request.post('/api/dev/inject-active-session', {
-    data: { carId, dbUserId },
+    data: { carId, dbUserId, socketId },
   });
   expect(res.status(), `injectServerActiveSession failed: ${await res.text()}`).toBe(200);
 }
@@ -215,12 +216,13 @@ test.describe('Duel UI — panel visibility and gating', () => {
 
       const user = await registerUser(page, 'dui_vis', 'dui_vis@test.com', 'Secure#Pass1');
       await activateUser(page, user.username);
-      await injectServerActiveSession(page, 1, user.id);
 
       await setupSocketCapture(page);
       await injectActiveSession(page, 1, user.username, user.id);
       await page.goto('/control');
       await waitForSocketConnected(page);
+      const socketId = await page.evaluate(() => (window as any).__testSocket.id);
+      await injectServerActiveSession(page, 1, user.id, socketId);
 
       const panel = page.locator('#duel-panel');
       await expect(panel).toBeVisible();
@@ -237,12 +239,13 @@ test.describe('Duel UI — panel visibility and gating', () => {
 
       const user = await registerUser(page, 'dui_btn', 'dui_btn@test.com', 'Secure#Pass1');
       await activateUser(page, user.username);
-      await injectServerActiveSession(page, 1, user.id);
 
       await setupSocketCapture(page);
       await injectActiveSession(page, 1, user.username, user.id);
       await page.goto('/control');
       await waitForSocketConnected(page);
+      const socketId = await page.evaluate(() => (window as any).__testSocket.id);
+      await injectServerActiveSession(page, 1, user.id, socketId);
 
       const btn = page.locator('#duel-search-btn');
       await expect(btn).toBeEnabled();
@@ -314,12 +317,13 @@ test.describe('Duel UI — search and cancel flow', () => {
 
       const user = await registerUser(page, 'dui_srch', 'dui_srch@test.com', 'Secure#Pass1');
       await activateUser(page, user.username);
-      await injectServerActiveSession(page, 1, user.id);
 
       await setupSocketCapture(page);
       await injectActiveSession(page, 1, user.username, user.id);
       await page.goto('/control');
       await waitForSocketConnected(page);
+      const socketId = await page.evaluate(() => (window as any).__testSocket.id);
+      await injectServerActiveSession(page, 1, user.id, socketId);
 
       // Click the search button
       await page.locator('#duel-search-btn').click();
@@ -348,12 +352,13 @@ test.describe('Duel UI — search and cancel flow', () => {
 
       const user = await registerUser(page, 'dui_cancel', 'dui_cancel@test.com', 'Secure#Pass1');
       await activateUser(page, user.username);
-      await injectServerActiveSession(page, 1, user.id);
 
       await setupSocketCapture(page);
       await injectActiveSession(page, 1, user.username, user.id);
       await page.goto('/control');
       await waitForSocketConnected(page);
+      const socketId = await page.evaluate(() => (window as any).__testSocket.id);
+      await injectServerActiveSession(page, 1, user.id, socketId);
 
       // Start search
       await page.locator('#duel-search-btn').click();
@@ -383,12 +388,13 @@ test.describe('Duel UI — matched and result states', () => {
 
       const user = await registerUser(page, 'dui_match', 'dui_match@test.com', 'Secure#Pass1');
       await activateUser(page, user.username);
-      await injectServerActiveSession(page, 1, user.id);
 
       await setupSocketCapture(page);
       await injectActiveSession(page, 1, user.username, user.id);
       await page.goto('/control');
       await waitForSocketConnected(page);
+      const socketId = await page.evaluate(() => (window as any).__testSocket.id);
+      await injectServerActiveSession(page, 1, user.id, socketId);
 
       // Simulate a duel:matched event from the server via __testSocket
       await simulateIncomingSocketEvent(page, 'duel:matched', {
@@ -413,12 +419,13 @@ test.describe('Duel UI — matched and result states', () => {
 
       const user = await registerUser(page, 'dui_win', 'dui_win@test.com', 'Secure#Pass1');
       await activateUser(page, user.username);
-      await injectServerActiveSession(page, 1, user.id);
 
       await setupSocketCapture(page);
       await injectActiveSession(page, 1, user.username, user.id);
       await page.goto('/control');
       await waitForSocketConnected(page);
+      const socketId = await page.evaluate(() => (window as any).__testSocket.id);
+      await injectServerActiveSession(page, 1, user.id, socketId);
 
       await simulateIncomingSocketEvent(page, 'duel:result', {
         duelId: 'test-duel-win',
@@ -444,12 +451,13 @@ test.describe('Duel UI — matched and result states', () => {
 
       const user = await registerUser(page, 'dui_loss', 'dui_loss@test.com', 'Secure#Pass1');
       await activateUser(page, user.username);
-      await injectServerActiveSession(page, 1, user.id);
 
       await setupSocketCapture(page);
       await injectActiveSession(page, 1, user.username, user.id);
       await page.goto('/control');
       await waitForSocketConnected(page);
+      const socketId = await page.evaluate(() => (window as any).__testSocket.id);
+      await injectServerActiveSession(page, 1, user.id, socketId);
 
       await simulateIncomingSocketEvent(page, 'duel:result', {
         duelId: 'test-duel-loss',
@@ -475,12 +483,13 @@ test.describe('Duel UI — matched and result states', () => {
 
       const user = await registerUser(page, 'dui_dismiss', 'dui_dismiss@test.com', 'Secure#Pass1');
       await activateUser(page, user.username);
-      await injectServerActiveSession(page, 1, user.id);
 
       await setupSocketCapture(page);
       await injectActiveSession(page, 1, user.username, user.id);
       await page.goto('/control');
       await waitForSocketConnected(page);
+      const socketId = await page.evaluate(() => (window as any).__testSocket.id);
+      await injectServerActiveSession(page, 1, user.id, socketId);
 
       await simulateIncomingSocketEvent(page, 'duel:result', {
         duelId: 'test-duel-dismiss',
@@ -514,13 +523,14 @@ test.describe('Duel UI — status restoration on refresh', () => {
 
       const user = await registerUser(page, 'dui_restore', 'dui_restore@test.com', 'Secure#Pass1');
       await activateUser(page, user.username);
-      await injectServerActiveSession(page, 1, user.id);
 
       // First page load — enter search
       await setupSocketCapture(page);
       await injectActiveSession(page, 1, user.username, user.id);
       await page.goto('/control');
       await waitForSocketConnected(page);
+      const socketId = await page.evaluate(() => (window as any).__testSocket.id);
+      await injectServerActiveSession(page, 1, user.id, socketId);
 
       await page.evaluate(() => (window as any).__testSocket.emit('duel:search'));
       await waitForSocketEvent(page, 'duel:searching');

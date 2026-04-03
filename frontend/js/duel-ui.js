@@ -462,7 +462,6 @@
                     if (_matchCard) _matchCard.innerHTML = '';
                     if (_resultCard) {
                         _resultCard.innerHTML = '';
-                        _resultCard.removeAttribute('style');
                     }
                     _refreshOwnRankBadge();
                 });
