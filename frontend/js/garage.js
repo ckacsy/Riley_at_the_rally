@@ -5,23 +5,57 @@
         var carAvailabilityStatus = 'available';
         window._carAvailabilityStatus = 'available';
         window._carStatusMap = {};
-        var isPanelCollapsed = false;
         var isFullscreen = false;
 
-        // Left panel collapse/expand
-        document.getElementById('panel-toggle').addEventListener('click', function () {
-            isPanelCollapsed = !isPanelCollapsed;
-            document.getElementById('left-panel').classList.toggle('collapsed', isPanelCollapsed);
-            this.textContent = isPanelCollapsed ? '\u25b6' : '\u25c4';
-        });
+        // Generic panel collapse helper
+        function createPanelCollapse(panelEl, toggleBtnEl, storageKey, iconMap) {
+            var collapsed = localStorage.getItem(storageKey) === 'true';
 
-        // Tab switching (auto-expands panel if collapsed)
+            function apply(isCollapsed) {
+                collapsed = isCollapsed;
+                panelEl.classList.toggle('collapsed', isCollapsed);
+                toggleBtnEl.textContent = isCollapsed ? iconMap.collapsed : iconMap.expanded;
+                localStorage.setItem(storageKey, isCollapsed ? 'true' : 'false');
+            }
+
+            toggleBtnEl.addEventListener('click', function () { apply(!collapsed); });
+            apply(collapsed);
+
+            return {
+                isCollapsed: function () { return collapsed; },
+                setCollapsed: function (v) { apply(v); }
+            };
+        }
+
+        // Apply autohide: if setting is on, force collapse state at startup
+        if (localStorage.getItem('garageAutoHideLeft') === 'true') {
+            localStorage.setItem('garageLeftCollapsed', 'true');
+        }
+        if (localStorage.getItem('garageAutoHideRight') === 'true') {
+            localStorage.setItem('garageRightCollapsed', 'true');
+        }
+
+        // Left panel collapse
+        var leftPanelCollapse = createPanelCollapse(
+            document.getElementById('left-panel'),
+            document.getElementById('panel-toggle'),
+            'garageLeftCollapsed',
+            { collapsed: '\u25b6', expanded: '\u25c4' }
+        );
+
+        // Right panel collapse
+        var rightPanelCollapse = createPanelCollapse(
+            document.getElementById('right-panel'),
+            document.getElementById('right-panel-toggle'),
+            'garageRightCollapsed',
+            { collapsed: '\u25c4', expanded: '\u25b6' }
+        );
+
+        // Tab switching (auto-expands left panel if collapsed)
         document.querySelectorAll('.tab-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
-                if (isPanelCollapsed) {
-                    isPanelCollapsed = false;
-                    document.getElementById('left-panel').classList.remove('collapsed');
-                    document.getElementById('panel-toggle').textContent = '\u25c4';
+                if (leftPanelCollapse.isCollapsed()) {
+                    leftPanelCollapse.setCollapsed(false);
                 }
                 document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.remove('active'); });
                 document.querySelectorAll('.tab-content').forEach(function (c) { c.classList.remove('active'); });
@@ -145,6 +179,22 @@
 
         // Settings toggles
         document.getElementById('setting-autorotate').addEventListener('change', function () { if (window._garageScene) window._garageScene.setAutoRotate(this.checked); });
+
+        // Auto-hide settings: init checkboxes from localStorage and wire change handlers
+        var autoHideLeftEl = document.getElementById('setting-autohide-left');
+        if (autoHideLeftEl) {
+            autoHideLeftEl.checked = localStorage.getItem('garageAutoHideLeft') === 'true';
+            autoHideLeftEl.addEventListener('change', function () {
+                localStorage.setItem('garageAutoHideLeft', this.checked ? 'true' : 'false');
+            });
+        }
+        var autoHideRightEl = document.getElementById('setting-autohide-right');
+        if (autoHideRightEl) {
+            autoHideRightEl.checked = localStorage.getItem('garageAutoHideRight') === 'true';
+            autoHideRightEl.addEventListener('change', function () {
+                localStorage.setItem('garageAutoHideRight', this.checked ? 'true' : 'false');
+            });
+        }
 
         // Status bar polling
         var sbServerDot  = document.getElementById('sb-server-dot');
