@@ -154,6 +154,9 @@
         _setState('ready_pending');
         _setStatusText('✅ Соперник найден! Нажмите «Готов»');
 
+        var checkpoints = data.requiredCheckpoints || 2;
+        window.DuelProgress.setRequiredCheckpoints(checkpoints);
+
         if (_matchCard) {
             var opponent = data.opponent || {};
             var checkpoints = data.requiredCheckpoints || 0;
@@ -477,119 +480,6 @@
             _restoreStatus();
         }
     }
-
-    // -------------------------------------------------------------------------
-    // DuelProgress — manual lap progression controls
-    // -------------------------------------------------------------------------
-
-    var _dpSocket = null;
-    var _dpSource = 'manual'; // 'manual' | 'sensor'
-
-    var _dpContainer = null;
-    var _dpCp1Btn = null;
-    var _dpCp2Btn = null;
-    var _dpFinishBtn = null;
-    var _dpStatusEl = null;
-
-    window.DuelProgress = {
-        init: function (socket) {
-            _dpSocket = socket;
-            socket.on('duel:checkpoint_ok', function (data) {
-                window.DuelProgress.onCheckpointOk(data);
-            });
-            socket.on('duel:lap_started', function (data) {
-                window.DuelProgress.onLapStarted(data);
-            });
-        },
-
-        activate: function () {
-            _dpContainer = document.getElementById('duel-progress-controls');
-            if (!_dpContainer) return;
-            _dpContainer.innerHTML =
-                '<div id="duel-progress-status">Lap started...</div>' +
-                '<button id="duel-cp1-btn">Checkpoint 1</button>' +
-                '<button id="duel-cp2-btn" disabled>Checkpoint 2</button>' +
-                '<button id="duel-finish-btn" disabled>Finish</button>';
-            _dpStatusEl  = document.getElementById('duel-progress-status');
-            _dpCp1Btn    = document.getElementById('duel-cp1-btn');
-            _dpCp2Btn    = document.getElementById('duel-cp2-btn');
-            _dpFinishBtn = document.getElementById('duel-finish-btn');
-
-            _dpContainer.style.display = '';
-
-            var self = window.DuelProgress;
-            _dpCp1Btn.addEventListener('click', function () {
-                self.triggerCheckpoint(0);
-            });
-            _dpCp2Btn.addEventListener('click', function () {
-                self.triggerCheckpoint(1);
-            });
-            _dpFinishBtn.addEventListener('click', function () {
-                self.triggerFinish();
-            });
-
-            if (_dpSource === 'sensor') {
-                _dpCp1Btn.style.display    = 'none';
-                _dpCp2Btn.style.display    = 'none';
-                _dpFinishBtn.style.display = 'none';
-            }
-        },
-
-        triggerCheckpoint: function (index) {
-            if (!_dpSocket) return;
-            _dpSocket.emit('duel:checkpoint', { index: index });
-            if (index === 0 && _dpCp1Btn) {
-                _dpCp1Btn.disabled = true;
-                if (_dpStatusEl) _dpStatusEl.textContent = 'Waiting...';
-            } else if (index === 1 && _dpCp2Btn) {
-                _dpCp2Btn.disabled = true;
-            }
-        },
-
-        triggerFinish: function () {
-            if (!_dpSocket) return;
-            _dpSocket.emit('duel:finish_lap');
-            if (_dpCp1Btn) _dpCp1Btn.disabled = true;
-            if (_dpCp2Btn) _dpCp2Btn.disabled = true;
-            if (_dpFinishBtn) _dpFinishBtn.disabled = true;
-            if (_dpStatusEl) _dpStatusEl.textContent = 'Waiting for result...';
-        },
-
-        onCheckpointOk: function (data) {
-            var index = data && data.index != null ? data.index : -1;
-            if (index === 0) {
-                if (_dpCp2Btn) _dpCp2Btn.disabled = false;
-                if (_dpStatusEl) _dpStatusEl.textContent = 'Checkpoint 1 ✓';
-            } else if (index === 1) {
-                if (_dpFinishBtn) _dpFinishBtn.disabled = false;
-                if (_dpStatusEl) _dpStatusEl.textContent = 'Checkpoint 2 ✓';
-            }
-        },
-
-        onLapStarted: function (_data) {
-            if (_dpStatusEl) _dpStatusEl.textContent = 'Lap started...';
-        },
-
-        reset: function () {
-            _dpContainer = document.getElementById('duel-progress-controls');
-            if (_dpContainer) {
-                _dpContainer.style.display = 'none';
-                _dpContainer.innerHTML = '';
-            }
-            _dpCp1Btn = null;
-            _dpCp2Btn = null;
-            _dpFinishBtn = null;
-            _dpStatusEl = null;
-        },
-
-        setSource: function (source) {
-            _dpSource = source;
-            var isManual = source === 'manual';
-            if (_dpCp1Btn)    _dpCp1Btn.style.display    = isManual ? '' : 'none';
-            if (_dpCp2Btn)    _dpCp2Btn.style.display    = isManual ? '' : 'none';
-            if (_dpFinishBtn) _dpFinishBtn.style.display = isManual ? '' : 'none';
-        },
-    };
 
     // -------------------------------------------------------------------------
     // Export
