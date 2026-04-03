@@ -1,0 +1,297 @@
+/* =============================================================
+   leaderboard.css — Leaderboard page styles
+   Used by: leaderboard.html
+   Base styles come from common.css + rank.css
+   ============================================================= */
+
+body {
+    padding: 20px;
+}
+
+.lb-page-wrap {
+    max-width: 760px;
+    margin: 0 auto;
+}
+
+h1 {
+    text-align: center;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.lb-subtitle {
+    text-align: center;
+    color: var(--text-secondary);
+    margin-bottom: 28px;
+    font-size: 15px;
+}
+
+.lb-subtitle a {
+    color: var(--accent-secondary);
+}
+
+/* =============================================================
+   Section tabs (Track Records / Rank Ladder / Hall of Legends)
+   ============================================================= */
+.lb-section-tabs {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+
+.lb-section-tab {
+    padding: 8px 22px;
+    border-radius: 20px;
+    border: 2px solid var(--accent-secondary);
+    background: transparent;
+    color: var(--accent-secondary);
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s;
+    white-space: nowrap;
+}
+
+.lb-section-tab.active {
+    background: var(--accent-secondary);
+    color: var(--bg-primary);
+}
+
+.lb-section-tab:hover:not(.active) {
+    background: rgba(100, 181, 246, 0.15);
+}
+
+/* Legends tab uses gold accent */
+.lb-section-tab[data-section="legends"] {
+    border-color: #ffd54f;
+    color: #ffd54f;
+}
+
+.lb-section-tab[data-section="legends"].active {
+    background: #ffd54f;
+    color: #1a1a1a;
+}
+
+.lb-section-tab[data-section="legends"]:hover:not(.active) {
+    background: rgba(255, 213, 79, 0.15);
+}
+
+/* =============================================================
+   Sections
+   ============================================================= */
+.lb-section {
+    animation: lb-fadein 0.2s ease;
+}
+
+@keyframes lb-fadein {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* =============================================================
+   Track Records section — range subtabs + copy button
+   ============================================================= */
+.lb-range-tabs {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+}
+
+.lb-range-tab {
+    padding: 7px 20px;
+    border-radius: 20px;
+    border: 2px solid var(--accent-primary);
+    background: transparent;
+    color: var(--accent-primary);
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.lb-range-tab.active {
+    background: var(--accent-primary);
+    color: #fff;
+}
+
+.lb-range-tab:hover:not(.active) {
+    background: rgba(229, 57, 53, 0.15);
+}
+
+.lb-track-actions {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.lb-copy-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 16px;
+    border-radius: 20px;
+    border: 2px solid var(--accent-success);
+    background: transparent;
+    color: var(--accent-success);
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.lb-copy-btn:hover {
+    background: var(--accent-success);
+    color: #fff;
+}
+
+/* =============================================================
+   Shared table styles (track + ladder + legends)
+   ============================================================= */
+.lb-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.leaderboard-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--bg-card);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+}
+
+.leaderboard-table th {
+    background-color: var(--accent-primary);
+    color: #fff;
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.leaderboard-table td {
+    padding: 9px 14px;
+    font-size: 14px;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.leaderboard-table tr:last-child td {
+    border-bottom: none;
+}
+
+.leaderboard-table tr:nth-child(odd) td {
+    background-color: rgba(255, 255, 255, 0.03);
+}
+
+.medal-1 { color: #FFD700; font-weight: bold; }
+.medal-2 { color: #E0E0E0; font-weight: bold; }
+.medal-3 { color: #CD7F32; font-weight: bold; }
+
+/* =============================================================
+   Rank Ladder table
+   ============================================================= */
+.lb-rank-table th {
+    background-color: rgba(100, 181, 246, 0.25);
+    color: var(--accent-secondary);
+    border-bottom: 1px solid rgba(100, 181, 246, 0.3);
+}
+
+/* =============================================================
+   Hall of Legends table
+   ============================================================= */
+.lb-legends-table th {
+    background-color: rgba(255, 213, 79, 0.2);
+    color: #ffd54f;
+    border-bottom: 1px solid rgba(255, 213, 79, 0.35);
+}
+
+.lb-legend-row td {
+    background-color: rgba(255, 193, 7, 0.06);
+}
+
+.lb-legend-row:hover td {
+    background-color: rgba(255, 193, 7, 0.12);
+}
+
+.lb-legend-pos {
+    font-size: 15px;
+    font-weight: bold;
+    color: #ffd54f;
+}
+
+/* =============================================================
+   Current user highlight
+   ============================================================= */
+.lb-current-user td {
+    background-color: rgba(100, 181, 246, 0.12) !important;
+}
+
+.lb-current-user:hover td {
+    background-color: rgba(100, 181, 246, 0.2) !important;
+}
+
+.lb-you {
+    font-size: 11px;
+    color: var(--accent-secondary);
+    opacity: 0.8;
+}
+
+/* =============================================================
+   Empty / loading states
+   ============================================================= */
+.lb-empty,
+.lb-loading {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin: 24px 0;
+    padding: 20px;
+}
+
+.lb-loading {
+    opacity: 0.6;
+}
+
+/* =============================================================
+   Section titles
+   ============================================================= */
+.lb-section-title {
+    text-align: center;
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--text-primary);
+    margin: 0 0 16px;
+}
+
+.lb-section-title.legend-title {
+    color: #ffd54f;
+}
+
+/* =============================================================
+   Responsive
+   ============================================================= */
+@media (max-width: 600px) {
+    body {
+        padding: 12px;
+    }
+
+    .lb-section-tab {
+        padding: 7px 14px;
+        font-size: 13px;
+    }
+
+    .leaderboard-table th,
+    .leaderboard-table td {
+        padding: 8px 10px;
+        font-size: 13px;
+    }
+}
