@@ -900,6 +900,13 @@
             color: var(--text-secondary);
             margin-bottom: 8px;
         }
+        .duel-result-legend {
+            color: gold;
+            font-weight: bold;
+        }
+        .duel-result-no-change {
+            color: #6c757d;
+        }
         .duel-result-dismiss {
             margin-top: 8px;
             padding: 8px 24px;

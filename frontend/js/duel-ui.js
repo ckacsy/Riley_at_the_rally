@@ -307,7 +307,7 @@
         var oldRank = rankChange['old'];
 
         if (newRank && newRank.isLegend && oldRank && !oldRank.isLegend) {
-            return '<div class="duel-result-rank" style="color:gold;font-weight:bold">🏅 Вы достигли Легенды!</div>';
+            return '<div class="duel-result-rank duel-result-legend">🏅 Вы достигли Легенды!</div>';
         }
         if (newRank && oldRank) {
             var oldRankNum = oldRank.rank || 0;
@@ -316,7 +316,7 @@
             var newStars   = newRank.stars || 0;
 
             if (oldRankNum === newRankNum && oldStars === newStars) {
-                return '<div class="duel-result-rank" style="color:#6c757d">Ранг не изменился</div>';
+                return '<div class="duel-result-rank duel-result-no-change">Ранг не изменился</div>';
             }
             var changeHtml = '';
             if (newRankNum < oldRankNum) {
@@ -324,9 +324,9 @@
             } else if (newRankNum > oldRankNum) {
                 changeHtml = '<span class="duel-rank-down">▼ Ранг ' + oldRankNum + ' → Ранг ' + newRankNum + '</span>';
             } else if (newStars > oldStars) {
-                changeHtml = '<span class="duel-rank-up">★ +1</span>';
+                changeHtml = '<span class="duel-rank-up">' + '★'.repeat(newStars) + '</span>';
             } else if (newStars < oldStars) {
-                changeHtml = '<span class="duel-rank-down">★ -1</span>';
+                changeHtml = '<span class="duel-rank-down">' + '★'.repeat(newStars) + '</span>';
             }
             return changeHtml ? '<div class="duel-result-rank">' + changeHtml + '</div>' : '';
         }
