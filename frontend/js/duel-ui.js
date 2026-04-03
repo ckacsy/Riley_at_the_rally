@@ -14,6 +14,55 @@
     'use strict';
 
     // -------------------------------------------------------------------------
+    // Audio helpers (Web Audio API — no external files needed)
+    // -------------------------------------------------------------------------
+
+    var _audioCtx = null;
+    var BEEP_DURATION = 0.15;    // seconds — short beep for countdown numbers
+    var GO_SOUND_DURATION = 0.3; // seconds — longer beep for СТАРТ!
+
+    function _getAudioContext() {
+        if (!_audioCtx) {
+            try {
+                _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            } catch (e) {
+                return null;
+            }
+        }
+        return _audioCtx;
+    }
+
+    function _playCountdownBeep() {
+        try {
+            var ctx = _getAudioContext();
+            if (!ctx) return;
+            var osc = ctx.createOscillator();
+            var gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.frequency.value = 440; // A4 note
+            gain.gain.value = 0.3;
+            osc.start();
+            osc.stop(ctx.currentTime + BEEP_DURATION);
+        } catch (e) {} // Ignore if audio not available
+    }
+
+    function _playGoSound() {
+        try {
+            var ctx = _getAudioContext();
+            if (!ctx) return;
+            var osc = ctx.createOscillator();
+            var gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.frequency.value = 880; // A5 note — higher pitch for GO
+            gain.gain.value = 0.4;
+            osc.start();
+            osc.stop(ctx.currentTime + GO_SOUND_DURATION);
+        } catch (e) {}
+    }
+
+    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 
@@ -232,30 +281,26 @@
         var readySection = document.getElementById('duel-ready-section');
         if (readySection) readySection.style.display = 'none';
 
-        if (_matchCard) {
-            // Remove any existing countdown overlay to avoid duplicates
-            var existing = document.getElementById('duel-countdown-overlay');
-            if (existing) existing.parentNode.removeChild(existing);
+        var overlay = document.getElementById('duel-countdown-overlay');
+        var numberEl = document.getElementById('duel-countdown-number');
 
-            var overlay = document.createElement('div');
-            overlay.className = 'duel-countdown-overlay';
-            overlay.id = 'duel-countdown-overlay';
-            _matchCard.appendChild(overlay);
+        if (overlay && numberEl) {
+            overlay.classList.add('visible');
 
-            var num = 3;
-            function renderNumber(val) {
-                var el = document.createElement('div');
-                el.className = 'duel-countdown-number';
-                el.textContent = String(val);
-                overlay.innerHTML = '';
-                overlay.appendChild(el);
-            }
-            renderNumber(num);
+            var count = 3;
+            numberEl.textContent = count;
+            numberEl.className = 'countdown-number countdown-enter';
+            _playCountdownBeep();
 
             _countdownInterval = setInterval(function () {
-                num--;
-                if (num > 0) {
-                    renderNumber(num);
+                count--;
+                if (count > 0) {
+                    numberEl.textContent = count;
+                    // Trigger animation restart via reflow
+                    numberEl.className = 'countdown-number';
+                    void numberEl.offsetWidth; // force reflow
+                    numberEl.className = 'countdown-number countdown-enter';
+                    _playCountdownBeep();
                 } else {
                     clearInterval(_countdownInterval);
                     _countdownInterval = null;
@@ -269,16 +314,20 @@
             clearInterval(_countdownInterval);
             _countdownInterval = null;
         }
-        // Show СТАРТ! for 500ms so the user can see it before the lap begins
+        // Show СТАРТ! in full-screen overlay for 500ms so the user can see it before the lap begins
         var overlay = document.getElementById('duel-countdown-overlay');
-        if (overlay) {
-            overlay.innerHTML = '<div class="duel-countdown-number">🏁 СТАРТ!</div>';
+        var numberEl = document.getElementById('duel-countdown-number');
+        if (overlay && numberEl) {
+            numberEl.className = 'countdown-number countdown-go';
+            numberEl.textContent = 'СТАРТ!';
+            _playGoSound();
         }
         _setState('in_progress');
         _setStatusText('⚔️ Дуэль началась!');
         var readySection = document.getElementById('duel-ready-section');
         if (readySection) readySection.style.display = 'none';
         setTimeout(function () {
+            if (overlay) overlay.classList.remove('visible');
             if (_socket) _socket.emit('duel:start_lap');
             window.DuelProgress.activate();
         }, 500);
@@ -317,6 +366,14 @@
     }
 
     function _onResult(data) {
+        // Cancel any running countdown
+        if (_countdownInterval) {
+            clearInterval(_countdownInterval);
+            _countdownInterval = null;
+        }
+        var cdOverlay = document.getElementById('duel-countdown-overlay');
+        if (cdOverlay) cdOverlay.classList.remove('visible');
+
         _setState('result');
 
         var result = data.result || '';
@@ -428,6 +485,14 @@
     }
 
     function _onDuelCancelled(data) {
+        // Cancel any running countdown
+        if (_countdownInterval) {
+            clearInterval(_countdownInterval);
+            _countdownInterval = null;
+        }
+        var cdOverlay = document.getElementById('duel-countdown-overlay');
+        if (cdOverlay) cdOverlay.classList.remove('visible');
+
         var reason = data && data.reason;
         var msg = reason === 'finish_rejected'
             ? 'Дуэль отменена: финиш не принят (слишком быстро).'
