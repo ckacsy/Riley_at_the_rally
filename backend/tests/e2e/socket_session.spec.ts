@@ -215,19 +215,36 @@ test.describe('Socket.IO session flow', () => {
     browser,
   }) => {
     const ctx = await browser.newContext();
+    // Separate context used only to call resetDb without affecting ctx's session.
+    const resetCtx = await browser.newContext();
     try {
       const page = await ctx.newPage();
-      await resetDb(page);
+      const resetPage = await resetCtx.newPage();
 
-      // Inject session with a dbUserId that does not exist in the DB (no users registered)
+      // Use the reset context to clean the DB (this destroys resetCtx's session,
+      // but ctx's session is unaffected).
+      await resetDb(resetPage);
+
+      // Register a user in the test context so the server session has a userId.
+      const user = await registerUser(page, 'ghosttest', 'ghosttest@test.com', 'Secure#Pass1');
+
+      // Now reset the DB again via the separate context: all users are deleted
+      // from the DB, but ctx's server-side session (session.userId = user.id)
+      // is still alive. When /control loads, the auth guard passes (session.userId
+      // is set), but the socket's start_session handler cannot find the user in DB
+      // → emits session_error with code auth_required.
+      await resetDb(resetPage);
+
+      // Inject session with a dbUserId that no longer exists in the DB
       await setupSocketCapture(page);
-      await injectActiveSession(page, 1, 'ghost', 99999);
+      await injectActiveSession(page, 1, 'ghost', user.id);
       await page.goto('/control');
 
       const data = await waitForSocketEvent(page, 'session_error');
       expect(data.code).toBe('auth_required');
     } finally {
       await ctx.close();
+      await resetCtx.close();
     }
   });
 
@@ -246,14 +263,19 @@ test.describe('Socket.IO session flow', () => {
       const userB = await registerUser(pageA, 'sess_car_b', 'sess_car_b@example.com', 'Secure#Pass1');
       await activateUser(pageA, userB.username);
 
+      // Restore pageA's session to userA (registering userB above overwrote the session).
+      await loginUser(pageA, userA.username);
+
       // Context A: start a session on car 1
       await setupSocketCapture(pageA);
       await injectActiveSession(pageA, 1, userA.username, userA.id);
       await pageA.goto('/control');
       await waitForSocketEvent(pageA, 'session_started');
 
-      // Context B: try to start a session on the same car
+      // Context B: try to start a session on the same car.
+      // Login userB so pageB can access /control (required after PR #159 auth guard).
       const pageB = await ctxB.newPage();
+      await loginUser(pageB, userB.username);
       await setupSocketCapture(pageB);
       await injectActiveSession(pageB, 1, userB.username, userB.id);
       await pageB.goto('/control');
