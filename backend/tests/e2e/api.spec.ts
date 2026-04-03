@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type APIRequestContext } from '@playwright/test';
 
 async function resetDb(page: import('@playwright/test').Page): Promise<void> {
   await page.request.post('/api/dev/reset-db');
@@ -47,6 +47,31 @@ async function loginUser(
     headers: { 'X-CSRF-Token': csrfToken },
   });
   expect(res.status(), `login failed: ${await res.text()}`).toBe(200);
+}
+
+/**
+ * Register, activate, and log in a fresh user using the given APIRequestContext.
+ * After this call the request context carries a valid session cookie, so
+ * subsequent requests will be treated as authenticated by the server.
+ */
+async function authenticateRequest(
+  request: APIRequestContext,
+  username: string,
+  email: string,
+  password = 'Password123!',
+): Promise<void> {
+  await request.post('/api/dev/reset-db');
+  const csrfRes = await request.get('/api/csrf-token');
+  const { csrfToken } = await csrfRes.json();
+  await request.post('/api/auth/register', {
+    data: { username, email, password, confirm_password: password },
+    headers: { 'X-CSRF-Token': csrfToken },
+  });
+  await request.post('/api/dev/activate-user', { data: { username } });
+  await request.post('/api/auth/login', {
+    data: { identifier: username, password },
+    headers: { 'X-CSRF-Token': csrfToken },
+  });
 }
 
 /**
@@ -99,18 +124,7 @@ test.describe('Static page routes', () => {
   });
 
   test('GET /control serves complete HTML document with control-panel elements', async ({ request }) => {
-    await request.post('/api/dev/reset-db');
-    const csrfRes = await request.get('/api/csrf-token');
-    const { csrfToken } = await csrfRes.json();
-    await request.post('/api/auth/register', {
-      data: { username: 'ctrl1', email: 'ctrl1@test.com', password: 'Password123!', confirm_password: 'Password123!' },
-      headers: { 'X-CSRF-Token': csrfToken },
-    });
-    await request.post('/api/dev/activate-user', { data: { username: 'ctrl1' } });
-    await request.post('/api/auth/login', {
-      data: { identifier: 'ctrl1', password: 'Password123!' },
-      headers: { 'X-CSRF-Token': csrfToken },
-    });
+    await authenticateRequest(request, 'ctrl1', 'ctrl1@test.com');
     const res = await request.get('/control');
     expect(res.status()).toBe(200);
     const body = await res.text();
@@ -309,18 +323,7 @@ test.describe('Auth-guarded page routes', () => {
   });
 
   test('GET /control authenticated returns 200 with HTML', async ({ request }) => {
-    await request.post('/api/dev/reset-db');
-    const csrfRes = await request.get('/api/csrf-token');
-    const { csrfToken } = await csrfRes.json();
-    await request.post('/api/auth/register', {
-      data: { username: 'authctrl', email: 'authctrl@test.com', password: 'Password123!', confirm_password: 'Password123!' },
-      headers: { 'X-CSRF-Token': csrfToken },
-    });
-    await request.post('/api/dev/activate-user', { data: { username: 'authctrl' } });
-    await request.post('/api/auth/login', {
-      data: { identifier: 'authctrl', password: 'Password123!' },
-      headers: { 'X-CSRF-Token': csrfToken },
-    });
+    await authenticateRequest(request, 'authctrl', 'authctrl@test.com');
     const res = await request.get('/control');
     expect(res.status()).toBe(200);
     expect(res.headers()['content-type']).toMatch(/text\/html/);
@@ -329,18 +332,7 @@ test.describe('Auth-guarded page routes', () => {
   });
 
   test('GET /garage authenticated returns 200 with HTML', async ({ request }) => {
-    await request.post('/api/dev/reset-db');
-    const csrfRes = await request.get('/api/csrf-token');
-    const { csrfToken } = await csrfRes.json();
-    await request.post('/api/auth/register', {
-      data: { username: 'authgrg', email: 'authgrg@test.com', password: 'Password123!', confirm_password: 'Password123!' },
-      headers: { 'X-CSRF-Token': csrfToken },
-    });
-    await request.post('/api/dev/activate-user', { data: { username: 'authgrg' } });
-    await request.post('/api/auth/login', {
-      data: { identifier: 'authgrg', password: 'Password123!' },
-      headers: { 'X-CSRF-Token': csrfToken },
-    });
+    await authenticateRequest(request, 'authgrg', 'authgrg@test.com');
     const res = await request.get('/garage');
     expect(res.status()).toBe(200);
     expect(res.headers()['content-type']).toMatch(/text\/html/);
