@@ -281,7 +281,6 @@
         // Initial loads
         detectCurrentUser();
         loadTrackRecords();
-        loadRankings();
     }
 
     window.LeaderboardPage = { init: init };
