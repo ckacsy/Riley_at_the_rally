@@ -865,6 +865,41 @@
         .duel-rank-delta { font-size: 12px; font-weight: bold; }
         .duel-rank-up   { color: var(--accent-success); }
         .duel-rank-down { color: var(--accent-danger); }
+        /* Time comparison layout */
+        .duel-result-times {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin: 10px 0 6px;
+        }
+        .duel-result-time-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+        .duel-result-time-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .duel-result-time-val {
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--text-primary);
+            font-variant-numeric: tabular-nums;
+        }
+        .duel-result-timediff {
+            font-size: 13px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .duel-result-opponent {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
         .duel-result-dismiss {
             margin-top: 8px;
             padding: 8px 24px;

@@ -301,6 +301,38 @@
         }, 500);
     }
 
+    function _buildRankHtml(rankChange) {
+        if (rankChange == null) return '';
+        var newRank = rankChange['new'];
+        var oldRank = rankChange['old'];
+
+        if (newRank && newRank.isLegend && oldRank && !oldRank.isLegend) {
+            return '<div class="duel-result-rank" style="color:gold;font-weight:bold">🏅 Вы достигли Легенды!</div>';
+        }
+        if (newRank && oldRank) {
+            var oldRankNum = oldRank.rank || 0;
+            var newRankNum = newRank.rank || 0;
+            var oldStars   = oldRank.stars || 0;
+            var newStars   = newRank.stars || 0;
+
+            if (oldRankNum === newRankNum && oldStars === newStars) {
+                return '<div class="duel-result-rank" style="color:#6c757d">Ранг не изменился</div>';
+            }
+            var changeHtml = '';
+            if (newRankNum < oldRankNum) {
+                changeHtml = '<span class="duel-rank-up">▲ Ранг ' + oldRankNum + ' → Ранг ' + newRankNum + '</span>';
+            } else if (newRankNum > oldRankNum) {
+                changeHtml = '<span class="duel-rank-down">▼ Ранг ' + oldRankNum + ' → Ранг ' + newRankNum + '</span>';
+            } else if (newStars > oldStars) {
+                changeHtml = '<span class="duel-rank-up">★ +1</span>';
+            } else if (newStars < oldStars) {
+                changeHtml = '<span class="duel-rank-down">★ -1</span>';
+            }
+            return changeHtml ? '<div class="duel-result-rank">' + changeHtml + '</div>' : '';
+        }
+        return '';
+    }
+
     function _onResult(data) {
         _setState('result');
 
@@ -308,75 +340,79 @@
         var reason = data.reason || result;
         var rankChange = data.rankChange != null ? data.rankChange : null;
         var lapTimeMs = data.lapTimeMs != null ? data.lapTimeMs : null;
+        var opponent = data.opponent != null ? data.opponent : null;
 
         var title = '';
-        var bgStyle = '';
+        var resultClass = 'duel-result-draw';
 
         if (result === 'win') {
             title = reason === 'disconnect'
                 ? '🏆 Победа (соперник отключился)'
                 : '🏆 Победа!';
-            bgStyle = 'background:#d4edda';
+            resultClass = 'duel-result-win';
         } else if (result === 'loss') {
             title = '❌ Поражение';
-            bgStyle = 'background:#f8d7da';
+            resultClass = 'duel-result-loss';
         } else if (result === 'cancel') {
             title = '⚪ Дуэль отменена';
-            bgStyle = 'background:#e2e3e5';
         } else if (result === 'timeout') {
             title = '⏱ Время вышло';
-            bgStyle = 'background:#e2e3e5';
         } else if (result === 'ready_timeout') {
             title = '⏱ Соперник не подтвердил готовность';
-            bgStyle = 'background:#e2e3e5';
         } else {
             title = result;
-            bgStyle = 'background:#e2e3e5';
         }
 
-        var lapHtml = '';
-        if (lapTimeMs && lapTimeMs > 0) {
-            lapHtml = '<div class="duel-result-lap">Время круга: <strong>' +
-                (lapTimeMs / 1000).toFixed(2) + ' сек</strong></div>';
-        }
+        // Time comparison section (for win/loss with at least one lap time)
+        var timesHtml = '';
+        if (result === 'win' || result === 'loss') {
+            var myTimeStr  = lapTimeMs ? fmtLapTime(lapTimeMs) : '—';
+            var oppTimeStr = (opponent && opponent.lapTimeMs) ? fmtLapTime(opponent.lapTimeMs) : '—';
 
-        var rankHtml = '';
-        if (rankChange !== null) {
-            var newRank = rankChange && rankChange['new'];
-            var oldRank = rankChange && rankChange['old'];
-
-            if (newRank && newRank.isLegend && oldRank && !oldRank.isLegend) {
-                rankHtml = '<div class="duel-result-rank" style="color:gold;font-weight:bold">🏅 Вы достигли Легенды!</div>';
-            } else if (newRank && oldRank) {
-                var oldRankNum = oldRank.rank || 0;
-                var newRankNum = newRank.rank || 0;
-                var oldStars   = oldRank.stars || 0;
-                var newStars   = newRank.stars || 0;
-
-                if (oldRankNum === newRankNum && oldStars === newStars) {
-                    rankHtml = '<div class="duel-result-rank" style="color:#6c757d">Ранг не изменился</div>';
-                } else {
-                    var changeHtml = '';
-                    if (newRankNum < oldRankNum) {
-                        changeHtml = '<span style="color:green">▲ Ранг ' + oldRankNum + ' → Ранг ' + newRankNum + '</span>';
-                    } else if (newRankNum > oldRankNum) {
-                        changeHtml = '<span style="color:red">▼ Ранг ' + oldRankNum + ' → Ранг ' + newRankNum + '</span>';
-                    } else if (newStars > oldStars) {
-                        changeHtml = '<span style="color:green">' + '★'.repeat(newStars) + '</span>';
-                    }
-                    rankHtml = '<div class="duel-result-rank">' + changeHtml + '</div>';
-                }
+            var diffHtml = '';
+            if (lapTimeMs && opponent && opponent.lapTimeMs) {
+                var diffMs  = lapTimeMs - opponent.lapTimeMs;
+                var diffSec = (Math.abs(diffMs) / 1000).toFixed(3);
+                var diffSign = diffMs > 0 ? '+' : '-';
+                var diffClass = diffMs <= 0 ? 'duel-rank-up' : 'duel-rank-down';
+                diffHtml = '<div class="duel-result-timediff ' + diffClass + '">' +
+                    diffSign + diffSec + 'с</div>';
             }
+
+            timesHtml =
+                '<div class="duel-result-times">' +
+                    '<div class="duel-result-time-col">' +
+                        '<div class="duel-result-time-label">Ваше время</div>' +
+                        '<div class="duel-result-time-val">' + escHtml(myTimeStr) + '</div>' +
+                    '</div>' +
+                    '<div class="duel-result-time-col">' +
+                        '<div class="duel-result-time-label">Соперник</div>' +
+                        '<div class="duel-result-time-val">' + escHtml(oppTimeStr) + '</div>' +
+                    '</div>' +
+                '</div>' +
+                diffHtml;
+        } else if (lapTimeMs && lapTimeMs > 0) {
+            timesHtml = '<div class="duel-result-lap">Время круга: <strong>' +
+                escHtml(fmtLapTime(lapTimeMs)) + '</strong></div>';
+        }
+
+        var rankHtml = _buildRankHtml(rankChange);
+
+        var opponentHtml = '';
+        if (opponent && opponent.username) {
+            opponentHtml = '<div class="duel-result-opponent">vs. <strong>' +
+                escHtml(opponent.username) + '</strong></div>';
         }
 
         if (_resultCard) {
-            _resultCard.className = 'duel-result-card';
-            _resultCard.setAttribute('style', bgStyle);
+            _resultCard.className = 'duel-result-card ' + resultClass;
+            _resultCard.removeAttribute('style');
             _resultCard.innerHTML =
                 '<div class="duel-result-label">' + escHtml(title) + '</div>' +
-                lapHtml +
+                timesHtml +
                 rankHtml +
-                '<button class="duel-result-dismiss" id="duel-result-dismiss-btn">OK</button>';
+                opponentHtml +
+                '<button class="duel-result-dismiss" id="duel-result-dismiss-btn">Закрыть</button>';
 
             var dismissBtn = document.getElementById('duel-result-dismiss-btn');
             if (dismissBtn) {
