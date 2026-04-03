@@ -714,10 +714,19 @@ class DuelManager {
         if (sock) sock.emit('duel:cancelled', { reason: 'finish_rejected' });
       }
     } else {
-      const payload = { duelId: duel.id, result: reason, rankChange: null };
       for (const p of duel.players) {
+        const opponent = duel.players.find((op) => op !== p) || null;
         const sock = this._io.sockets.sockets.get(p.socketId);
-        if (sock) sock.emit('duel:result', payload);
+        if (sock) {
+          sock.emit('duel:result', {
+            duelId: duel.id,
+            result: reason,
+            rankChange: null,
+            opponent: opponent
+              ? { username: opponent.username, lapTimeMs: null, rankChange: null }
+              : null,
+          });
+        }
       }
     }
 
@@ -788,6 +797,7 @@ class DuelManager {
     // Notify both players
     for (const p of duel.players) {
       const isWinner = p.dbUserId === winnerUserId;
+      const opponent = duel.players.find((op) => op !== p) || null;
       const sock = this._io.sockets.sockets.get(p.socketId);
       if (sock) {
         sock.emit('duel:result', {
@@ -796,6 +806,13 @@ class DuelManager {
           reason,
           lapTimeMs: p.lapTimeMs,
           rankChange: isWinner ? winnerChange : loserChange,
+          opponent: opponent
+            ? {
+                username: opponent.username,
+                lapTimeMs: opponent.lapTimeMs,
+                rankChange: isWinner ? loserChange : winnerChange,
+              }
+            : null,
         });
       }
     }
