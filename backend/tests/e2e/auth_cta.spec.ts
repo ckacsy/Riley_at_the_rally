@@ -92,7 +92,14 @@ test.describe('CTA button states by role', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test('guest: CTA shows "Только просмотр / Войти"', async ({ page }) => {
-    // No cookies, no session — pure guest
+    // After PR#159, /garage requires a session. Register to satisfy the auth guard,
+    // then mock /api/auth/me to return null so the client-side JS treats the page
+    // visitor as a guest (no authenticated user).
+    await resetDb(page);
+    await page.route('/api/auth/me', (route) =>
+      route.fulfill({ json: { user: null } }),
+    );
+    await registerUser(page, 'guestaccess', 'guestaccess@test.com', 'Secure#Pass1');
     await page.goto('/garage?forceFallback=1');
     await waitForCta(page, 'Только просмотр');
     await expect(page.locator('#cta-btn')).toContainText('Войти');
@@ -100,6 +107,14 @@ test.describe('CTA button states by role', () => {
   });
 
   test('guest: CTA click redirects to /login', async ({ page }) => {
+    // After PR#159, /garage requires a session. Register to satisfy the auth guard,
+    // then mock /api/auth/me to return null so the client-side JS treats the page
+    // visitor as a guest and the center CTA shows "Войти" → /login redirect.
+    await resetDb(page);
+    await page.route('/api/auth/me', (route) =>
+      route.fulfill({ json: { user: null } }),
+    );
+    await registerUser(page, 'guestclick', 'guestclick@test.com', 'Secure#Pass1');
     await page.goto('/garage?forceFallback=1');
     await waitForCta(page, 'Только просмотр');
 

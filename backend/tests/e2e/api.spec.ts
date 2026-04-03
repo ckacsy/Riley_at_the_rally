@@ -277,6 +277,31 @@ test.describe('Profile page', () => {
 });
 
 test.describe('Control page (content smoke)', () => {
+  // /control is auth-guarded (PR #159): authenticate before each test.
+  // control.js also redirects to /garage when sessionStorage has no activeSession,
+  // so inject a minimal fake session to prevent the client-side redirect.
+  test.beforeEach(async ({ page }) => {
+    await resetDb(page);
+    const user = await registerUser(page, 'ctrlsmoke', 'ctrlsmoke@test.com', 'Secure#Pass1');
+    await activateUser(page, user.username);
+    await loginUser(page, user.username, 'Secure#Pass1');
+    await page.addInitScript(({ uid, uname }) => {
+      sessionStorage.setItem(
+        'activeSession',
+        JSON.stringify({
+          carId: 1,
+          carName: 'Test Car',
+          startTime: new Date().toISOString(),
+          sessionId: null,
+          userId: uname,
+          dbUserId: uid,
+          ratePerMinute: 0.5,
+          selectedRaceId: null,
+        }),
+      );
+    }, { uid: user.id, uname: user.username });
+  });
+
   test('control page has keyboard hint', async ({ page }) => {
     await page.goto('/control');
     const body = await page.content();
