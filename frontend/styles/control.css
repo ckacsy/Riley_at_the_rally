@@ -877,13 +877,22 @@
             transition: background-color var(--transition-speed);
         }
         .duel-result-dismiss:hover { background: var(--accent-secondary-hover); }
-        /* Exit-to-garage button: secondary styling distinct from "end rental" */
-        .end-rental-exit-btn {
-            margin-top: 8px;
-            background-color: var(--accent-secondary);
+        /* Duel active: lock entire race panel so no child element can be used */
+        .race-panel.duel-locked {
+            pointer-events: none;
+            opacity: 0.5;
+            position: relative;
         }
-        .end-rental-exit-btn:hover {
-            background-color: var(--accent-secondary-hover);
+        .race-panel.duel-locked::after {
+            content: '⚔️ Дуэль активна';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 12px;
+            color: var(--text-secondary);
+            pointer-events: none;
+            white-space: nowrap;
         }
         /* Hide navbar and remove its padding when session is active */
         body.session-active #main-nav {

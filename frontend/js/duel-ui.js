@@ -75,23 +75,29 @@
     // -------------------------------------------------------------------------
 
     /**
-     * Disable or enable the free-play race create/join buttons depending on
-     * whether a duel is currently active (searching / matched / in progress).
+     * Disable or enable race panel interactions depending on whether a duel
+     * is currently active (searching / matched / in progress).
+     * Locks the entire #race-panel via pointer-events so any future elements
+     * inside it are also automatically blocked.
+     * create-race-btn lives outside #race-panel and is handled separately.
      */
     function syncRaceActionAvailability() {
         var duelActive = _duelState !== 'idle' && _duelState !== 'result';
+
+        // Block the ENTIRE race panel, not individual buttons
+        var racePanel = document.getElementById('race-panel');
+        if (racePanel) {
+            if (duelActive) {
+                racePanel.classList.add('duel-locked');
+            } else {
+                racePanel.classList.remove('duel-locked');
+            }
+        }
+
+        // Also block create-race-btn which is OUTSIDE race-panel
         var createBtn = document.getElementById('create-race-btn');
-        var joinBtn   = document.getElementById('join-race-btn');
         if (createBtn) {
             createBtn.disabled = duelActive;
-        }
-        if (joinBtn) {
-            if (duelActive) {
-                joinBtn.disabled = true;
-            } else {
-                var raceSelect = document.getElementById('race-select');
-                joinBtn.disabled = !(raceSelect && raceSelect.value);
-            }
         }
     }
 
@@ -402,9 +408,13 @@
         }, 4000);
     }
 
-    function _onDuelCancelled() {
+    function _onDuelCancelled(data) {
+        var reason = data && data.reason;
+        var msg = reason === 'finish_rejected'
+            ? 'Дуэль отменена: финиш не принят (слишком быстро).'
+            : 'Дуэль отменена.';
         _setState('idle');
-        _setStatusText('Дуэль отменена.');
+        _setStatusText(msg);
         if (_matchCard) _matchCard.innerHTML = '';
         window.DuelProgress.reset();
         setTimeout(function () {
