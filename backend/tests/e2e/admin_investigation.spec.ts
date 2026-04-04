@@ -679,7 +679,7 @@ test('date_from + date_to range filters events correctly', async ({ page }) => {
   const body = await res.json();
   expect(body.items.length).toBeGreaterThanOrEqual(1);
   for (const item of body.items) {
-    expect(new Date(item.created_at).getTime()).toBeGreaterThanOrEqual(new Date(today).getTime());
+    expect(new Date(item.created_at).getTime()).toBeGreaterThanOrEqual(new Date(today + 'T00:00:00').getTime());
   }
 });
 
