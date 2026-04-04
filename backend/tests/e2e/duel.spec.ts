@@ -414,11 +414,11 @@ test.describe('Duel backend — lap validation and win', () => {
         await waitForSocketEvent(pageA, 'duel:checkpoint_ok');
       }
 
-      // Finish immediately — should be rejected because elapsed time < MIN_LAP_TIME_MS.
-      // (We cannot wait a real 15 s in E2E; the full win path is covered by unit tests.)
+      // Finish immediately — should be cancelled because elapsed time < MIN_LAP_TIME_MS.
+      // The server calls _cancelDuel which emits duel:cancelled (not duel:error).
       await pageA.evaluate(() => (window as any).__testSocket.emit('duel:finish_lap'));
-      const err = await waitForSocketEvent(pageA, 'duel:error');
-      expect(err.code).toBe('lap_too_fast');
+      const cancelled = await waitForSocketEvent(pageA, 'duel:cancelled');
+      expect(cancelled.reason).toBe('finish_rejected');
     } finally {
       await ctxA.close();
       await ctxB.close();
