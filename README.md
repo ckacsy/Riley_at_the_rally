@@ -102,6 +102,49 @@ python main.py
 
 The Pi connects to the backend via Socket.io and executes motor commands as they arrive. The camera stream is available at `http://<pi-ip>:8000`.
 
+## Role Management
+
+### Method 1: Direct SQLite (production)
+
+```bash
+cd backend
+sqlite3 riley.sqlite "UPDATE users SET role = 'admin', updated_at = CURRENT_TIMESTAMP WHERE username = 'YourUsername';"
+```
+
+For moderator:
+```bash
+sqlite3 riley.sqlite "UPDATE users SET role = 'moderator', updated_at = CURRENT_TIMESTAMP WHERE username = 'YourUsername';"
+```
+
+To verify:
+```bash
+sqlite3 riley.sqlite "SELECT id, username, role FROM users WHERE username = 'YourUsername';"
+```
+
+### Method 2: Dev API (test/development only)
+
+When the server is running with `NODE_ENV=test`, there is a dev endpoint `POST /api/dev/set-user-role`:
+
+```bash
+curl -X POST http://localhost:5000/api/dev/set-user-role \
+  -H "Content-Type: application/json" \
+  -d '{"username": "YourUsername", "role": "admin"}'
+```
+
+### Available roles
+
+| Role | Weight | Permissions |
+|------|--------|------------|
+| `user` | 1 | Default role. Can rent cars, participate in duels, view profile. |
+| `moderator` | 2 | Can ban/unban users, adjust balances, manage news, view admin entity cards. |
+| `admin` | 3 | Full access: all moderator permissions plus delete users, investigation timeline, analytics, compensation workflow. |
+
+### Important notes
+
+- The first admin must be created via SQLite (Method 1) since there is no admin UI for role assignment.
+- Admins can only act on users with a strictly lower role weight (admin → moderator/user, moderator → user only).
+- The dev API endpoint (`/api/dev/set-user-role`) is **only available** when `NODE_ENV=test`. It is not exposed in production.
+
 ## API Examples
 
 ### REST
