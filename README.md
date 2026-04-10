@@ -104,8 +104,6 @@ The Pi connects to the backend via Socket.io and executes motor commands as they
 
 ## Role Management
 
-The first admin must be created via direct database access (Method 1 below) since there is no admin UI for role assignment. After that, admins can use the admin user management panel to manage other users, but role escalation still requires direct DB access.
-
 ### Method 1: Direct SQLite (production)
 
 ```bash
