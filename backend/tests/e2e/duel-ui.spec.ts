@@ -524,48 +524,34 @@ test.describe('Duel UI — status restoration on refresh', () => {
       const user = await registerUser(page, 'dui_restore', 'dui_restore@test.com', 'Secure#Pass1');
       await activateUser(page, user.username);
 
-      // First page load — enter search
+      // First page load — establish a real server session and enter search.
+      // We rely on the real session (not injectServerActiveSession) so that
+      // the real holdAmount is used: when the page reloads the hold is properly
+      // refunded and the new start_session after reload can succeed.
       await setupSocketCapture(page);
       await injectActiveSession(page, 1, user.username, user.id);
       await page.goto('/control');
       await waitForSocketConnected(page);
-      const socketId = await page.evaluate(() => (window as any).__testSocket.id);
-      await injectServerActiveSession(page, 1, user.id, socketId);
+      // Wait for the server to confirm the session is active before searching —
+      // this eliminates the race between start_session processing and duel:search.
+      await waitForSocketEvent(page, 'session_started');
 
       await page.evaluate(() => (window as any).__testSocket.emit('duel:search'));
       await waitForSocketEvent(page, 'duel:searching');
 
-      // Simulate a page refresh: create a new page in the same context
-      const page2 = await ctx.newPage();
-      await setupSocketCapture(page2);
-      await page2.addInitScript(
-        ({ userId, dbUserId }) => {
-          sessionStorage.setItem(
-            'activeSession',
-            JSON.stringify({
-              carId: 1,
-              carName: 'Test Car',
-              startTime: new Date().toISOString(),
-              sessionId: 'pending',
-              userId,
-              dbUserId,
-              ratePerMinute: 0.5,
-              selectedRaceId: null,
-            }),
-          );
-        },
-        { userId: user.username, dbUserId: user.id },
-      );
-      await page2.goto('/control');
-      await waitForSocketConnected(page2);
-      const socketId2 = await page2.evaluate(() => (window as any).__testSocket.id);
-      await injectServerActiveSession(page2, 1, user.id, socketId2);
+      // Simulate a page refresh by reloading the same page.
+      // page.reload() triggers beforeunload → end_session is emitted → server removes
+      // the session and refunds the hold.  The socket then disconnects, which removes
+      // the queue entry via handleDisconnect.  All addInitScript callbacks re-run on
+      // reload so activeSession is re-injected into sessionStorage, and the socket
+      // proxy (setupSocketCapture) is reinstalled for the new connection.
+      await page.reload({ waitUntil: 'load' });
+      await waitForSocketConnected(page);
 
-      // The page should not crash and should show some state (searching or idle depending on server)
-      await expect(page2.locator('#duel-panel')).toBeVisible({ timeout: 10_000 });
-      // Status text or cancel button visible if searching restored
-      // (server session may or may not still be active depending on timing)
-      const statusText = await page2.locator('#duel-status-text').textContent();
+      // The page should not crash and should show the duel panel.
+      // The duel queue was cleared on disconnect, so status will be 'idle' — that is fine.
+      await expect(page.locator('#duel-panel')).toBeVisible({ timeout: 10_000 });
+      const statusText = await page.locator('#duel-status-text').textContent();
       // Just verify no crash — either searching or idle is fine
       expect(statusText).not.toBeNull();
     } finally {
