@@ -537,6 +537,7 @@ test.describe('Duel UI — status restoration on refresh', () => {
 
       // Simulate a page refresh: create a new page in the same context
       const page2 = await ctx.newPage();
+      await setupSocketCapture(page2);
       await page2.addInitScript(
         ({ userId, dbUserId }) => {
           sessionStorage.setItem(
@@ -556,9 +557,12 @@ test.describe('Duel UI — status restoration on refresh', () => {
         { userId: user.username, dbUserId: user.id },
       );
       await page2.goto('/control');
+      await waitForSocketConnected(page2);
+      const socketId2 = await page2.evaluate(() => (window as any).__testSocket.id);
+      await injectServerActiveSession(page2, 1, user.id, socketId2);
 
       // The page should not crash and should show some state (searching or idle depending on server)
-      await expect(page2.locator('#duel-panel')).toBeVisible();
+      await expect(page2.locator('#duel-panel')).toBeVisible({ timeout: 10_000 });
       // Status text or cancel button visible if searching restored
       // (server session may or may not still be active depending on timing)
       const statusText = await page2.locator('#duel-status-text').textContent();
