@@ -15,7 +15,7 @@ _STEER_SCALE   = _SERVO_RANGE / 60  # µs per degree of steering (±30° spans �
 
 
 class RCCarController:
-    def __init__(self, i2c_bus=1, pwm_freq=60, throttle_channel=0, steering_channel=1):
+    def __init__(self, i2c_bus=1, pwm_freq=50, throttle_channel=0, steering_channel=1):
         self.bus = smbus.SMBus(i2c_bus)
         self.pwm_freq = pwm_freq
         self.throttle_channel = throttle_channel
