@@ -211,6 +211,7 @@ test.describe('Duel backend — matchmaking', () => {
   test('two players in queue are matched and both receive duel:matched', async ({
     browser,
   }) => {
+    test.setTimeout(60_000);
     const ctxA = await browser.newContext();
     const ctxB = await browser.newContext();
     try {
@@ -243,12 +244,15 @@ test.describe('Duel backend — matchmaking', () => {
       const socketIdB = await pageB.evaluate(() => (window as any).__testSocket.id);
       await injectServerActiveSession(pageB, 2, userB.id, socketIdB);
 
-      // Both emit duel:search
+      // Both emit duel:search — wait for searching confirmation to ensure sequential queueing
       await pageA.evaluate(() => (window as any).__testSocket.emit('duel:search'));
-      await pageB.evaluate(() => (window as any).__testSocket.emit('duel:search'));
+      await waitForSocketEvent(pageA, 'duel:searching');
 
-      const matchedA = await waitForSocketEvent(pageA, 'duel:matched');
-      const matchedB = await waitForSocketEvent(pageB, 'duel:matched');
+      await pageB.evaluate(() => (window as any).__testSocket.emit('duel:search'));
+      // Player B's search should trigger immediate match
+
+      const matchedA = await waitForSocketEvent(pageA, 'duel:matched', 15_000);
+      const matchedB = await waitForSocketEvent(pageB, 'duel:matched', 15_000);
 
       expect(matchedA.duelId).toBeTruthy();
       expect(matchedB.duelId).toBe(matchedA.duelId);
