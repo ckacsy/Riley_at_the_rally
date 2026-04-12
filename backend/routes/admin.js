@@ -87,6 +87,9 @@ module.exports = function mountAdminRoutes(app, db, deps) {
       }
 
       const reason = (req.body && typeof req.body.reason === 'string') ? req.body.reason.trim() : null;
+      if (reason && reason.length > 500) {
+        return res.status(400).json({ error: 'Причина блокировки не должна превышать 500 символов' });
+      }
       const oldStatus = target.status;
 
       db.prepare(

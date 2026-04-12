@@ -97,6 +97,32 @@ function normalizeUsername(username) {
   return normalizeText(username).toLowerCase();
 }
 
+/**
+ * Validate that a value is a positive integer (>= 1).
+ * @param {unknown} val
+ * @param {string} fieldName - used in error message
+ * @returns {string|null} error message or null
+ */
+function validatePositiveInt(val, fieldName) {
+  const n = Number(val);
+  if (!Number.isInteger(n) || n < 1) {
+    return `${fieldName} должен быть положительным целым числом`;
+  }
+  return null;
+}
+
+/**
+ * Validate YYYY-MM-DD date format.
+ * @param {string} date
+ * @param {string} fieldName
+ * @returns {string|null} error message or null
+ */
+function validateDateParam(date, fieldName) {
+  if (typeof date !== 'string') return `${fieldName} должен быть строкой формата ГГГГ-ММ-ДД`;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return `${fieldName}: неверный формат даты (используйте ГГГГ-ММ-ДД)`;
+  return null;
+}
+
 module.exports = {
   validateDisplayName,
   validateUsername,
@@ -105,5 +131,7 @@ module.exports = {
   normalizeEmail,
   normalizeUsername,
   normalizeText,
+  validatePositiveInt,
+  validateDateParam,
   RESERVED_USERNAMES,
 };

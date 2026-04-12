@@ -103,13 +103,23 @@ const ALLOWED_UPDATE_COLUMNS = new Set([
 
 function validateNewsBody(body) {
   const errors = [];
-  const { title, body_markdown, status, pinned, slug } = body;
+  const { title, body_markdown, status, pinned, slug, summary, cover_image } = body;
 
   if (!title || typeof title !== 'string' || !title.trim()) {
     errors.push('title is required');
+  } else if (title.trim().length > 200) {
+    errors.push('title must be at most 200 characters');
   }
   if (!body_markdown || typeof body_markdown !== 'string' || !body_markdown.trim()) {
     errors.push('body_markdown is required');
+  } else if (body_markdown.trim().length > 50000) {
+    errors.push('body_markdown must be at most 50000 characters');
+  }
+  if (summary !== undefined && summary !== null && typeof summary === 'string' && summary.trim().length > 500) {
+    errors.push('summary must be at most 500 characters');
+  }
+  if (cover_image !== undefined && cover_image !== null && typeof cover_image === 'string' && cover_image.trim().length > 500) {
+    errors.push('cover_image must be at most 500 characters');
   }
   if (status !== undefined && !VALID_STATUSES.has(status)) {
     errors.push('status must be draft, published, or archived');
@@ -136,17 +146,27 @@ function validateNewsBody(body) {
  */
 function validateNewsUpdate(body) {
   const errors = [];
-  const { title, body_markdown, status, pinned, slug } = body;
+  const { title, body_markdown, status, pinned, slug, summary, cover_image } = body;
 
   if (title !== undefined) {
     if (!title || typeof title !== 'string' || !title.trim()) {
       errors.push('title is required');
+    } else if (title.trim().length > 200) {
+      errors.push('title must be at most 200 characters');
     }
   }
   if (body_markdown !== undefined) {
     if (!body_markdown || typeof body_markdown !== 'string' || !body_markdown.trim()) {
       errors.push('body_markdown is required');
+    } else if (body_markdown.trim().length > 50000) {
+      errors.push('body_markdown must be at most 50000 characters');
     }
+  }
+  if (summary !== undefined && summary !== null && typeof summary === 'string' && summary.trim().length > 500) {
+    errors.push('summary must be at most 500 characters');
+  }
+  if (cover_image !== undefined && cover_image !== null && typeof cover_image === 'string' && cover_image.trim().length > 500) {
+    errors.push('cover_image must be at most 500 characters');
   }
   if (status !== undefined && !VALID_STATUSES.has(status)) {
     errors.push('status must be draft, published, or archived');

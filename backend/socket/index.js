@@ -636,11 +636,18 @@ function setupSocketIo(io, deps) {
         socket.emit('control_error', { message: 'Слишком много команд. Подождите немного.', code: 'rate_limited' });
         return;
       }
+
+      // Validate control_command payload fields
+      const { direction, speed, steering_angle } = data || {};
+      if (direction !== undefined && !['forward', 'backward', 'stop'].includes(direction)) return;
+      if (speed !== undefined && (typeof speed !== 'number' || speed < -100 || speed > 100)) return;
+      if (steering_angle !== undefined && (typeof steering_angle !== 'number' || steering_angle < -90 || steering_angle > 90)) return;
+
       metrics.log('info', 'control_command', {
         socketId: socket.id,
-        direction: data.direction || null,
-        speed: data.speed || 0,
-        steering_angle: data.steering_angle || 0,
+        direction: direction || null,
+        speed: speed || 0,
+        steering_angle: steering_angle || 0,
       });
       setInactivityTimeout(socket);
       const t0 = performance.now();
@@ -724,6 +731,20 @@ function setupSocketIo(io, deps) {
 
     socket.on('join_race', (data) => {
       const { raceId, carId, carName } = data || {};
+
+      // Validate carId if provided — must be a positive integer
+      if (carId !== undefined && carId !== null && (!Number.isInteger(carId) || carId < 1)) {
+        socket.emit('race_error', { message: 'Неверный идентификатор машины.', code: 'invalid_car_id' });
+        return;
+      }
+
+      // Validate carName length if provided
+      if (carName !== undefined && carName !== null) {
+        if (typeof carName !== 'string' || carName.length > 100) {
+          socket.emit('race_error', { message: 'Название машины слишком длинное (максимум 100 символов).', code: 'invalid_car_name' });
+          return;
+        }
+      }
 
       // Read dbUserId from server-side session (not client payload) to prevent spoofing
       const raceSessionData = socket.request.session;
@@ -1047,7 +1068,7 @@ function setupSocketIo(io, deps) {
      * Payload: { index: number }  (0-based)
      */
     socket.on('duel:checkpoint', (data) => {
-      const index = data && typeof data.index === 'number' ? data.index : -1;
+      const index = data && Number.isInteger(data.index) ? data.index : -1;
       if (index < 0) {
         socket.emit('duel:error', { code: 'invalid_checkpoint', message: 'Неверный индекс чекпоинта.' });
         return;
