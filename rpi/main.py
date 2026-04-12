@@ -1,4 +1,5 @@
 import argparse
+import os
 import threading
 import time
 
@@ -17,18 +18,51 @@ parser.add_argument('--stream-port', type=int, default=8000,
                     help='Camera stream port (default: 8000)')
 parser.add_argument('--mock', action='store_true',
                     help='Run without real GPIO/camera hardware (for testing)')
+parser.add_argument('--car-id', type=int,
+                    default=None,
+                    help='Car ID for device authentication (or set DEVICE_CAR_ID env var)')
+parser.add_argument('--device-key', default=None,
+                    help='Device key for authentication (or set DEVICE_KEY env var)')
 args = parser.parse_args()
 
 SERVER_URL  = args.server
 STREAM_PORT = args.stream_port
 MOCK        = args.mock
+CAR_ID      = args.car_id or int(os.environ.get('DEVICE_CAR_ID', '0') or '0') or None
+DEVICE_KEY  = args.device_key or os.environ.get('DEVICE_KEY') or None
 
 # ---------------------------------------------------------------------------
 # Socket.io + motor control
 # ---------------------------------------------------------------------------
 
+auth_payload = {}
+if CAR_ID is not None and DEVICE_KEY:
+    auth_payload = {'carId': CAR_ID, 'deviceKey': DEVICE_KEY}
+
 sio = socketio.Client()
 car = RCCarController() if not MOCK else None
+
+# Heartbeat thread: emit device:heartbeat every 15 seconds after connection.
+_heartbeat_stop = threading.Event()
+_heartbeat_thread = None
+
+
+def _heartbeat_loop():
+    """Emit device:heartbeat every 15 seconds while connected."""
+    while not _heartbeat_stop.wait(15):
+        if sio.connected and CAR_ID is not None:
+            try:
+                sio.emit('device:heartbeat', {
+                    'carId': CAR_ID,
+                    'timestamp': time.time(),
+                })
+            except Exception as exc:
+                print(f'[heartbeat] emit error: {exc}')
+
+
+@sio.on('device:heartbeat_ack')
+def on_heartbeat_ack(data):
+    pass  # acknowledgement received — no action needed
 
 
 @sio.on('control_command')
@@ -49,14 +83,32 @@ def on_control_command(data):
         print(f'Error executing command: {e}')
 
 
+@sio.on('device:kicked')
+def on_device_kicked(data):
+    reason = data.get('reason', 'unknown') if data else 'unknown'
+    print(f'Device kicked by server: {reason}')
+    _heartbeat_stop.set()
+    if car:
+        car.stop()
+
+
 @sio.on('connect')
 def on_connect():
+    global _heartbeat_thread
     print(f'Connected to backend server: {SERVER_URL}')
+    # Stop any existing heartbeat thread before starting a new one.
+    _heartbeat_stop.set()
+    if _heartbeat_thread is not None:
+        _heartbeat_thread.join(timeout=1)
+    _heartbeat_stop.clear()
+    _heartbeat_thread = threading.Thread(target=_heartbeat_loop, daemon=True)
+    _heartbeat_thread.start()
 
 
 @sio.on('disconnect')
 def on_disconnect():
     print('Disconnected from backend server — stopping car')
+    _heartbeat_stop.set()
     if car:
         car.stop()
 
@@ -65,7 +117,7 @@ def connect_to_server():
     """Connect to backend with automatic reconnection on failure."""
     while True:
         try:
-            sio.connect(SERVER_URL)
+            sio.connect(SERVER_URL, auth=auth_payload)
             sio.wait()
         except Exception as exc:
             print(f'Connection error: {exc}. Retrying in 5 s…')
@@ -78,7 +130,8 @@ def connect_to_server():
 
 if __name__ == '__main__':
     print(f'RC Car controller starting '
-          f'(mock={MOCK}, server={SERVER_URL}, stream_port={STREAM_PORT})')
+          f'(mock={MOCK}, server={SERVER_URL}, stream_port={STREAM_PORT}, '
+          f'car_id={CAR_ID})')
 
     camera_thread = threading.Thread(
         target=start_streaming, kwargs={'port': STREAM_PORT, 'mock': MOCK}, daemon=True
@@ -94,5 +147,6 @@ if __name__ == '__main__':
             time.sleep(1)
     except KeyboardInterrupt:
         print('Shutting down…')
+        _heartbeat_stop.set()
         if car:
             car.stop()

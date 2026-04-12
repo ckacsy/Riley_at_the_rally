@@ -58,6 +58,15 @@ const cors = require('cors');
 const { validateEnv } = require('./config/validate-env');
 validateEnv();
 
+const {
+  RATE_PER_MINUTE,
+  INACTIVITY_TIMEOUT_MS,
+  SESSION_MAX_DURATION_MS,
+  CONTROL_RATE_LIMIT_MAX,
+  CONTROL_RATE_LIMIT_WINDOW_MS,
+  CARS,
+} = require('./config/constants');
+
 const metrics = require('./metrics');
 const mailer = require('./mailer');
 const { isKnownRole, STATUSES } = require('./middleware/roles');
@@ -154,12 +163,10 @@ if (process.env.NODE_ENV === 'production' && process.env.TRUST_PROXY) {
   });
 }
 
-app.use((req, res, next) => {
-  const requestId = crypto.randomUUID();
-  req.requestId = requestId;
-  res.setHeader('X-Request-Id', requestId);
-  next();
-});
+// Structured HTTP request logging (generates / propagates X-Request-Id,
+// logs every request as JSON via metrics.log).
+const { requestLogger } = require('./middleware/request-logger');
+app.use(requestLogger(metrics));
 
 // Session middleware — uses connect-sqlite3 to persist sessions across server
 // restarts, replacing the default in-memory store which lost sessions on restart.
@@ -179,29 +186,6 @@ const sessionMiddleware = session({
 app.use(sessionMiddleware);
 
 const PORT = process.env.PORT || 5000;
-const RATE_PER_MINUTE = 10;
-const INACTIVITY_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes AFK
-// Max session duration: default 10 min, override via SESSION_MAX_DURATION_MS env var
-const _rawMaxDuration = parseInt(process.env.SESSION_MAX_DURATION_MS || '', 10);
-if (process.env.SESSION_MAX_DURATION_MS && isNaN(_rawMaxDuration)) {
-  console.warn(`Invalid SESSION_MAX_DURATION_MS value "${process.env.SESSION_MAX_DURATION_MS}", using default 600000`);
-}
-const SESSION_MAX_DURATION_MS = (!isNaN(_rawMaxDuration) && _rawMaxDuration > 0) ? _rawMaxDuration : 10 * 60 * 1000;
-// Control command rate limit: max commands per sliding window per socket
-const _rawRateLimit = parseInt(process.env.CONTROL_RATE_LIMIT_MAX || '', 10);
-if (process.env.CONTROL_RATE_LIMIT_MAX && isNaN(_rawRateLimit)) {
-  console.warn(`Invalid CONTROL_RATE_LIMIT_MAX value "${process.env.CONTROL_RATE_LIMIT_MAX}", using default 20`);
-}
-const CONTROL_RATE_LIMIT_MAX = (!isNaN(_rawRateLimit) && _rawRateLimit > 0) ? _rawRateLimit : 20; // per second
-const CONTROL_RATE_LIMIT_WINDOW_MS = 1000;
-
-const CARS = [
-  { id: 1, name: 'Riley-X1 · Алый',    model: 'Drift Car', cameraUrl: process.env.CAR_1_CAMERA_URL || '' },
-  { id: 2, name: 'Riley-X1 · Синий',   model: 'Drift Car', cameraUrl: process.env.CAR_2_CAMERA_URL || '' },
-  { id: 3, name: 'Riley-X1 · Зелёный', model: 'Drift Car', cameraUrl: process.env.CAR_3_CAMERA_URL || '' },
-  { id: 4, name: 'Riley-X1 · Золотой', model: 'Drift Car', cameraUrl: process.env.CAR_4_CAMERA_URL || '' },
-  { id: 5, name: 'Riley-X1 · Чёрный',  model: 'Drift Car', cameraUrl: process.env.CAR_5_CAMERA_URL || '' },
-];
 
 // Serve frontend static files
 const frontendDir = path.join(__dirname, '..', 'frontend');
@@ -1203,27 +1187,8 @@ app.use((req, res) => {
 // ---------------------------------------------------------------------------
 // Global error handler — must be last middleware (4-argument signature)
 // ---------------------------------------------------------------------------
-app.use((err, req, res, _next) => {
-  metrics.log('error', 'unhandled_error', {
-    method: req.method,
-    path: req.path,
-    error: err.message,
-    stack: err.stack,
-    requestId: req.requestId,
-  });
-
-  if (process.env.NODE_ENV === 'production') {
-    return res.status(err.status || 500).json({
-      error: 'Внутренняя ошибка сервера. Попробуйте позже.',
-      requestId: req.requestId,
-    });
-  }
-
-  res.status(err.status || 500).json({
-    error: err.message,
-    requestId: req.requestId,
-  });
-});
+const { errorHandler } = require('./middleware/error-handler');
+app.use(errorHandler(metrics));
 
 const MAX_PORT_RETRIES = 10;
 const BASE_PORT = parseInt(PORT, 10) || 5000;
@@ -1283,7 +1248,12 @@ function gracefulShutdown(signal) {
   // 2. Stop the token cleanup interval
   clearInterval(TOKEN_CLEANUP_INTERVAL);
 
-  // 3. End all active rental sessions (save to DB, process hold/deduct)
+  // 3. Stop the device heartbeat check interval
+  if (socketState && socketState.heartbeatCheckInterval) {
+    clearInterval(socketState.heartbeatCheckInterval);
+  }
+
+  // 4. End all active rental sessions (save to DB, process hold/deduct)
   for (const [sessionId, session] of socketState.activeSessions) {
     try {
       socketState.clearInactivityTimeout(sessionId);
@@ -1326,7 +1296,7 @@ function gracefulShutdown(signal) {
   }
   socketState.activeSessions.clear();
 
-  // 4. Disconnect all sockets
+  // 5. Disconnect all sockets
   try {
     io.close();
     metrics.log('info', 'socketio_closed');
@@ -1334,7 +1304,7 @@ function gracefulShutdown(signal) {
     metrics.log('error', 'socketio_close_error', { error: e.message });
   }
 
-  // 5. Close the database
+  // 6. Close the database
   try {
     db.close();
     metrics.log('info', 'db_closed');
@@ -1344,7 +1314,7 @@ function gracefulShutdown(signal) {
 
   metrics.log('info', 'shutdown_complete', { signal });
 
-  // 6. Force exit after timeout in case something hangs
+  // 7. Force exit after timeout in case something hangs
   setTimeout(() => {
     process.stderr.write('[shutdown] Forced exit after timeout\n');
     process.exit(1);
