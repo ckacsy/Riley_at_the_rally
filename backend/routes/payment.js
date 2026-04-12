@@ -29,6 +29,12 @@ module.exports = function mountPaymentRoutes(app, db, deps) {
     process.env.YOOKASSA_RETURN_URL ||
     (process.env.APP_BASE_URL ? process.env.APP_BASE_URL + '/garage' : 'http://localhost:5000/garage');
 
+  // Cache whether the webhook_events table exists (created by migration 016).
+  // Tables do not disappear at runtime so we only need to check once.
+  const webhookEventsTableExists = !!db.prepare(
+    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='webhook_events' LIMIT 1"
+  ).get();
+
   const VALID_AMOUNTS = [50, 100, 150, 200, 500];
 
   /** Call YooKassa REST API v3. */
@@ -187,9 +193,6 @@ module.exports = function mountPaymentRoutes(app, db, deps) {
         }
 
         // Also check the dedicated webhook_events table (second guard layer)
-        const webhookEventsTableExists = db.prepare(
-          "SELECT 1 FROM sqlite_master WHERE type='table' AND name='webhook_events' LIMIT 1"
-        ).get();
         if (webhookEventsTableExists) {
           const duplicateEvent = db.prepare(
             'SELECT id FROM webhook_events WHERE event_id = ?'
@@ -268,19 +271,14 @@ module.exports = function mountPaymentRoutes(app, db, deps) {
         ).run(eventId, paymentId);
 
         // Record in webhook_events table for comprehensive deduplication tracking
-        if (eventId) {
-          const webhookEventsTableExists = db.prepare(
-            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='webhook_events' LIMIT 1"
-          ).get();
-          if (webhookEventsTableExists) {
-            try {
-              db.prepare(
-                'INSERT INTO webhook_events (event_id, payment_id, event_type) VALUES (?, ?, ?)'
-              ).run(eventId, paymentId, event.event || null);
-            } catch (dupErr) {
-              // Unique constraint — event already recorded, safe to continue
-              console.log('[Payment] webhook_events insert skipped (duplicate):', eventId);
-            }
+        if (eventId && webhookEventsTableExists) {
+          try {
+            db.prepare(
+              'INSERT INTO webhook_events (event_id, payment_id, event_type) VALUES (?, ?, ?)'
+            ).run(eventId, paymentId, event.event || null);
+          } catch (dupErr) {
+            // Unique constraint — event already recorded, safe to continue
+            console.log('[Payment] webhook_events insert skipped (duplicate):', eventId);
           }
         }
 

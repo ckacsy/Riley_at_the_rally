@@ -11,12 +11,4 @@ module.exports = function (db) {
       processed_at TEXT    DEFAULT CURRENT_TIMESTAMP
     )
   `);
-  try {
-    db.exec(
-      'CREATE UNIQUE INDEX IF NOT EXISTS idx_webhook_events_event_id ' +
-      'ON webhook_events(event_id)'
-    );
-  } catch (e) {
-    // Index already created by the CREATE TABLE or already exists — ignore
-  }
 };
