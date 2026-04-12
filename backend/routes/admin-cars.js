@@ -86,7 +86,7 @@ module.exports = function mountAdminCarsRoutes(app, db, deps, extra) {
       const actor = req.user;
       const carId = parseInt(req.params.carId, 10);
 
-      if (!Number.isInteger(carId)) {
+      if (!Number.isInteger(carId) || carId < 1) {
         return res.status(400).json({ error: 'Invalid carId' });
       }
 
@@ -105,6 +105,9 @@ module.exports = function mountAdminCarsRoutes(app, db, deps, extra) {
         const trimmedReason = typeof reason === 'string' ? reason.trim() : '';
         if (!trimmedReason) {
           return res.status(400).json({ error: '`reason` is required when enabling maintenance' });
+        }
+        if (trimmedReason.length > 500) {
+          return res.status(400).json({ error: '`reason` must be at most 500 characters' });
         }
 
         // Reject if car has an active session
