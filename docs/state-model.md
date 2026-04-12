@@ -109,3 +109,20 @@ This document describes every stateful entity in the Riley RC-car rental system:
 | **Recovery behavior** | No action needed on restart; deduplication state is fully persisted in the DB |
 | **TTL / lifetime** | Permanent — kept for the lifetime of the payment order |
 | **Failure mode** | If the webhook arrives twice (retry), the second processing attempt finds the existing `webhook_event_id` and returns early (idempotent); the user is not double-credited |
+
+---
+
+## 10. Admin Authorization
+
+Admin authorization is unified under the **DB-based RBAC system** (`users.role` column).
+
+| Field | Detail |
+|-------|--------|
+| **Source of truth** | `users.role` column in SQLite — values: `user`, `moderator`, `admin` |
+| **Mechanism** | `hasRequiredRole(user.role, allowedRoles)` from `backend/middleware/roles.js`, used by both HTTP routes (`requireRole(...)`) and Socket.IO event handlers (`chat:delete`) |
+| **Deprecated** | `ADMIN_USERNAMES` env var — previously used for socket `chat:delete` moderation. No longer consulted for authorization; retained only for backward compatibility and env-validation warnings |
+| **Failure mode** | Users without a qualifying role receive a `forbidden` error; status checks (must be `active`) are enforced first |
+
+> **Note (Task 6.3):** The `chat:delete` socket handler previously checked `ADMIN_USERNAMES.has(username)`.
+> It now calls `hasRequiredRole(user.role, ['admin', 'moderator'])`, matching the logic of the
+> HTTP `DELETE /api/admin/chat/:id` endpoint. Both paths now use identical authorization.

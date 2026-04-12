@@ -2,7 +2,7 @@
 
 const { performance } = require('perf_hooks');
 const crypto = require('crypto');
-const { getAccessBlockReason } = require('../middleware/roles');
+const { getAccessBlockReason, hasRequiredRole } = require('../middleware/roles');
 const DuelManager = require('../lib/duel-manager');
 const { DUEL_TIMEOUT_MS } = require('../lib/rank-config');
 const { verifyDeviceKey } = require('../lib/device-auth');
@@ -23,7 +23,6 @@ const { HOLD_AMOUNT, HEARTBEAT_STALE_MS, HEARTBEAT_CHECK_INTERVAL_MS } = require
  *   CONTROL_RATE_LIMIT_WINDOW_MS: number,
  *   CARS: Array,
  *   saveRentalSession: Function,
- *   ADMIN_USERNAMES: Set,
  * }} deps
  * @returns {{ activeSessions: Map, raceRooms: Map, presenceMap: Map,
  *             presenceGraceTimers: Map, chatRateLimits: Map,
@@ -46,7 +45,6 @@ function setupSocketIo(io, deps) {
     CONTROL_RATE_LIMIT_WINDOW_MS,
     CARS,
     saveRentalSession,
-    ADMIN_USERNAMES,
   } = deps;
 
   // --- Socket-local data structures ---
@@ -584,8 +582,13 @@ function setupSocketIo(io, deps) {
         socket.emit('chat:error', { code: 'auth_required', message: 'Требуется авторизация' });
         return;
       }
-      const adminUser = db.prepare('SELECT username, status FROM users WHERE id = ?').get(sess.userId);
-      if (!adminUser || adminUser.status !== 'active' || !ADMIN_USERNAMES.has(adminUser.username.toLowerCase())) {
+      const adminUser = db.prepare('SELECT username, status, role FROM users WHERE id = ?').get(sess.userId);
+      if (!adminUser || adminUser.status !== 'active') {
+        socket.emit('chat:error', { code: 'forbidden', message: 'Недостаточно прав' });
+        return;
+      }
+      // Use DB role-based check instead of env-based ADMIN_USERNAMES
+      if (!hasRequiredRole(adminUser.role, ['admin', 'moderator'])) {
         socket.emit('chat:error', { code: 'forbidden', message: 'Недостаточно прав' });
         return;
       }
