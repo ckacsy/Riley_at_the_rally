@@ -31,11 +31,18 @@ parser.add_argument('--server', default='http://localhost:5000',
                     help='Backend server URL')
 parser.add_argument('--stream-port', type=int, default=8000,
                     help='Camera stream port (default: 8000)')
+parser.add_argument('--car-id', type=int, default=None,
+                    help='Car ID for device authentication (or set DEVICE_CAR_ID env var)')
+parser.add_argument('--device-key', default=None,
+                    help='Device key for authentication (or set DEVICE_KEY env var)')
 args = parser.parse_args()
 
+import os
 MOCK = args.mock
 SERVER_URL = args.server
 STREAM_PORT = args.stream_port
+CAR_ID      = args.car_id or int(os.environ.get('DEVICE_CAR_ID', '0') or '0') or None
+DEVICE_KEY  = args.device_key or os.environ.get('DEVICE_KEY') or None
 
 # ---------------------------------------------------------------------------
 # L298N GPIO motor controller
@@ -222,8 +229,33 @@ def start_flask():
 
 import socketio as sio_module
 
+auth_payload = {}
+if CAR_ID is not None and DEVICE_KEY:
+    auth_payload = {'carId': CAR_ID, 'deviceKey': DEVICE_KEY}
+
 sio = sio_module.Client()
 motor = MotorController(mock=MOCK)
+
+# Heartbeat: emit device:heartbeat every 15 seconds while connected.
+_heartbeat_stop = threading.Event()
+
+
+def _heartbeat_loop():
+    """Emit device:heartbeat every 15 seconds while connected."""
+    while not _heartbeat_stop.wait(15):
+        if sio.connected and CAR_ID is not None:
+            try:
+                sio.emit('device:heartbeat', {
+                    'carId': CAR_ID,
+                    'timestamp': time.time(),
+                })
+            except Exception as exc:
+                print(f'[heartbeat] emit error: {exc}')
+
+
+@sio.on('device:heartbeat_ack')
+def on_heartbeat_ack(data):
+    pass  # acknowledgement received — no action needed
 
 
 @sio.on('control_command')
@@ -241,14 +273,26 @@ def on_control_command(data):
           f'steering_angle={steering_angle}')
 
 
+@sio.on('device:kicked')
+def on_device_kicked(data):
+    reason = data.get('reason', 'unknown') if data else 'unknown'
+    print(f'Device kicked by server: {reason}')
+    _heartbeat_stop.set()
+    motor.stop()
+
+
 @sio.on('connect')
 def on_connect():
     print(f'Connected to backend server: {SERVER_URL}')
+    _heartbeat_stop.clear()
+    heartbeat_thread = threading.Thread(target=_heartbeat_loop, daemon=True)
+    heartbeat_thread.start()
 
 
 @sio.on('disconnect')
 def on_disconnect():
     print('Disconnected from backend server — stopping motors')
+    _heartbeat_stop.set()
     motor.stop()
 
 
@@ -256,7 +300,7 @@ def connect_to_server():
     """Connect to backend with automatic reconnection on failure."""
     while True:
         try:
-            sio.connect(SERVER_URL)
+            sio.connect(SERVER_URL, auth=auth_payload)
             sio.wait()
         except Exception as exc:
             print(f'Connection error: {exc}. Retrying in 5 s…')
@@ -269,7 +313,8 @@ def connect_to_server():
 
 if __name__ == '__main__':
     print(f'RC Car controller starting '
-          f'(mock={MOCK}, server={SERVER_URL}, stream_port={STREAM_PORT})')
+          f'(mock={MOCK}, server={SERVER_URL}, stream_port={STREAM_PORT}, '
+          f'car_id={CAR_ID})')
 
     # Flask camera stream in background thread
     flask_thread = threading.Thread(target=start_flask, daemon=True)
@@ -285,4 +330,5 @@ if __name__ == '__main__':
             time.sleep(1)
     except KeyboardInterrupt:
         print('Shutting down…')
+        _heartbeat_stop.set()
         motor.cleanup()

@@ -47,7 +47,7 @@ module.exports = function mountAdminDevicesRoutes(app, db, deps, extra) {
 
   // -------------------------------------------------------------------------
   // GET /api/admin/devices
-  // List all devices, enriched with online status.
+  // List all devices, enriched with online status and stale indicator.
   // -------------------------------------------------------------------------
   app.get(
     '/api/admin/devices',
@@ -56,11 +56,18 @@ module.exports = function mountAdminDevicesRoutes(app, db, deps, extra) {
     (req, res) => {
       const all = getAllDevices(db);
       const deviceSockets = typeof getDeviceSockets === 'function' ? getDeviceSockets() : null;
+      const staleThresholdMs = 45_000;
+      const now = Date.now();
 
-      const devices = all.map((d) => ({
-        ...d,
-        online: deviceSockets ? deviceSockets.has(d.car_id) : false,
-      }));
+      const devices = all.map((d) => {
+        const lastSeenAt = d.last_seen_at ? new Date(d.last_seen_at).getTime() : null;
+        const stale = lastSeenAt !== null ? (now - lastSeenAt) > staleThresholdMs : false;
+        return {
+          ...d,
+          online: deviceSockets ? deviceSockets.has(d.car_id) : false,
+          stale,
+        };
+      });
 
       res.json({ devices });
     }

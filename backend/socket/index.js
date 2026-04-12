@@ -6,6 +6,7 @@ const { getAccessBlockReason } = require('../middleware/roles');
 const DuelManager = require('../lib/duel-manager');
 const { DUEL_TIMEOUT_MS } = require('../lib/rank-config');
 const { verifyDeviceKey } = require('../lib/device-auth');
+const { HOLD_AMOUNT } = require('../config/constants');
 
 /**
  * Set up all Socket.IO logic.
@@ -111,8 +112,6 @@ function setupSocketIo(io, deps) {
 
   /** Minimum balance required to start a session (in RC). */
   const MIN_BALANCE_FOR_SESSION = 100;
-  /** Amount held (blocked) at session start (in RC). */
-  const HOLD_AMOUNT = 100;
 
   /**
    * Finalize balance after a session: release unused hold, record deduct transaction.
@@ -417,6 +416,16 @@ function setupSocketIo(io, deps) {
       metrics.log('info', 'device_connected', {
         deviceId: result.device.id,
         carId: Number(rawCarId),
+      });
+
+      // --- Device heartbeat ---
+      socket.on('device:heartbeat', (_data) => {
+        const carIdNum = Number(rawCarId);
+        const deviceId = result.device.id;
+        db.prepare('UPDATE devices SET last_seen_at = ? WHERE id = ?')
+          .run(new Date().toISOString(), deviceId);
+        socket.emit('device:heartbeat_ack', { ts: new Date().toISOString() });
+        metrics.log('debug', 'device_heartbeat', { deviceId, carId: carIdNum });
       });
 
       socket.on('disconnect', () => {
@@ -748,7 +757,10 @@ function setupSocketIo(io, deps) {
       });
       setInactivityTimeout(socket);
       const t0 = performance.now();
-      socket.broadcast.emit('control_command', data);
+      const session = activeSessions.get(socket.id);
+      if (session) {
+        io.to(`car:${session.carId}`).emit('control_command', data);
+      }
       metrics.recordCommand();
       metrics.recordLatency(socket.id, performance.now() - t0);
     });
@@ -1292,6 +1304,32 @@ function setupSocketIo(io, deps) {
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // Stale device detection: every 30 s, disconnect devices that have not sent
+  // a heartbeat for > 45 s.
+  // ---------------------------------------------------------------------------
+  const HEARTBEAT_STALE_MS = 45_000;
+  const heartbeatCheckInterval = setInterval(() => {
+    const cutoff = new Date(Date.now() - HEARTBEAT_STALE_MS).toISOString();
+    let staleDevices;
+    try {
+      staleDevices = db.prepare(
+        "SELECT id, car_id FROM devices WHERE status = 'active' AND last_seen_at IS NOT NULL AND last_seen_at < ?"
+      ).all(cutoff);
+    } catch (e) {
+      metrics.log('error', 'heartbeat_check_error', { error: e.message });
+      return;
+    }
+    for (const dev of staleDevices) {
+      const sock = deviceSockets.get(Number(dev.car_id));
+      if (sock) {
+        metrics.log('warn', 'device_heartbeat_timeout', { deviceId: dev.id, carId: dev.car_id });
+        sock.disconnect(true);
+        deviceSockets.delete(Number(dev.car_id));
+      }
+    }
+  }, 30_000);
+
   return {
     activeSessions,
     raceRooms,
@@ -1306,6 +1344,7 @@ function setupSocketIo(io, deps) {
     forceEndSession,
     duelManager,
     deviceSockets,
+    heartbeatCheckInterval,
   };
 }
 
