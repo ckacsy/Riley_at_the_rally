@@ -11,7 +11,7 @@ module.exports = function(db) {
       resolved_by INTEGER,
       resolved_at TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id)
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_pending_recovery_user_id ON pending_recovery(user_id)'); } catch(e) {}
