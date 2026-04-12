@@ -366,6 +366,15 @@ test.describe('Duel backend — lap validation and win', () => {
     await pageA.evaluate(() => (window as any).__testSocket.emit('duel:search'));
     await pageB.evaluate(() => (window as any).__testSocket.emit('duel:search'));
 
+    // Diagnostic: check if duel:error was received instead of duel:matched
+    await new Promise(r => setTimeout(r, 2000)); // wait 2s
+    const errorA = await pageA.evaluate(() => (window as any).__socketEventStore['duel:error']);
+    const errorB = await pageB.evaluate(() => (window as any).__socketEventStore['duel:error']);
+    console.log('Player A duel:error:', JSON.stringify(errorA));
+    console.log('Player B duel:error:', JSON.stringify(errorB));
+    console.log('Player A all events:', await pageA.evaluate(() => Object.keys((window as any).__socketEventStore)));
+    console.log('Player B all events:', await pageB.evaluate(() => Object.keys((window as any).__socketEventStore)));
+
     await waitForSocketEvent(pageA, 'duel:matched');
     await waitForSocketEvent(pageB, 'duel:matched');
 
