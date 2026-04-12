@@ -523,7 +523,7 @@ db.exec(`
 
 // --- File uploads (avatars) ---
 const { upload, uploadsDir } = require('./middleware/upload');
-app.use('/uploads', express.static(uploadsDir));
+app.use('/uploads', express.static(uploadsDir, { dotfiles: 'deny', index: false, redirect: false }));
 
 // --- CSRF helpers ---
 function generateCsrfToken() {

@@ -7,7 +7,7 @@ const bcrypt = require('bcryptjs');
 const { createRateLimiter } = require('../middleware/rateLimiter');
 const mailer = require('../mailer');
 const metrics = require('../metrics');
-const { upload, uploadsDir } = require('../middleware/upload');
+const { upload, uploadsDir, validateMagicBytes } = require('../middleware/upload');
 const { hasRequiredRole, getAccessBlockReason } = require('../middleware/roles');
 const {
   validateUsername,
@@ -650,7 +650,7 @@ module.exports = function mountAuthRoutes(app, db, deps) {
     });
   });
 
-  app.post('/api/profile/avatar', requireAuth, avatarUploadLimiter, csrfMiddleware, upload.single('avatar'), (req, res) => {
+  app.post('/api/profile/avatar', requireAuth, avatarUploadLimiter, csrfMiddleware, upload.single('avatar'), validateMagicBytes, (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'Файл не загружен или неверный формат' });
     const avatarPath = '/uploads/' + req.file.filename;
     const existing = db.prepare('SELECT avatar_path FROM users WHERE id = ?').get(req.session.userId);
