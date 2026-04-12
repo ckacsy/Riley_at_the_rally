@@ -303,15 +303,16 @@
             ? marked.parse(markdown)
             : '<p>' + AdminUi.esc(markdown) + '</p>';
 
-        var safeHtml = (typeof DOMPurify !== 'undefined')
-            ? DOMPurify.sanitize(rawHtml, {
+        if (typeof DOMPurify !== 'undefined') {
+            previewPane.innerHTML = DOMPurify.sanitize(rawHtml, {
                 ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li',
                                'blockquote', 'code', 'pre', 'h2', 'h3', 'a'],
                 ALLOWED_ATTR: ['href', 'title', 'rel', 'target'],
-            })
-            : rawHtml;
-
-        previewPane.innerHTML = safeHtml;
+            });
+        } else {
+            // DOMPurify not available — show plain text to avoid XSS
+            previewPane.textContent = markdown;
+        }
         previewPane.hidden = false;
         btnTogglePreview.textContent = '✕ Скрыть предпросмотр';
     }

@@ -687,8 +687,13 @@
 
         socket.on('race_updated', function (data) {
             if (data.raceId !== currentRaceId) return;
-            document.getElementById('race-status-bar').innerHTML =
-                '🏎 <strong>' + data.raceName + '</strong> — ' + data.players.length + ' участник(ов)';
+            var bar = document.getElementById('race-status-bar');
+            bar.textContent = '';
+            bar.appendChild(document.createTextNode('🏎 '));
+            var strong = document.createElement('strong');
+            strong.textContent = data.raceName;
+            bar.appendChild(strong);
+            bar.appendChild(document.createTextNode(' — ' + data.players.length + ' участник(ов)'));
             renderPositions(data.players);
         });
 

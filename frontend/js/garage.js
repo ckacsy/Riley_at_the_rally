@@ -421,7 +421,12 @@
                 if (profileEl) profileEl.textContent = currentUser.username;
                 if (avatarEl) {
                     if (currentUser.avatar_path) {
-                        avatarEl.innerHTML = '<img src="' + currentUser.avatar_path + '" alt="\u0410\u0432\u0430\u0442\u0430\u0440" style="width:36px;height:36px;border-radius:50%;object-fit:cover;">';
+                        var img = document.createElement('img');
+                        img.src = currentUser.avatar_path;
+                        img.alt = '\u0410\u0432\u0430\u0442\u0430\u0440';
+                        img.style.cssText = 'width:36px;height:36px;border-radius:50%;object-fit:cover;';
+                        avatarEl.innerHTML = '';
+                        avatarEl.appendChild(img);
                     } else {
                         avatarEl.innerHTML = '&#x1F464;';
                     }
@@ -562,10 +567,18 @@
                         var lapTimeStr = (ms / 1000).toFixed(3);
                         var el  = document.createElement('div');
                         el.className = 'lb-row';
-                        el.innerHTML =
-                            '<span class="lb-rank">' + (i + 1) + '</span>' +
-                            '<span class="lb-name">' + (row.userId || '\u2014') + '</span>' +
-                            '<span class="lb-time">' + lapTimeStr + '\u0441</span>';
+                        var rankSpan = document.createElement('span');
+                        rankSpan.className = 'lb-rank';
+                        rankSpan.textContent = i + 1;
+                        var nameSpan = document.createElement('span');
+                        nameSpan.className = 'lb-name';
+                        nameSpan.textContent = row.userId || '\u2014';
+                        var timeSpan = document.createElement('span');
+                        timeSpan.className = 'lb-time';
+                        timeSpan.textContent = lapTimeStr + '\u0441';
+                        el.appendChild(rankSpan);
+                        el.appendChild(nameSpan);
+                        el.appendChild(timeSpan);
                         container.appendChild(el);
                     });
                 })
