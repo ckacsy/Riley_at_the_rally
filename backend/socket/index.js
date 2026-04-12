@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const { getAccessBlockReason } = require('../middleware/roles');
 const DuelManager = require('../lib/duel-manager');
 const { DUEL_TIMEOUT_MS } = require('../lib/rank-config');
+const { verifyDeviceKey } = require('../lib/device-auth');
 
 /**
  * Set up all Socket.IO logic.
@@ -29,7 +30,8 @@ const { DUEL_TIMEOUT_MS } = require('../lib/rank-config');
  *             clearInactivityTimeout: Function,
  *             clearSessionDurationTimeout: Function,
  *             broadcastCarsUpdate: Function,
- *             processHoldDeduct: Function }}
+ *             processHoldDeduct: Function,
+ *             deviceSockets: Map }}
  */
 function setupSocketIo(io, deps) {
   const {
@@ -55,6 +57,10 @@ function setupSocketIo(io, deps) {
   const sessionDurationTimeouts = new Map();
   // Control-command rate-limit counters (keyed by socket.id)
   const controlCommandCounters = new Map(); // socketId -> { count, windowStart }
+
+  // --- Device tracking ---
+  // deviceSockets: carId (number) -> socket
+  const deviceSockets = new Map();
 
   // --- Driver Presence ---
   // presenceMap keyed by userId (dbUserId integer) -> presence entry
@@ -369,6 +375,62 @@ function setupSocketIo(io, deps) {
   // --- Socket.IO connection handler ---
   io.on('connection', (socket) => {
     metrics.log('debug', 'socket_connect', { socketId: socket.id });
+
+    // --- Device authentication ---
+    // If the connecting socket provides carId + deviceKey it is an RC device,
+    // not a browser user. Handle it separately and return early.
+    const { carId: rawCarId, deviceKey } = socket.handshake.auth || {};
+    if (rawCarId != null && deviceKey) {
+      const result = verifyDeviceKey(db, Number(rawCarId), String(deviceKey));
+      if (!result.valid) {
+        metrics.log('warn', 'device_auth_fail', {
+          carId: rawCarId,
+          reason: result.reason,
+          ip: socket.handshake.address,
+        });
+        socket.emit('device:auth_error', { reason: result.reason });
+        socket.disconnect(true);
+        return;
+      }
+
+      // Successful device auth
+      socket.data.isDevice = true;
+      socket.data.deviceId = result.device.id;
+      socket.data.carId = Number(rawCarId);
+      socket.join(`car:${rawCarId}`);
+
+      // Kick any previously connected socket for this car
+      const existing = deviceSockets.get(Number(rawCarId));
+      if (existing && existing.id !== socket.id) {
+        existing.emit('device:kicked', { reason: 'new_connection' });
+        existing.disconnect(true);
+      }
+
+      deviceSockets.set(Number(rawCarId), socket);
+
+      // Update last_seen_at
+      db.prepare('UPDATE devices SET last_seen_at = ? WHERE id = ?')
+        .run(new Date().toISOString(), result.device.id);
+
+      socket.emit('device:auth_ok', { deviceId: result.device.id, carId: Number(rawCarId) });
+
+      metrics.log('info', 'device_connected', {
+        deviceId: result.device.id,
+        carId: Number(rawCarId),
+      });
+
+      socket.on('disconnect', () => {
+        if (deviceSockets.get(Number(rawCarId))?.id === socket.id) {
+          deviceSockets.delete(Number(rawCarId));
+        }
+        metrics.log('info', 'device_disconnected', {
+          deviceId: result.device.id,
+          carId: Number(rawCarId),
+        });
+      });
+
+      return; // Don't execute user logic for device sockets
+    }
 
     // Send chat history to newly connected clients
     socket.emit('chat:history', getChatHistory());
@@ -1243,6 +1305,7 @@ function setupSocketIo(io, deps) {
     processHoldDeduct,
     forceEndSession,
     duelManager,
+    deviceSockets,
   };
 }
 

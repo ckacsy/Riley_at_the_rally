@@ -310,6 +310,12 @@ mountAdminAnalyticsRoutes(app, db, adminRouteDeps);
 const mountAdminCarsRoutes = require('./routes/admin-cars');
 mountAdminCarsRoutes(app, db, adminRouteDeps, { CARS });
 
+const mountAdminDevicesRoutes = require('./routes/admin-devices');
+mountAdminDevicesRoutes(app, db, adminRouteDeps, {
+  CARS,
+  getDeviceSockets: () => socketState && socketState.deviceSockets,
+});
+
 const mountAdminInvestigationRoutes = require('./routes/admin-investigation');
 mountAdminInvestigationRoutes(app, db, adminRouteDeps);
 
