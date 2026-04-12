@@ -62,6 +62,12 @@ const CARS = [
   { id: 5, name: 'Riley-X1 · Чёрный',  model: 'Drift Car', cameraUrl: process.env.CAR_5_CAMERA_URL || '' },
 ];
 
+/** Device heartbeat stale threshold (ms) — device is considered stale after this. */
+const HEARTBEAT_STALE_MS = 45_000;
+
+/** Interval (ms) for the server-side stale-device detection check. */
+const HEARTBEAT_CHECK_INTERVAL_MS = 30_000;
+
 module.exports = {
   RATE_PER_MINUTE,
   HOLD_AMOUNT,
@@ -70,4 +76,6 @@ module.exports = {
   CONTROL_RATE_LIMIT_MAX,
   CONTROL_RATE_LIMIT_WINDOW_MS,
   CARS,
+  HEARTBEAT_STALE_MS,
+  HEARTBEAT_CHECK_INTERVAL_MS,
 };

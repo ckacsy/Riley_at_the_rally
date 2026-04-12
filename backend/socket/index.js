@@ -6,7 +6,7 @@ const { getAccessBlockReason } = require('../middleware/roles');
 const DuelManager = require('../lib/duel-manager');
 const { DUEL_TIMEOUT_MS } = require('../lib/rank-config');
 const { verifyDeviceKey } = require('../lib/device-auth');
-const { HOLD_AMOUNT } = require('../config/constants');
+const { HOLD_AMOUNT, HEARTBEAT_STALE_MS, HEARTBEAT_CHECK_INTERVAL_MS } = require('../config/constants');
 
 /**
  * Set up all Socket.IO logic.
@@ -1305,10 +1305,9 @@ function setupSocketIo(io, deps) {
   }
 
   // ---------------------------------------------------------------------------
-  // Stale device detection: every 30 s, disconnect devices that have not sent
-  // a heartbeat for > 45 s.
+  // Stale device detection: every HEARTBEAT_CHECK_INTERVAL_MS, disconnect
+  // devices that have not sent a heartbeat for > HEARTBEAT_STALE_MS.
   // ---------------------------------------------------------------------------
-  const HEARTBEAT_STALE_MS = 45_000;
   const heartbeatCheckInterval = setInterval(() => {
     const cutoff = new Date(Date.now() - HEARTBEAT_STALE_MS).toISOString();
     let staleDevices;
@@ -1328,7 +1327,7 @@ function setupSocketIo(io, deps) {
         deviceSockets.delete(Number(dev.car_id));
       }
     }
-  }, 30_000);
+  }, HEARTBEAT_CHECK_INTERVAL_MS);
 
   return {
     activeSessions,

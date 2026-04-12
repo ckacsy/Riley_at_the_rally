@@ -9,6 +9,7 @@ const {
   regenerateKey,
   getAllDevices,
 } = require('../lib/device-auth');
+const { HEARTBEAT_STALE_MS } = require('../config/constants');
 
 /**
  * Mount admin device-management routes.
@@ -56,12 +57,11 @@ module.exports = function mountAdminDevicesRoutes(app, db, deps, extra) {
     (req, res) => {
       const all = getAllDevices(db);
       const deviceSockets = typeof getDeviceSockets === 'function' ? getDeviceSockets() : null;
-      const staleThresholdMs = 45_000;
       const now = Date.now();
 
       const devices = all.map((d) => {
         const lastSeenAt = d.last_seen_at ? new Date(d.last_seen_at).getTime() : null;
-        const stale = lastSeenAt !== null ? (now - lastSeenAt) > staleThresholdMs : false;
+        const stale = lastSeenAt !== null ? (now - lastSeenAt) > HEARTBEAT_STALE_MS : false;
         return {
           ...d,
           online: deviceSockets ? deviceSockets.has(d.car_id) : false,

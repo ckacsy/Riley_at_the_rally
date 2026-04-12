@@ -238,6 +238,7 @@ motor = MotorController(mock=MOCK)
 
 # Heartbeat: emit device:heartbeat every 15 seconds while connected.
 _heartbeat_stop = threading.Event()
+_heartbeat_thread = None
 
 
 def _heartbeat_loop():
@@ -283,10 +284,15 @@ def on_device_kicked(data):
 
 @sio.on('connect')
 def on_connect():
+    global _heartbeat_thread
     print(f'Connected to backend server: {SERVER_URL}')
+    # Stop any existing heartbeat thread before starting a new one.
+    _heartbeat_stop.set()
+    if _heartbeat_thread is not None:
+        _heartbeat_thread.join(timeout=1)
     _heartbeat_stop.clear()
-    heartbeat_thread = threading.Thread(target=_heartbeat_loop, daemon=True)
-    heartbeat_thread.start()
+    _heartbeat_thread = threading.Thread(target=_heartbeat_loop, daemon=True)
+    _heartbeat_thread.start()
 
 
 @sio.on('disconnect')
