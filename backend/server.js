@@ -545,9 +545,12 @@ db.exec(`
   try {
     db.prepare('SELECT webhook_event_id FROM payment_orders LIMIT 0').get();
   } catch (_) {
-    db.prepare('ALTER TABLE payment_orders ADD COLUMN webhook_event_id TEXT UNIQUE').run();
+    db.prepare('ALTER TABLE payment_orders ADD COLUMN webhook_event_id TEXT').run();
     console.log('[DB] Added webhook_event_id column to payment_orders');
   }
+  try {
+    db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_payment_orders_webhook_event ON payment_orders(webhook_event_id)');
+  } catch (e) { /* index already exists */ }
 })();
 
 // --- File uploads (avatars) ---
