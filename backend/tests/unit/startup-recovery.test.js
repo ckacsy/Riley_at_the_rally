@@ -226,7 +226,7 @@ describe('startupRecovery', () => {
       // Insert a session that has no duration_seconds but was created just now
       db.prepare(
         `INSERT INTO rental_sessions (user_id, car_id, car_name, duration_seconds, cost, created_at)
-         VALUES (?, 1, 'Test Car', NULL, NULL, datetime('now', '-1 minutes'))`
+         VALUES (?, 1, 'Test Car', NULL, NULL, datetime('now', '-1 minute'))`
       ).run(userId);
 
       startupRecovery(db, metrics);
