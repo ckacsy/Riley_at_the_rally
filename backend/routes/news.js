@@ -265,7 +265,12 @@ module.exports = function mountNewsRoutes(app, db, deps) {
       }
 
       // Render and sanitize markdown
-      const bodyHtml = renderMarkdown(bodyMarkdown);
+      let bodyHtml;
+      try {
+        bodyHtml = renderMarkdown(bodyMarkdown);
+      } catch (e) {
+        return res.status(400).json({ error: 'Ошибка обработки markdown.' });
+      }
 
       // If publishing now and no published_at set it
       const publishedAt = (status === 'published') ? new Date().toISOString() : null;
@@ -343,7 +348,11 @@ module.exports = function mountNewsRoutes(app, db, deps) {
       if (body.body_markdown !== undefined) {
         const newMarkdown = String(body.body_markdown).trim();
         updates.body_markdown = newMarkdown;
-        updates.body_html = renderMarkdown(newMarkdown);
+        try {
+          updates.body_html = renderMarkdown(newMarkdown);
+        } catch (e) {
+          return res.status(400).json({ error: 'Ошибка обработки markdown.' });
+        }
       }
 
       // Auto-set published_at when transitioning to published

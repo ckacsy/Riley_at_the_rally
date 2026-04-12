@@ -762,7 +762,8 @@ app.get('/api/health', healthLimiter, async (req, res) => {
     health.details.db = { ok: true };
   } catch (e) {
     health.ok = false;
-    health.details.db = { ok: false, error: e.message };
+    metrics.log('error', 'health_check_db', { error: e.message });
+    health.details.db = { ok: false };
   }
 
   // Socket subsystem check
@@ -770,7 +771,8 @@ app.get('/api/health', healthLimiter, async (req, res) => {
     health.details.socket = { ok: true, connectedClients: io.engine.clientsCount };
   } catch (e) {
     health.ok = false;
-    health.details.socket = { ok: false, error: e.message };
+    metrics.log('error', 'health_check_socket', { error: e.message });
+    health.details.socket = { ok: false };
   }
 
   // Active driver presence count
@@ -801,7 +803,8 @@ app.get('/api/health', healthLimiter, async (req, res) => {
       health.details.camera = { ok: true };
     } catch (e) {
       // Camera is optional — report but do not fail overall health
-      health.details.camera = { ok: false, error: e.message };
+      metrics.log('warn', 'health_check_camera', { error: e.message });
+      health.details.camera = { ok: false };
     }
   }
 
@@ -1190,7 +1193,7 @@ if (process.env.NODE_ENV !== 'production') {
       res.json({ success: true, message: 'Database reset: all users, sessions and tokens deleted.' });
     } catch (e) {
       console.error('Dev reset error:', e.message);
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: 'Внутренняя ошибка сервера.' });
     }
   });
 
@@ -1404,7 +1407,8 @@ if (process.env.NODE_ENV !== 'production') {
       ).run(userId, checkinDate, cycleDay, streakCount, rewardAmount);
       res.json({ success: true });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error('[DEV] set-daily-checkin error:', err.message);
+      res.status(500).json({ error: 'Внутренняя ошибка сервера.' });
     }
   });
   // Dev helper: set a user's rank state (rank, stars, is_legend, legend_position).
@@ -1456,6 +1460,38 @@ if (process.env.NODE_ENV !== 'production') {
     res.json({ success: true });
   });
 }
+
+// ---------------------------------------------------------------------------
+// 404 handler — must be after all routes
+// ---------------------------------------------------------------------------
+app.use((req, res) => {
+  res.status(404).json({ error: 'Не найдено.' });
+});
+
+// ---------------------------------------------------------------------------
+// Global error handler — must be last middleware (4-argument signature)
+// ---------------------------------------------------------------------------
+app.use((err, req, res, _next) => {
+  metrics.log('error', 'unhandled_error', {
+    method: req.method,
+    path: req.path,
+    error: err.message,
+    stack: err.stack,
+    requestId: req.requestId,
+  });
+
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(err.status || 500).json({
+      error: 'Внутренняя ошибка сервера. Попробуйте позже.',
+      requestId: req.requestId,
+    });
+  }
+
+  res.status(err.status || 500).json({
+    error: err.message,
+    requestId: req.requestId,
+  });
+});
 
 const MAX_PORT_RETRIES = 10;
 const BASE_PORT = parseInt(PORT, 10) || 5000;
