@@ -350,6 +350,10 @@ const ADMIN_USERNAMES = new Set(
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean)
 );
+// NOTE: ADMIN_USERNAMES is kept for backward compatibility and env validation
+// (config/validate-env.js warns when it is absent in production).
+// It is NO LONGER used for runtime authorization — admin auth is now unified
+// under the DB-based RBAC system (users.role column).
 
 // ---------------------------------------------------------------------------
 // Periodic cleanup of expired tokens and stale data
@@ -436,7 +440,7 @@ const socketState = setupSocketIo(io, {
   CONTROL_RATE_LIMIT_WINDOW_MS,
   CARS,
   saveRentalSession,
-  ADMIN_USERNAMES,
+  // ADMIN_USERNAMES removed — chat:delete now uses DB role check
 });
 
 // Expose session state and constants for admin-sessions route (lazy access)
