@@ -105,26 +105,51 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
+      // unsafe-inline is required: frontend HTML pages contain inline <script> blocks
       scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+      // unsafe-inline is required: extensive use of inline styles across frontend pages
       styleSrc: ["'self'", "'unsafe-inline'"],
+      // '*' retained for camera stream img sources embedded from car hardware URLs
       imgSrc: ["'self'", "data:", "blob:", "*"],
       mediaSrc: ["'self'", "*"],
+      // ws:/wss: required for Socket.IO WebSocket connections
       connectSrc: ["'self'", "ws:", "wss:"],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
       frameSrc: ["'none'"],
+      // Prevents this page from being embedded in iframes (clickjacking protection)
+      frameAncestors: ["'none'"],
       baseUri: ["'self'"],
       formAction: ["'self'"],
     },
   },
+  // HSTS: enforce HTTPS for 1 year, include subdomains, allow preload list submission
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true,
+  },
+  // Limit referrer information sent on cross-origin navigations
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
   crossOriginEmbedderPolicy: false, // Breaks camera stream embedding
 }));
 
 // Restrict browser features the app doesn't use
 app.use((req, res, next) => {
-  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
   next();
 });
+
+// Redirect HTTP → HTTPS in production when behind a trusted proxy.
+// Relies on the X-Forwarded-Proto header set by the reverse proxy.
+if (process.env.NODE_ENV === 'production' && process.env.TRUST_PROXY) {
+  app.use((req, res, next) => {
+    if (req.headers['x-forwarded-proto'] && req.headers['x-forwarded-proto'] !== 'https') {
+      return res.redirect(301, `https://${req.headers.host}${req.url}`);
+    }
+    next();
+  });
+}
 
 app.use((req, res, next) => {
   const requestId = crypto.randomUUID();
@@ -528,6 +553,20 @@ db.exec(`
 // --- File uploads (avatars) ---
 const { upload, uploadsDir } = require('./middleware/upload');
 app.use('/uploads', express.static(uploadsDir, { dotfiles: 'deny', index: false, redirect: false }));
+
+// Prevent caching of sensitive API responses (auth, admin, payment).
+// Applied before route handlers so every response from these paths carries
+// the header regardless of the individual route handler.
+app.use((req, res, next) => {
+  if (
+    req.path.startsWith('/api/auth') ||
+    req.path.startsWith('/api/admin') ||
+    req.path.startsWith('/api/payment')
+  ) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  }
+  next();
+});
 
 // --- CSRF helpers ---
 function generateCsrfToken() {
@@ -936,6 +975,10 @@ app.get('/api/config/video', (req, res) => {
 });
 
 // End session via HTTP (used by navigator.sendBeacon on page unload)
+// CSRF audit note: csrfMiddleware intentionally omitted — navigator.sendBeacon()
+// does not support custom request headers and cannot transmit a CSRF token.
+// The endpoint is protected by session authentication (reqUserId check below)
+// and requires the caller to supply the correct sessionId owned by that user.
 app.post('/api/session/end', (req, res) => {
   const { sessionId } = req.body || {};
   if (!sessionId || typeof sessionId !== 'string') {
