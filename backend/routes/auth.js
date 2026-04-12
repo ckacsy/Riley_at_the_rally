@@ -161,21 +161,12 @@ module.exports = function mountAuthRoutes(app, db, deps) {
       const sessionsDbPath = path.join(__dirname, '..', 'sessions.sqlite');
       if (!fs.existsSync(sessionsDbPath)) return;
       const Database = require('better-sqlite3');
-      const sessDb = new Database(sessionsDbPath);
+      const sessDb = new Database(sessionsDbPath, { timeout: 5000 });
       // connect-sqlite3 stores session data as JSON string in `sess` column
-      // The JSON contains {"userId": <number>, ...}
-      // We use exact match on the parsed userId field
-      const rows = sessDb.prepare('SELECT sid, sess FROM sessions').all();
-      for (const row of rows) {
-        try {
-          const data = JSON.parse(row.sess);
-          if (data && data.userId === userId) {
-            sessDb.prepare('DELETE FROM sessions WHERE sid = ?').run(row.sid);
-          }
-        } catch (_) {
-          // Skip malformed session data
-        }
-      }
+      // Use SQLite's json_extract to filter at the database level for efficiency
+      sessDb.prepare(
+        "DELETE FROM sessions WHERE json_extract(sess, '$.userId') = ?"
+      ).run(userId);
       sessDb.close();
     } catch (e) {
       console.error('[Session] Failed to invalidate sessions for user', userId, ':', e.message);
