@@ -3,7 +3,7 @@
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 const { createRateLimiter } = require('../middleware/rateLimiter');
 const mailer = require('../mailer');
 const metrics = require('../metrics');

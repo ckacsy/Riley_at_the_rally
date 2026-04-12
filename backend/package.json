@@ -12,7 +12,7 @@
     "lint:fix": "eslint . --fix"
   },
   "dependencies": {
-    "bcryptjs": "^3.0.3",
+    "bcrypt": "^6.0.0",
     "better-sqlite3": "^12.8.0",
     "connect-sqlite3": "^0.9.16",
     "cors": "^2.8.6",
