@@ -29,6 +29,12 @@ module.exports = function mountPaymentRoutes(app, db, deps) {
     process.env.YOOKASSA_RETURN_URL ||
     (process.env.APP_BASE_URL ? process.env.APP_BASE_URL + '/garage' : 'http://localhost:5000/garage');
 
+  // Cache whether the webhook_events table exists (created by migration 016).
+  // Tables do not disappear at runtime so we only need to check once.
+  const webhookEventsTableExists = !!db.prepare(
+    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='webhook_events' LIMIT 1"
+  ).get();
+
   const VALID_AMOUNTS = [50, 100, 150, 200, 500];
 
   /** Call YooKassa REST API v3. */
@@ -172,18 +178,29 @@ module.exports = function mountPaymentRoutes(app, db, deps) {
 
       // Already processed or unknown payment — acknowledge silently
       if (!order || order.status === 'succeeded') {
-        console.log('[Payment] Webhook ignored — order not found or already succeeded for paymentId:', paymentId);
+        console.log('[Payment] Webhook dedup hit — order not found or already succeeded for paymentId:', paymentId);
         return res.sendStatus(200);
       }
 
-      // 2. Deduplicate by webhook_event_id (if provided)
+      // 2. Deduplicate by webhook_event_id (if provided) — check both payment_orders AND webhook_events table
       if (eventId) {
-        const duplicate = db.prepare(
+        const duplicateOrder = db.prepare(
           'SELECT id FROM payment_orders WHERE webhook_event_id = ?'
         ).get(eventId);
-        if (duplicate) {
-          console.log('[Payment] Duplicate webhook event_id ignored:', eventId);
+        if (duplicateOrder) {
+          console.log('[Payment] Webhook dedup hit (payment_orders) — duplicate event_id ignored:', eventId);
           return res.sendStatus(200);
+        }
+
+        // Also check the dedicated webhook_events table (second guard layer)
+        if (webhookEventsTableExists) {
+          const duplicateEvent = db.prepare(
+            'SELECT id FROM webhook_events WHERE event_id = ?'
+          ).get(eventId);
+          if (duplicateEvent) {
+            console.log('[Payment] Webhook dedup hit (webhook_events) — duplicate event_id ignored:', eventId);
+            return res.sendStatus(200);
+          }
         }
       }
 
@@ -252,6 +269,18 @@ module.exports = function mountPaymentRoutes(app, db, deps) {
         db.prepare(
           "UPDATE payment_orders SET status = 'succeeded', webhook_event_id = ?, updated_at = CURRENT_TIMESTAMP WHERE yookassa_payment_id = ?"
         ).run(eventId, paymentId);
+
+        // Record in webhook_events table for comprehensive deduplication tracking
+        if (eventId && webhookEventsTableExists) {
+          try {
+            db.prepare(
+              'INSERT INTO webhook_events (event_id, payment_id, event_type) VALUES (?, ?, ?)'
+            ).run(eventId, paymentId, 'payment.succeeded');
+          } catch (dupErr) {
+            // Unique constraint — event already recorded, safe to continue
+            console.log('[Payment] webhook_events insert skipped (duplicate):', eventId);
+          }
+        }
 
         db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(order.amount, order.user_id);
         const row = db.prepare('SELECT balance FROM users WHERE id = ?').get(order.user_id);

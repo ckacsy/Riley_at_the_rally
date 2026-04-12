@@ -123,6 +123,17 @@ function setupSocketIo(io, deps) {
     const ref = sessionRef || null;
     try {
       db.transaction(() => {
+        // Idempotency guard: if a deduct already exists for this reference, skip entirely.
+        if (ref) {
+          const existingDeduct = db.prepare(
+            "SELECT 1 FROM transactions WHERE reference_id = ? AND type = 'deduct' LIMIT 1"
+          ).get(ref);
+          if (existingDeduct) {
+            console.warn('[Balance] processHoldDeduct: deduct already recorded for ref:', ref, '— skipping (idempotent)');
+            return;
+          }
+        }
+
         const releaseAmount = holdAmount - actualCost;
         if (releaseAmount > 0) {
           db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(releaseAmount, dbUserId);
@@ -145,7 +156,11 @@ function setupSocketIo(io, deps) {
         ).run(dbUserId, -actualCost, rowAfter ? rowAfter.balance : 0, `Аренда: ${carName}, ${mins}м ${secs}с`, ref);
       })();
     } catch (e) {
-      console.error('[Balance] processHoldDeduct error:', e);
+      if (e.code === 'SQLITE_CONSTRAINT_UNIQUE' || (e.message && e.message.includes('UNIQUE constraint'))) {
+        console.warn('[Balance] processHoldDeduct: duplicate transaction blocked by constraint for ref:', ref);
+      } else {
+        console.error('[Balance] processHoldDeduct error:', e);
+      }
     }
   }
 
@@ -439,6 +454,53 @@ function setupSocketIo(io, deps) {
       });
 
       return; // Don't execute user logic for device sockets
+    }
+
+    // --- Reconnect adoption: if this user already has an active session on a
+    //     different socket, migrate it to the new socket without creating a new
+    //     hold transaction.
+    const reconnectSess = socket.request.session;
+    const reconnectUserId = reconnectSess && reconnectSess.userId;
+    if (reconnectUserId) {
+      let existingSocketId = null;
+      let existingSession = null;
+      for (const [sid, session] of activeSessions) {
+        if (session.dbUserId === reconnectUserId && sid !== socket.id) {
+          existingSocketId = sid;
+          existingSession = session;
+          break;
+        }
+      }
+      if (existingSocketId && existingSession) {
+        // Transfer session ownership to the new socket
+        activeSessions.delete(existingSocketId);
+        activeSessions.set(socket.id, existingSession);
+
+        // Clear timers on the old socket and start fresh ones on the new socket
+        clearInactivityTimeout(existingSocketId);
+        clearSessionDurationTimeout(existingSocketId);
+        controlCommandCounters.delete(existingSocketId);
+
+        setInactivityTimeout(socket);
+        setSessionDurationTimeout(socket);
+
+        socket.emit('session_resumed', {
+          carId: existingSession.carId,
+          sessionId: socket.id,
+          sessionRef: existingSession.sessionRef,
+          sessionMaxDurationMs: SESSION_MAX_DURATION_MS,
+          inactivityTimeoutMs: INACTIVITY_TIMEOUT_MS,
+          cameraUrl: CARS.find((c) => c.id === existingSession.carId)?.cameraUrl || '',
+        });
+
+        metrics.log('info', 'session_reconnect', {
+          userId: existingSession.userId,
+          dbUserId: reconnectUserId,
+          oldSocketId: existingSocketId,
+          newSocketId: socket.id,
+          carId: existingSession.carId,
+        });
+      }
     }
 
     // Send chat history to newly connected clients
@@ -770,7 +832,7 @@ function setupSocketIo(io, deps) {
       clearSessionDurationTimeout(socket.id);
       const session = activeSessions.get(socket.id);
       if (!session) {
-        socket.emit('session_error', { message: 'Активная сессия не найдена.' });
+        socket.emit('session_error', { message: 'Активная сессия не найдена.', code: 'no_active_session' });
         return;
       }
       const endTime = new Date();
@@ -779,6 +841,7 @@ function setupSocketIo(io, deps) {
       const durationMinutes = durationMs / 60000;
       const cost = durationMinutes * RATE_PER_MINUTE;
       activeSessions.delete(socket.id);
+      controlCommandCounters.delete(socket.id);
       saveRentalSession(session.dbUserId, session.carId, durationSeconds, cost, session.sessionRef, 'user_end');
       processHoldDeduct(session.dbUserId, session.holdAmount, cost, session.carId, durationSeconds, session.sessionRef);
       socket.emit('session_ended', { carId: session.carId, durationSeconds, cost });
