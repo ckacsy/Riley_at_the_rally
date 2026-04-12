@@ -8,6 +8,12 @@
     "dev": "nodemon server.js",
     "test:e2e": "playwright test",
     "test:unit": "node --test tests/unit/rank-system.test.js tests/unit/duel-manager.test.js tests/unit/migrations.test.js tests/unit/validate-env.test.js tests/unit/connection.test.js",
+    "pm2:start": "pm2 start ecosystem.config.js",
+    "pm2:stop": "pm2 stop ecosystem.config.js",
+    "pm2:restart": "pm2 restart ecosystem.config.js",
+    "pm2:reload": "pm2 reload ecosystem.config.js",
+    "pm2:logs": "pm2 logs riley-backend",
+    "pm2:monit": "pm2 monit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },
@@ -33,6 +39,7 @@
     "@playwright/test": "^1.58.2",
     "eslint": "^9.39.4",
     "jsdom": "^29.0.1",
-    "nodemon": "^2.0.20"
+    "nodemon": "^2.0.20",
+    "pm2": "^6.0.0"
   }
 }

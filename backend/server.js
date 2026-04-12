@@ -1206,6 +1206,11 @@ function startServer(port, attempt) {
     }
 
     mailer.verifyConnection();
+
+    // Signal PM2 that the app is ready to accept connections
+    if (typeof process.send === 'function') {
+      process.send('ready');
+    }
   });
 
   server.once('error', (err) => {
@@ -1322,6 +1327,13 @@ function gracefulShutdown(signal) {
 
   process.exit(0);
 }
+
+// PM2 graceful shutdown message
+process.on('message', (msg) => {
+  if (msg === 'shutdown') {
+    gracefulShutdown('PM2_SHUTDOWN');
+  }
+});
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
