@@ -57,6 +57,9 @@ module.exports = function mountAuthRoutes(app, db, deps) {
 
   const usernameChangeLimiter = createRateLimiter({ windowMs: 60 * 60 * 1000, max: 3, message: 'Слишком много попыток смены имени. Попробуйте через час.' });
 
+  // Precomputed dummy hash used for constant-time comparison when user is not found
+  const DUMMY_HASH = '$2b$12$000000000000000000000uGj5B3tCmkmzgELEj3TBuR2K/RMN2qhS';
+
   // --- Auth middleware ---
 
   // Prepared statement reused across all auth middleware invocations
@@ -302,7 +305,7 @@ module.exports = function mountAuthRoutes(app, db, deps) {
   });
 
   // --- Auth routes ---
-  app.post('/api/auth/register', registerLimiter, csrfMiddleware, (req, res) => {
+  app.post('/api/auth/register', registerLimiter, csrfMiddleware, async (req, res) => {
     const body = req.body || {};
     const rawUsername = typeof body.username === 'string' ? body.username : '';
     const rawEmail = typeof body.email === 'string' ? body.email : '';
@@ -330,7 +333,7 @@ module.exports = function mountAuthRoutes(app, db, deps) {
     const usernameNorm = normalizeUsername(rawUsername);
 
     try {
-      const hash = bcrypt.hashSync(password, 12);
+      const hash = await bcrypt.hash(password, 12);
 
       const insertUser = db.prepare(
         `INSERT INTO users
@@ -371,54 +374,63 @@ module.exports = function mountAuthRoutes(app, db, deps) {
     }
   });
 
-  app.post('/api/auth/login', loginLimiter, csrfMiddleware, (req, res) => {
-    const body = req.body || {};
-    // Accept either 'identifier' (username or email) or legacy 'email' field
-    const rawIdentifier = typeof body.identifier === 'string' ? body.identifier
-      : typeof body.email === 'string' ? body.email : '';
-    const password = typeof body.password === 'string' ? body.password : '';
+  app.post('/api/auth/login', loginLimiter, csrfMiddleware, async (req, res) => {
+    try {
+      const body = req.body || {};
+      // Accept either 'identifier' (username or email) or legacy 'email' field
+      const rawIdentifier = typeof body.identifier === 'string' ? body.identifier
+        : typeof body.email === 'string' ? body.email : '';
+      const password = typeof body.password === 'string' ? body.password : '';
 
-    if (!rawIdentifier || !password) {
-      return res.status(400).json({ error: 'Имя пользователя/email и пароль обязательны' });
-    }
+      if (!rawIdentifier || !password) {
+        return res.status(400).json({ error: 'Имя пользователя/email и пароль обязательны' });
+      }
 
-    const clientIp = req.ip;
-    const lockoutMsg = getLoginLockout(clientIp);
-    if (lockoutMsg) return res.status(429).json({ error: lockoutMsg });
+      const clientIp = req.ip;
+      const lockoutMsg = getLoginLockout(clientIp);
+      if (lockoutMsg) return res.status(429).json({ error: lockoutMsg });
 
-    // Try to find user by email_normalized first, then by username_normalized
-    const identifierNorm = rawIdentifier.trim().toLowerCase();
-    let user = db.prepare('SELECT * FROM users WHERE email_normalized = ?').get(identifierNorm);
-    if (!user) {
-      user = db.prepare('SELECT * FROM users WHERE username_normalized = ?').get(identifierNorm);
-    }
+      // Try to find user by email_normalized first, then by username_normalized
+      const identifierNorm = rawIdentifier.trim().toLowerCase();
+      let user = db.prepare('SELECT * FROM users WHERE email_normalized = ?').get(identifierNorm);
+      if (!user) {
+        user = db.prepare('SELECT * FROM users WHERE username_normalized = ?').get(identifierNorm);
+      }
 
-    if (!user || !bcrypt.compareSync(password, user.password_hash)) {
-      recordLoginFailure(clientIp);
-      metrics.log('warn', 'auth_fail', { event: 'login', reason: 'invalid_credentials', ip: clientIp });
-      metrics.recordError();
-      return res.status(401).json({ error: 'Неверный логин или пароль' });
-    }
+      const hashToCompare = user ? user.password_hash : DUMMY_HASH;
+      const passwordMatch = await bcrypt.compare(password, hashToCompare);
+      if (!user || !passwordMatch) {
+        recordLoginFailure(clientIp);
+        metrics.log('warn', 'auth_fail', { event: 'login', reason: 'invalid_credentials', ip: clientIp });
+        metrics.recordError();
+        return res.status(401).json({ error: 'Неверный логин или пароль' });
+      }
 
-    if (user.status === 'banned') {
-      metrics.log('warn', 'auth_fail', { event: 'login', reason: 'account_banned', ip: clientIp, userId: user.id });
-      metrics.recordError();
-      return res.status(403).json({ error: 'Аккаунт заблокирован. Обратитесь в поддержку.' });
-    }
+      if (user.status === 'banned') {
+        metrics.log('warn', 'auth_fail', { event: 'login', reason: 'account_banned', ip: clientIp, userId: user.id });
+        metrics.recordError();
+        return res.status(403).json({ error: 'Аккаунт заблокирован. Обратитесь в поддержку.' });
+      }
 
-    clearLoginFailures(clientIp);
+      clearLoginFailures(clientIp);
 
-    req.session.regenerate((err) => {
-      if (err) return res.status(500).json({ error: 'Ошибка сервера' });
-      req.session.userId = user.id;
-      req.session.csrfToken = generateCsrfToken();
-      db.prepare('UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?').run(user.id);
-      res.json({
-        success: true,
-        user: { id: user.id, username: user.username, status: user.status },
-        csrfToken: req.session.csrfToken,
+      req.session.regenerate((err) => {
+        if (err) return res.status(500).json({ error: 'Ошибка сервера' });
+        req.session.userId = user.id;
+        req.session.csrfToken = generateCsrfToken();
+        db.prepare('UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?').run(user.id);
+        res.json({
+          success: true,
+          user: { id: user.id, username: user.username, status: user.status },
+          csrfToken: req.session.csrfToken,
+        });
       });
-    });
+    } catch (e) {
+      console.error('Login error:', e.message);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Ошибка сервера' });
+      }
+    }
   });
 
   app.post('/api/auth/logout', csrfMiddleware, (req, res) => {
@@ -585,38 +597,45 @@ module.exports = function mountAuthRoutes(app, db, deps) {
     successResponse();
   });
 
-  app.post('/api/auth/reset-password', resetPasswordLimiter, csrfMiddleware, (req, res) => {
-    const body = req.body || {};
-    const rawToken = typeof body.token === 'string' ? body.token : '';
-    const password = typeof body.password === 'string' ? body.password : '';
-    const confirmPassword = typeof body.confirm_password === 'string' ? body.confirm_password : undefined;
+  app.post('/api/auth/reset-password', resetPasswordLimiter, csrfMiddleware, async (req, res) => {
+    try {
+      const body = req.body || {};
+      const rawToken = typeof body.token === 'string' ? body.token : '';
+      const password = typeof body.password === 'string' ? body.password : '';
+      const confirmPassword = typeof body.confirm_password === 'string' ? body.confirm_password : undefined;
 
-    if (!rawToken) return res.status(400).json({ error: 'Токен отсутствует или недействителен' });
+      if (!rawToken) return res.status(400).json({ error: 'Токен отсутствует или недействителен' });
 
-    const passwordErr = validatePassword(password, confirmPassword);
-    if (passwordErr) return res.status(400).json({ error: passwordErr });
+      const passwordErr = validatePassword(password, confirmPassword);
+      if (passwordErr) return res.status(400).json({ error: passwordErr });
 
-    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-    const record = db
-      .prepare('SELECT * FROM password_reset_tokens WHERE token_hash = ?')
-      .get(tokenHash);
+      const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+      const record = db
+        .prepare('SELECT * FROM password_reset_tokens WHERE token_hash = ?')
+        .get(tokenHash);
 
-    if (!record) return res.status(400).json({ error: 'Ссылка для сброса пароля недействительна или уже использована' });
-    if (new Date(record.expires_at) < new Date()) {
-      db.prepare('DELETE FROM password_reset_tokens WHERE id = ?').run(record.id);
-      return res.status(400).json({ error: 'Ссылка для сброса пароля истекла. Запросите новую.' });
+      if (!record) return res.status(400).json({ error: 'Ссылка для сброса пароля недействительна или уже использована' });
+      if (new Date(record.expires_at) < new Date()) {
+        db.prepare('DELETE FROM password_reset_tokens WHERE id = ?').run(record.id);
+        return res.status(400).json({ error: 'Ссылка для сброса пароля истекла. Запросите новую.' });
+      }
+
+      const newHash = await bcrypt.hash(password, 12);
+      db.transaction(() => {
+        db.prepare('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(newHash, record.user_id);
+        db.prepare('DELETE FROM password_reset_tokens WHERE id = ?').run(record.id);
+      })();
+
+      // Invalidate all existing sessions for this user
+      invalidateUserSessions(record.user_id);
+
+      res.json({ success: true, message: 'Пароль успешно изменён. Теперь вы можете войти с новым паролем.' });
+    } catch (e) {
+      console.error('Reset-password error:', e.message);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Ошибка сервера' });
+      }
     }
-
-    const newHash = bcrypt.hashSync(password, 12);
-    db.transaction(() => {
-      db.prepare('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(newHash, record.user_id);
-      db.prepare('DELETE FROM password_reset_tokens WHERE id = ?').run(record.id);
-    })();
-
-    // Invalidate all existing sessions for this user
-    invalidateUserSessions(record.user_id);
-
-    res.json({ success: true, message: 'Пароль успешно изменён. Теперь вы можете войти с новым паролем.' });
   });
 
   // --- Profile routes ---
