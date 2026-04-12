@@ -8,13 +8,13 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const Database = require('better-sqlite3');
+const { openDatabase } = require('../../db/connection');
 const { runMigrations } = require('../../db/migrate');
 
 describe('Migration runner', () => {
 
   it('applies all migrations to a clean database', () => {
-    const db = new Database(':memory:');
+    const db = openDatabase(':memory:');
     runMigrations(db);
 
     // Verify schema_migrations table exists and has entries
@@ -53,7 +53,7 @@ describe('Migration runner', () => {
   });
 
   it('is idempotent — re-running migrations causes no errors', () => {
-    const db = new Database(':memory:');
+    const db = openDatabase(':memory:');
 
     // First run
     runMigrations(db);
@@ -70,7 +70,7 @@ describe('Migration runner', () => {
   });
 
   it('creates all expected columns on users table', () => {
-    const db = new Database(':memory:');
+    const db = openDatabase(':memory:');
     runMigrations(db);
 
     const cols = new Set(db.pragma('table_info(users)').map(c => c.name));
@@ -92,7 +92,7 @@ describe('Migration runner', () => {
   });
 
   it('creates all expected columns on transactions table', () => {
-    const db = new Database(':memory:');
+    const db = openDatabase(':memory:');
     runMigrations(db);
 
     const cols = new Set(db.pragma('table_info(transactions)').map(c => c.name));
@@ -111,7 +111,7 @@ describe('Migration runner', () => {
   });
 
   it('creates all expected columns on rental_sessions table', () => {
-    const db = new Database(':memory:');
+    const db = openDatabase(':memory:');
     runMigrations(db);
 
     const cols = new Set(db.pragma('table_info(rental_sessions)').map(c => c.name));
@@ -123,7 +123,7 @@ describe('Migration runner', () => {
   });
 
   it('creates pending_recovery table with expected columns', () => {
-    const db = new Database(':memory:');
+    const db = openDatabase(':memory:');
     runMigrations(db);
 
     const cols = new Set(db.pragma('table_info(pending_recovery)').map(c => c.name));
@@ -137,7 +137,7 @@ describe('Migration runner', () => {
   });
 
   it('creates all expected indexes', () => {
-    const db = new Database(':memory:');
+    const db = openDatabase(':memory:');
     runMigrations(db);
 
     const indexes = db.prepare(
@@ -161,7 +161,7 @@ describe('Migration runner', () => {
   });
 
   it('can insert and query data after migrations', () => {
-    const db = new Database(':memory:');
+    const db = openDatabase(':memory:');
     runMigrations(db);
 
     // Insert a user
