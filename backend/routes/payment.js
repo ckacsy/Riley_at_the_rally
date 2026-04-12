@@ -173,7 +173,7 @@ module.exports = function mountPaymentRoutes(app, db, deps) {
   // -------------------------------------------------------------------------
   // POST /api/payment/webhook  (called by YooKassa — no auth/CSRF)
   // -------------------------------------------------------------------------
-  app.post('/api/payment/webhook', webhookLimiter, (req, res) => {
+  app.post('/api/payment/webhook', webhookLimiter, async (req, res) => {
     const event = req.body;
     if (!event || event.type !== 'notification') return res.sendStatus(200);
 
@@ -181,26 +181,114 @@ module.exports = function mountPaymentRoutes(app, db, deps) {
     if (!obj || !obj.id) return res.sendStatus(200);
 
     const paymentId = obj.id;
+    const eventId = event.event_id || null; // YooKassa may send event_id for deduplication
+
+    console.log('[Payment] Webhook received:', event.event, 'paymentId:', paymentId, 'eventId:', eventId);
 
     if (event.event === 'payment.succeeded') {
+      // 1. Find the local pending order
       const order = db.prepare(
         'SELECT * FROM payment_orders WHERE yookassa_payment_id = ?'
       ).get(paymentId);
-      if (!order || order.status === 'succeeded') return res.sendStatus(200);
 
+      // Already processed or unknown payment — acknowledge silently
+      if (!order || order.status === 'succeeded') {
+        console.log('[Payment] Webhook ignored — order not found or already succeeded for paymentId:', paymentId);
+        return res.sendStatus(200);
+      }
+
+      // 2. Deduplicate by webhook_event_id (if provided)
+      if (eventId) {
+        const duplicate = db.prepare(
+          'SELECT id FROM payment_orders WHERE webhook_event_id = ?'
+        ).get(eventId);
+        if (duplicate) {
+          console.log('[Payment] Duplicate webhook event_id ignored:', eventId);
+          return res.sendStatus(200);
+        }
+      }
+
+      // 3. Server-side verification: GET /v3/payments/:id from YooKassa
+      //    Only verify if YooKassa credentials are configured (skip in mock mode)
+      if (YOOKASSA_SHOP_ID && YOOKASSA_SECRET_KEY) {
+        try {
+          const verification = await yookassaRequest('GET', '/payments/' + paymentId, null);
+
+          if (verification.status !== 200) {
+            console.warn('[Payment] Webhook verification API error for', paymentId, '— status:', verification.status);
+            // Return 200 to prevent YooKassa from retrying, but don't credit
+            return res.sendStatus(200);
+          }
+
+          const verifiedPayment = verification.body;
+
+          // 3a. Verify status is actually succeeded
+          if (verifiedPayment.status !== 'succeeded') {
+            console.warn('[Payment] Webhook claimed succeeded but API says:', verifiedPayment.status, 'for', paymentId);
+            return res.sendStatus(200);
+          }
+
+          // 3b. Verify amount matches local order
+          if (!verifiedPayment.amount || !verifiedPayment.amount.value) {
+            console.error('[Payment] Amount missing in verified payment for', paymentId);
+            return res.sendStatus(200);
+          }
+          const verifiedAmount = parseFloat(verifiedPayment.amount.value);
+          if (verifiedAmount !== order.amount) {
+            console.error('[Payment] Amount mismatch for', paymentId, '— expected:', order.amount, 'got:', verifiedAmount);
+            return res.sendStatus(200);
+          }
+
+          // 3c. Verify currency is RUB
+          if (verifiedPayment.amount && verifiedPayment.amount.currency !== 'RUB') {
+            console.error('[Payment] Currency mismatch for', paymentId, '— expected: RUB, got:', verifiedPayment.amount.currency);
+            return res.sendStatus(200);
+          }
+
+          // 3d. Verify metadata.user_id matches local order
+          const verifiedUserId = verifiedPayment.metadata && verifiedPayment.metadata.user_id;
+          if (!verifiedUserId || String(verifiedUserId) !== String(order.user_id)) {
+            console.error('[Payment] user_id mismatch for', paymentId, '— expected:', order.user_id, 'got:', verifiedUserId);
+            return res.sendStatus(200);
+          }
+
+        } catch (e) {
+          console.error('[Payment] Webhook verification request failed for', paymentId, ':', e.message || e);
+          // Don't credit on verification failure — YooKassa will retry
+          return res.sendStatus(500);
+        }
+      }
+
+      // 4. All checks passed — credit balance atomically
       db.transaction(() => {
+        // Re-check status inside transaction to prevent race conditions
+        const freshOrder = db.prepare(
+          'SELECT status FROM payment_orders WHERE yookassa_payment_id = ?'
+        ).get(paymentId);
+        if (freshOrder && freshOrder.status === 'succeeded') {
+          console.log('[Payment] Race condition prevented — payment already processed in parallel for:', paymentId);
+          return; // already processed
+        }
+
         db.prepare(
-          "UPDATE payment_orders SET status = 'succeeded', updated_at = CURRENT_TIMESTAMP WHERE yookassa_payment_id = ?"
-        ).run(paymentId);
+          "UPDATE payment_orders SET status = 'succeeded', webhook_event_id = ?, updated_at = CURRENT_TIMESTAMP WHERE yookassa_payment_id = ?"
+        ).run(eventId, paymentId);
+
         db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(order.amount, order.user_id);
         const row = db.prepare('SELECT balance FROM users WHERE id = ?').get(order.user_id);
         const bal = row ? row.balance : order.amount;
         recordTransaction(order.user_id, 'topup', order.amount, bal, 'Пополнение баланса', paymentId);
       })();
+
+      console.log('[Payment] Verified and credited', order.amount, 'RC to user', order.user_id, 'for payment', paymentId);
+
     } else if (event.event === 'payment.canceled') {
       db.prepare(
         "UPDATE payment_orders SET status = 'canceled', updated_at = CURRENT_TIMESTAMP WHERE yookassa_payment_id = ?"
       ).run(paymentId);
+      console.log('[Payment] Payment canceled for paymentId:', paymentId);
+    } else {
+      console.log('[Payment] Webhook event type not handled:', event.event, 'paymentId:', paymentId);
     }
 
     res.sendStatus(200);
