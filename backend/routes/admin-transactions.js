@@ -1,6 +1,6 @@
 'use strict';
 
-const rateLimit = require('express-rate-limit');
+const { createRateLimiter } = require('../middleware/rateLimiter');
 
 /**
  * Known transaction types — used for validation whitelist.
@@ -26,25 +26,9 @@ const ORPHAN_GRACE_MINUTES = 10;
 module.exports = function mountAdminTransactionRoutes(app, db, deps) {
   const { requireRole, getActiveSessions, csrfMiddleware, logAdminAudit } = deps;
 
-  const adminReadLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 60,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Слишком много запросов. Попробуйте позже.' },
-    keyGenerator: (req) => req.ip,
-    skip: () => process.env.NODE_ENV === 'test',
-  });
+  const adminReadLimiter = createRateLimiter({ max: 60 });
 
-  const adminMutationLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 30,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Слишком много запросов. Попробуйте позже.' },
-    keyGenerator: (req) => req.ip,
-    skip: () => process.env.NODE_ENV === 'test',
-  });
+  const adminMutationLimiter = createRateLimiter({ max: 30 });
 
   // ---------------------------------------------------------------------------
   // Shared pagination + filter parsing helpers

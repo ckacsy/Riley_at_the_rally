@@ -1,6 +1,6 @@
 'use strict';
 
-const rateLimit = require('express-rate-limit');
+const { createRateLimiter } = require('../middleware/rateLimiter');
 const { marked } = require('marked');
 const sanitizeHtml = require('sanitize-html');
 
@@ -176,25 +176,9 @@ function validateNewsUpdate(body) {
 module.exports = function mountNewsRoutes(app, db, deps) {
   const { requireRole, csrfMiddleware, logAdminAudit } = deps;
 
-  const newsReadLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 120,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Слишком много запросов. Попробуйте позже.' },
-    keyGenerator: (req) => req.ip,
-    skip: () => process.env.NODE_ENV === 'test',
-  });
+  const newsReadLimiter = createRateLimiter({ max: 120 });
 
-  const newsWriteLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 30,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Слишком много запросов. Попробуйте позже.' },
-    keyGenerator: (req) => req.ip,
-    skip: () => process.env.NODE_ENV === 'test',
-  });
+  const newsWriteLimiter = createRateLimiter({ max: 30 });
 
   // -------------------------------------------------------------------------
   // GET /api/admin/news

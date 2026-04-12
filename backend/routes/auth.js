@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
-const rateLimit = require('express-rate-limit');
+const { createRateLimiter } = require('../middleware/rateLimiter');
 const mailer = require('../mailer');
 const metrics = require('../metrics');
 const { upload, uploadsDir } = require('../middleware/upload');
@@ -39,95 +39,23 @@ module.exports = function mountAuthRoutes(app, db, deps) {
   const { csrfMiddleware, generateCsrfToken, apiReadLimiter, PORT } = deps;
 
   // --- Rate limiters ---
-  const registerLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 5,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Слишком много регистраций с этого IP. Попробуйте через минуту.' },
-    keyGenerator: (req) => req.ip,
-    skip: () => process.env.NODE_ENV === 'test',
-  });
+  const registerLimiter = createRateLimiter({ max: 5, message: 'Слишком много регистраций с этого IP. Попробуйте через минуту.' });
 
-  const loginLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 10,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Слишком много попыток входа. Попробуйте позже.' },
-    keyGenerator: (req) => req.ip,
-    skip: () => process.env.NODE_ENV === 'test',
-  });
+  const loginLimiter = createRateLimiter({ max: 10, message: 'Слишком много попыток входа. Попробуйте позже.' });
 
-  const magicLinkLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 5,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Слишком много запросов. Попробуйте через 15 минут.' },
-    keyGenerator: (req) => req.ip,
-    skip: () => process.env.NODE_ENV === 'test',
-  });
+  const magicLinkLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 5, message: 'Слишком много запросов. Попробуйте через 15 минут.' });
 
-  const magicVerifyLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 20,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Слишком много попыток. Попробуйте через 15 минут.' },
-    keyGenerator: (req) => req.ip,
-    skip: () => process.env.NODE_ENV === 'test',
-  });
+  const magicVerifyLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 20, message: 'Слишком много попыток. Попробуйте через 15 минут.' });
 
-  const verifyResendLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 3,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Слишком много запросов. Попробуйте через минуту.' },
-    keyGenerator: (req) => req.ip,
-    skip: () => process.env.NODE_ENV === 'test',
-  });
+  const verifyResendLimiter = createRateLimiter({ max: 3, message: 'Слишком много запросов. Попробуйте через минуту.' });
 
-  const forgotPasswordLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 5,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Слишком много запросов. Попробуйте через 15 минут.' },
-    keyGenerator: (req) => req.ip,
-    skip: () => process.env.NODE_ENV === 'test',
-  });
+  const forgotPasswordLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 5, message: 'Слишком много запросов. Попробуйте через 15 минут.' });
 
-  const resetPasswordLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 10,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Слишком много запросов. Попробуйте через 15 минут.' },
-    keyGenerator: (req) => req.ip,
-    skip: () => process.env.NODE_ENV === 'test',
-  });
+  const resetPasswordLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 10, message: 'Слишком много запросов. Попробуйте через 15 минут.' });
 
-  const avatarUploadLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 10,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Слишком много загрузок. Попробуйте через минуту.' },
-    keyGenerator: (req) => req.ip,
-    skip: () => process.env.NODE_ENV === 'test',
-  });
+  const avatarUploadLimiter = createRateLimiter({ max: 10, message: 'Слишком много загрузок. Попробуйте через минуту.' });
 
-  const usernameChangeLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 5,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Слишком много попыток. Попробуйте через минуту.' },
-    keyGenerator: (req) => req.ip,
-    skip: () => process.env.NODE_ENV === 'test',
-  });
+  const usernameChangeLimiter = createRateLimiter({ max: 5, message: 'Слишком много попыток. Попробуйте через минуту.' });
 
   // --- Auth middleware ---
 

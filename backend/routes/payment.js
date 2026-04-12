@@ -2,7 +2,7 @@
 
 const https = require('https');
 const crypto = require('crypto');
-const rateLimit = require('express-rate-limit');
+const { createRateLimiter } = require('../middleware/rateLimiter');
 
 /**
  * Mount payment routes.
@@ -14,35 +14,14 @@ const rateLimit = require('express-rate-limit');
 module.exports = function mountPaymentRoutes(app, db, deps) {
   const { requireAuth, requireActiveUser, csrfMiddleware, getActiveSessions } = deps;
 
-  const paymentReadLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 60,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Слишком много запросов. Попробуйте позже.' },
-    keyGenerator: (req) => req.ip,
-    skip: () => process.env.NODE_ENV === 'test',
-  });
+  const paymentReadLimiter = createRateLimiter({ max: 60 });
 
-  const paymentCreateLimiter = rateLimit({
-    windowMs: 60 * 1000,
+  const paymentCreateLimiter = createRateLimiter({
     max: 10,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Слишком много запросов. Попробуйте позже.' },
     keyGenerator: (req) => req.session && req.session.userId ? String(req.session.userId) : req.ip,
-    skip: () => process.env.NODE_ENV === 'test',
   });
 
-  const webhookLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 60,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Too many requests.' },
-    keyGenerator: (req) => req.ip,
-    skip: () => process.env.NODE_ENV === 'test',
-  });
+  const webhookLimiter = createRateLimiter({ max: 60, message: 'Too many requests.' });
 
   const YOOKASSA_SHOP_ID = process.env.YOOKASSA_SHOP_ID || '';
   const YOOKASSA_SECRET_KEY = process.env.YOOKASSA_SECRET_KEY || '';

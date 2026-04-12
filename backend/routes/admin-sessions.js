@@ -1,6 +1,6 @@
 'use strict';
 
-const rateLimit = require('express-rate-limit');
+const { createRateLimiter } = require('../middleware/rateLimiter');
 
 /**
  * Mount admin rental-sessions routes.
@@ -16,25 +16,9 @@ const rateLimit = require('express-rate-limit');
 module.exports = function mountAdminSessionRoutes(app, db, deps) {
   const { requireRole, csrfMiddleware, logAdminAudit } = deps;
 
-  const adminReadLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 60,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Слишком много запросов. Попробуйте позже.' },
-    keyGenerator: (req) => req.ip,
-    skip: () => process.env.NODE_ENV === 'test',
-  });
+  const adminReadLimiter = createRateLimiter({ max: 60 });
 
-  const adminMutationLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 10,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Слишком много запросов. Попробуйте позже.' },
-    keyGenerator: (req) => req.ip,
-    skip: () => process.env.NODE_ENV === 'test',
-  });
+  const adminMutationLimiter = createRateLimiter({ max: 10 });
 
   const VALID_FORCE_END_REASONS = ['stuck_session', 'car_offline', 'operator_intervention'];
 

@@ -1,6 +1,6 @@
 'use strict';
 
-const rateLimit = require('express-rate-limit');
+const { createRateLimiter } = require('../middleware/rateLimiter');
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -16,15 +16,7 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 module.exports = function mountAdminInvestigationRoutes(app, db, deps) {
   const { requireRole } = deps;
 
-  const adminReadLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 60,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Слишком много запросов. Попробуйте позже.' },
-    keyGenerator: (req) => req.ip,
-    skip: () => process.env.NODE_ENV === 'test',
-  });
+  const adminReadLimiter = createRateLimiter({ max: 60 });
 
   // ---------------------------------------------------------------------------
   // GET /api/admin/investigation/timeline
