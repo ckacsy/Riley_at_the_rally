@@ -850,8 +850,8 @@ function setupSocketIo(io, deps) {
     socket.on('control_command', (data) => {
       // Verify the socket owns an active session AND the session belongs to the
       // authenticated user (prevents session hijacking via guessed socket.id).
-      const _ccSession = requireSessionOwner(socket, activeSessions);
-      if (!_ccSession) {
+      const ownedSession = requireSessionOwner(socket, activeSessions);
+      if (!ownedSession) {
         return;
       }
       if (!checkControlRateLimit(socket.id)) {
@@ -893,7 +893,7 @@ function setupSocketIo(io, deps) {
       });
       setInactivityTimeout(socket);
       const t0 = performance.now();
-      io.to(`car:${_ccSession.carId}`).emit('control_command', data);
+      io.to(`car:${ownedSession.carId}`).emit('control_command', data);
       metrics.recordCommand();
       metrics.recordLatency(socket.id, performance.now() - t0);
     });
@@ -907,8 +907,8 @@ function setupSocketIo(io, deps) {
         return;
       }
       // Verify the session belongs to the authenticated user (prevents session hijacking).
-      const _endSess = socket.request.session;
-      if (!_endSess || _endSess.userId !== session.dbUserId) {
+      const requestSession = socket.request.session;
+      if (!requestSession || requestSession.userId !== session.dbUserId) {
         socket.emit('session_error', { message: 'Недостаточно прав.', code: 'forbidden' });
         return;
       }
@@ -1084,8 +1084,8 @@ function setupSocketIo(io, deps) {
       const sess = socket.request.session;
       if (!sess || !sess.userId) return;
       // Status check: only active users should be able to interact with race state
-      const _leaveUser = db.prepare('SELECT status FROM users WHERE id = ?').get(sess.userId);
-      if (!_leaveUser || _leaveUser.status !== 'active') return;
+      const statusUser = db.prepare('SELECT status FROM users WHERE id = ?').get(sess.userId);
+      if (!statusUser || statusUser.status !== 'active') return;
       // If the player is in a duel, treat leave as a duel loss (intentional forfeit)
       if (duelManager.getDuelBySocketId(socket.id)) {
         duelManager.handlePlayerLeave(socket.id);
@@ -1104,8 +1104,8 @@ function setupSocketIo(io, deps) {
       const sess = socket.request.session;
       if (!sess || !sess.userId) return;
       // Status check: only active users may start laps
-      const _slUser = db.prepare('SELECT status FROM users WHERE id = ?').get(sess.userId);
-      if (!_slUser || _slUser.status !== 'active') return;
+      const statusUser = db.prepare('SELECT status FROM users WHERE id = ?').get(sess.userId);
+      if (!statusUser || statusUser.status !== 'active') return;
       const race = findRaceBySocketId(socket.id);
       if (!race) return;
       const player = race.players.find((p) => p.socketId === socket.id);
@@ -1118,8 +1118,8 @@ function setupSocketIo(io, deps) {
       const sess = socket.request.session;
       if (!sess || !sess.userId) return;
       // Status check: only active users may record laps
-      const _elUser = db.prepare('SELECT status FROM users WHERE id = ?').get(sess.userId);
-      if (!_elUser || _elUser.status !== 'active') return;
+      const statusUser = db.prepare('SELECT status FROM users WHERE id = ?').get(sess.userId);
+      if (!statusUser || statusUser.status !== 'active') return;
       // Rate limit: max END_LAP_MAX per END_LAP_WINDOW_MS per user
       if (!socketRateLimit(endLapRateLimits, sess.userId, END_LAP_MAX, END_LAP_WINDOW_MS)) {
         return;
@@ -1311,8 +1311,8 @@ function setupSocketIo(io, deps) {
       const dbUserId = sess && sess.userId;
       if (!dbUserId) return;
       // Status check
-      const _dcsUser = db.prepare('SELECT status FROM users WHERE id = ?').get(dbUserId);
-      if (!_dcsUser || _dcsUser.status !== 'active') return;
+      const statusUser = db.prepare('SELECT status FROM users WHERE id = ?').get(dbUserId);
+      if (!statusUser || statusUser.status !== 'active') return;
       // Group rate limit for duel state-changing events
       if (!socketRateLimit(duelEventRateLimits, socket.id, DUEL_EVENT_MAX, DUEL_EVENT_WINDOW_MS)) {
         socket.emit('duel:error', { code: 'rate_limited', message: 'Слишком много запросов.' });
@@ -1334,8 +1334,8 @@ function setupSocketIo(io, deps) {
       const sess = socket.request.session;
       if (!sess || !sess.userId) return;
       // Status check
-      const _dcrUser = db.prepare('SELECT status FROM users WHERE id = ?').get(sess.userId);
-      if (!_dcrUser || _dcrUser.status !== 'active') return;
+      const statusUser = db.prepare('SELECT status FROM users WHERE id = ?').get(sess.userId);
+      if (!statusUser || statusUser.status !== 'active') return;
       // Group rate limit
       if (!socketRateLimit(duelEventRateLimits, socket.id, DUEL_EVENT_MAX, DUEL_EVENT_WINDOW_MS)) {
         socket.emit('duel:error', { code: 'rate_limited', message: 'Слишком много запросов.' });
@@ -1358,8 +1358,8 @@ function setupSocketIo(io, deps) {
       const sess = socket.request.session;
       if (!sess || !sess.userId) return;
       // Status check
-      const _drUser = db.prepare('SELECT status FROM users WHERE id = ?').get(sess.userId);
-      if (!_drUser || _drUser.status !== 'active') return;
+      const statusUser = db.prepare('SELECT status FROM users WHERE id = ?').get(sess.userId);
+      if (!statusUser || statusUser.status !== 'active') return;
       // Group rate limit
       if (!socketRateLimit(duelEventRateLimits, socket.id, DUEL_EVENT_MAX, DUEL_EVENT_WINDOW_MS)) {
         socket.emit('duel:error', { code: 'rate_limited', message: 'Слишком много запросов.' });

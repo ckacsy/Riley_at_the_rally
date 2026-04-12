@@ -112,7 +112,7 @@ function connect(url) {
 }
 
 /** Emit an event and wait for responseEvent (rejects on timeout). */
-function emitAndWait(socket, emitEvent, emitData, responseEvent, timeoutMs = 800) {
+function emitAndWait(socket, emitEvent, emitData, responseEvent, timeoutMs = DEFAULT_EVENT_TIMEOUT_MS) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`Timeout waiting for ${responseEvent} (sent ${emitEvent})`)), timeoutMs);
     socket.once(responseEvent, (data) => { clearTimeout(timer); resolve(data); });
@@ -121,6 +121,9 @@ function emitAndWait(socket, emitEvent, emitData, responseEvent, timeoutMs = 800
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Default timeout (ms) to wait for a response event in emitAndWait. */
+const DEFAULT_EVENT_TIMEOUT_MS = 800;
 
 // ---------------------------------------------------------------------------
 // Pure unit tests — validators.js (no server needed)
