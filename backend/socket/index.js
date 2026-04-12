@@ -7,6 +7,7 @@ const DuelManager = require('../lib/duel-manager');
 const { DUEL_TIMEOUT_MS } = require('../lib/rank-config');
 const { verifyDeviceKey } = require('../lib/device-auth');
 const { HOLD_AMOUNT, HEARTBEAT_STALE_MS, HEARTBEAT_CHECK_INTERVAL_MS } = require('../config/constants');
+const { requireSessionOwner, socketRateLimit } = require('./validators');
 
 /**
  * Set up all Socket.IO logic.
@@ -106,6 +107,43 @@ function setupSocketIo(io, deps) {
   const duelSearchRateLimits = new Map();
   const DUEL_SEARCH_MAX = 3;         // max searches per window
   const DUEL_SEARCH_WINDOW_MS = 60 * 1000; // 1 minute
+
+  // Per-socket duel-event group rate-limit (covers cancel_search, cancel_ready, ready,
+  // start_lap, checkpoint, finish_lap): socketId -> { count, windowStart }
+  const duelEventRateLimits = new Map();
+  const DUEL_EVENT_MAX = 10;          // max duel events per window
+  const DUEL_EVENT_WINDOW_MS = 1_000; // 1 second
+
+  // Per-user chat:delete rate-limit: userId -> { count, windowStart }
+  const chatDeleteRateLimits = new Map();
+  const CHAT_DELETE_MAX = 10;
+  const CHAT_DELETE_WINDOW_MS = 10_000; // 10 seconds
+
+  // Per-socket presence:hello rate-limit: socketId -> { count, windowStart }
+  const presenceHelloRateLimits = new Map();
+  const PRESENCE_HELLO_MAX = 5;
+  const PRESENCE_HELLO_WINDOW_MS = 60_000; // 1 minute
+
+  // Per-socket presence:heartbeat rate-limit: socketId -> { count, windowStart }
+  const presenceHeartbeatRateLimits = new Map();
+  const PRESENCE_HEARTBEAT_MAX = 5;
+  const PRESENCE_HEARTBEAT_WINDOW_MS = 30_000; // 30 seconds
+
+  // Per-user join_race rate-limit: userId -> { count, windowStart }
+  const joinRaceRateLimits = new Map();
+  const JOIN_RACE_MAX = 10;
+  const JOIN_RACE_WINDOW_MS = 60_000; // 1 minute
+
+  // Per-user end_lap rate-limit: userId -> { count, windowStart }
+  const endLapRateLimits = new Map();
+  const END_LAP_MAX = 60;
+  const END_LAP_WINDOW_MS = 60_000; // 1 minute (1 per second average)
+
+  // Allowed values for the `page` field in presence:hello
+  const ALLOWED_PRESENCE_PAGES = new Set(['control', 'broadcast', 'garage', 'profile', 'index']);
+
+  // Allowed field names in control_command payload (strict schema)
+  const ALLOWED_CONTROL_FIELDS = new Set(['direction', 'speed', 'steering_angle']);
 
   // --- Helper functions ---
 
@@ -571,7 +609,7 @@ function setupSocketIo(io, deps) {
 
     socket.on('chat:delete', (data) => {
       const { id } = data || {};
-      if (!Number.isInteger(id)) return;
+      if (!Number.isInteger(id) || id < 1) return;
 
       const sess = socket.request.session;
       if (!sess || !sess.userId) {
@@ -586,6 +624,12 @@ function setupSocketIo(io, deps) {
       // Use DB role-based check instead of env-based ADMIN_USERNAMES
       if (!hasRequiredRole(adminUser.role, ['admin', 'moderator'])) {
         socket.emit('chat:error', { code: 'forbidden', message: 'Недостаточно прав' });
+        return;
+      }
+
+      // Rate limit: max CHAT_DELETE_MAX per CHAT_DELETE_WINDOW_MS per user
+      if (!socketRateLimit(chatDeleteRateLimits, sess.userId, CHAT_DELETE_MAX, CHAT_DELETE_WINDOW_MS)) {
+        socket.emit('chat:error', { code: 'rate_limited', message: 'Слишком много удалений, подождите немного' });
         return;
       }
 
@@ -604,6 +648,17 @@ function setupSocketIo(io, deps) {
 
     socket.on('presence:hello', (data) => {
       const { page } = data || {};
+
+      // Rate limit: max PRESENCE_HELLO_MAX per PRESENCE_HELLO_WINDOW_MS per socket
+      if (!socketRateLimit(presenceHelloRateLimits, socket.id, PRESENCE_HELLO_MAX, PRESENCE_HELLO_WINDOW_MS)) {
+        return;
+      }
+
+      // Validate page field — must be from the known enum if provided
+      if (page !== undefined && (typeof page !== 'string' || !ALLOWED_PRESENCE_PAGES.has(page))) {
+        return;
+      }
+
       if (page !== 'control') {
         // Non-control pages: send current presence snapshot without registering
         socket.emit('presence:update', {
@@ -653,6 +708,10 @@ function setupSocketIo(io, deps) {
     socket.on('presence:heartbeat', () => {
       const sess = socket.request.session;
       if (!sess || !sess.userId) return;
+      // Rate limit: cap heartbeat bursts (client fires every ~30 s; cap at 5 per 30 s)
+      if (!socketRateLimit(presenceHeartbeatRateLimits, socket.id, PRESENCE_HEARTBEAT_MAX, PRESENCE_HEARTBEAT_WINDOW_MS)) {
+        return;
+      }
       for (const entry of presenceMap.values()) {
         if (entry.socketId === socket.id) {
           entry.lastSeen = Date.now();
@@ -706,7 +765,11 @@ function setupSocketIo(io, deps) {
         return;
       }
 
-      // Validate that the requested car exists
+      // Validate that the requested car exists (explicit type check before CARS lookup)
+      if (!Number.isInteger(carId) || carId < 1) {
+        socket.emit('session_error', { message: 'Неверный идентификатор машины.', code: 'invalid_car_id' });
+        return;
+      }
       if (!CARS.some((c) => c.id === carId)) {
         socket.emit('session_error', { message: 'Неверный идентификатор машины.' });
         return;
@@ -785,14 +848,26 @@ function setupSocketIo(io, deps) {
     });
 
     socket.on('control_command', (data) => {
-      // Only forward commands from sockets that own an active rental session
-      if (!activeSessions.has(socket.id)) {
+      // Verify the socket owns an active session AND the session belongs to the
+      // authenticated user (prevents session hijacking via guessed socket.id).
+      const _ccSession = requireSessionOwner(socket, activeSessions);
+      if (!_ccSession) {
         return;
       }
       if (!checkControlRateLimit(socket.id)) {
         metrics.recordError();
         socket.emit('control_error', { message: 'Слишком много команд. Подождите немного.', code: 'rate_limited' });
         return;
+      }
+
+      // Reject unknown fields — strict schema enforcement
+      if (data !== null && data !== undefined && typeof data === 'object') {
+        for (const key of Object.keys(data)) {
+          if (!ALLOWED_CONTROL_FIELDS.has(key)) {
+            socket.emit('control_error', { message: 'Неизвестное поле в команде управления.', code: 'invalid_payload' });
+            return;
+          }
+        }
       }
 
       // Validate control_command payload fields
@@ -818,20 +893,23 @@ function setupSocketIo(io, deps) {
       });
       setInactivityTimeout(socket);
       const t0 = performance.now();
-      const session = activeSessions.get(socket.id);
-      if (session) {
-        io.to(`car:${session.carId}`).emit('control_command', data);
-      }
+      io.to(`car:${_ccSession.carId}`).emit('control_command', data);
       metrics.recordCommand();
       metrics.recordLatency(socket.id, performance.now() - t0);
     });
 
-    socket.on('end_session', (data) => {
+    socket.on('end_session', () => {
       clearInactivityTimeout(socket.id);
       clearSessionDurationTimeout(socket.id);
       const session = activeSessions.get(socket.id);
       if (!session) {
         socket.emit('session_error', { message: 'Активная сессия не найдена.', code: 'no_active_session' });
+        return;
+      }
+      // Verify the session belongs to the authenticated user (prevents session hijacking).
+      const _endSess = socket.request.session;
+      if (!_endSess || _endSess.userId !== session.dbUserId) {
+        socket.emit('session_error', { message: 'Недостаточно прав.', code: 'forbidden' });
         return;
       }
       const endTime = new Date();
@@ -859,6 +937,10 @@ function setupSocketIo(io, deps) {
       clearInactivityTimeout(socket.id);
       clearSessionDurationTimeout(socket.id);
       controlCommandCounters.delete(socket.id);
+      // Clean up per-socket rate limit maps
+      duelEventRateLimits.delete(socket.id);
+      presenceHelloRateLimits.delete(socket.id);
+      presenceHeartbeatRateLimits.delete(socket.id);
       metrics.clearLatency(socket.id);
       const session = activeSessions.get(socket.id);
       const hadSession = !!session;
@@ -928,6 +1010,13 @@ function setupSocketIo(io, deps) {
         socket.emit('race_error', { message: 'Требуется авторизация.', code: 'auth_required' });
         return;
       }
+
+      // Rate limit: max JOIN_RACE_MAX per JOIN_RACE_WINDOW_MS per user
+      if (!socketRateLimit(joinRaceRateLimits, dbUserId, JOIN_RACE_MAX, JOIN_RACE_WINDOW_MS)) {
+        socket.emit('race_error', { message: 'Слишком много запросов. Попробуйте позже.', code: 'rate_limited' });
+        return;
+      }
+
       const user = db.prepare('SELECT username, status FROM users WHERE id = ?').get(dbUserId);
       if (!user) {
         metrics.log('warn', 'auth_fail', { event: 'join_race', code: 'user_not_found', socketId: socket.id });
@@ -994,6 +1083,9 @@ function setupSocketIo(io, deps) {
     socket.on('leave_race', () => {
       const sess = socket.request.session;
       if (!sess || !sess.userId) return;
+      // Status check: only active users should be able to interact with race state
+      const _leaveUser = db.prepare('SELECT status FROM users WHERE id = ?').get(sess.userId);
+      if (!_leaveUser || _leaveUser.status !== 'active') return;
       // If the player is in a duel, treat leave as a duel loss (intentional forfeit)
       if (duelManager.getDuelBySocketId(socket.id)) {
         duelManager.handlePlayerLeave(socket.id);
@@ -1011,6 +1103,9 @@ function setupSocketIo(io, deps) {
     socket.on('start_lap', () => {
       const sess = socket.request.session;
       if (!sess || !sess.userId) return;
+      // Status check: only active users may start laps
+      const _slUser = db.prepare('SELECT status FROM users WHERE id = ?').get(sess.userId);
+      if (!_slUser || _slUser.status !== 'active') return;
       const race = findRaceBySocketId(socket.id);
       if (!race) return;
       const player = race.players.find((p) => p.socketId === socket.id);
@@ -1022,6 +1117,13 @@ function setupSocketIo(io, deps) {
     socket.on('end_lap', () => {
       const sess = socket.request.session;
       if (!sess || !sess.userId) return;
+      // Status check: only active users may record laps
+      const _elUser = db.prepare('SELECT status FROM users WHERE id = ?').get(sess.userId);
+      if (!_elUser || _elUser.status !== 'active') return;
+      // Rate limit: max END_LAP_MAX per END_LAP_WINDOW_MS per user
+      if (!socketRateLimit(endLapRateLimits, sess.userId, END_LAP_MAX, END_LAP_WINDOW_MS)) {
+        return;
+      }
       const race = findRaceBySocketId(socket.id);
       if (!race) return;
       const player = race.players.find((p) => p.socketId === socket.id);
@@ -1208,6 +1310,14 @@ function setupSocketIo(io, deps) {
       const sess = socket.request.session;
       const dbUserId = sess && sess.userId;
       if (!dbUserId) return;
+      // Status check
+      const _dcsUser = db.prepare('SELECT status FROM users WHERE id = ?').get(dbUserId);
+      if (!_dcsUser || _dcsUser.status !== 'active') return;
+      // Group rate limit for duel state-changing events
+      if (!socketRateLimit(duelEventRateLimits, socket.id, DUEL_EVENT_MAX, DUEL_EVENT_WINDOW_MS)) {
+        socket.emit('duel:error', { code: 'rate_limited', message: 'Слишком много запросов.' });
+        return;
+      }
 
       const { removed } = duelManager.removeFromQueue(dbUserId);
       if (removed) {
@@ -1223,6 +1333,14 @@ function setupSocketIo(io, deps) {
     socket.on('duel:cancel_ready', () => {
       const sess = socket.request.session;
       if (!sess || !sess.userId) return;
+      // Status check
+      const _dcrUser = db.prepare('SELECT status FROM users WHERE id = ?').get(sess.userId);
+      if (!_dcrUser || _dcrUser.status !== 'active') return;
+      // Group rate limit
+      if (!socketRateLimit(duelEventRateLimits, socket.id, DUEL_EVENT_MAX, DUEL_EVENT_WINDOW_MS)) {
+        socket.emit('duel:error', { code: 'rate_limited', message: 'Слишком много запросов.' });
+        return;
+      }
       const result = duelManager.cancelReady(socket.id);
       if (result.cancelled) {
         result.affectedSocketIds.forEach((sid) => {
@@ -1239,6 +1357,14 @@ function setupSocketIo(io, deps) {
     socket.on('duel:ready', () => {
       const sess = socket.request.session;
       if (!sess || !sess.userId) return;
+      // Status check
+      const _drUser = db.prepare('SELECT status FROM users WHERE id = ?').get(sess.userId);
+      if (!_drUser || _drUser.status !== 'active') return;
+      // Group rate limit
+      if (!socketRateLimit(duelEventRateLimits, socket.id, DUEL_EVENT_MAX, DUEL_EVENT_WINDOW_MS)) {
+        socket.emit('duel:error', { code: 'rate_limited', message: 'Слишком много запросов.' });
+        return;
+      }
       const result = duelManager.handleReady(socket.id);
       if (!result.ok) {
         socket.emit('duel:error', { code: result.error, message: 'Не удалось подтвердить готовность.' });
@@ -1252,6 +1378,11 @@ function setupSocketIo(io, deps) {
     socket.on('duel:start_lap', () => {
       const sess = socket.request.session;
       if (!sess || !sess.userId) return;
+      // Group rate limit
+      if (!socketRateLimit(duelEventRateLimits, socket.id, DUEL_EVENT_MAX, DUEL_EVENT_WINDOW_MS)) {
+        socket.emit('duel:error', { code: 'rate_limited', message: 'Слишком много запросов.' });
+        return;
+      }
       const result = duelManager.handleStartLap(socket.id);
       if (!result.ok) {
         socket.emit('duel:error', { code: result.error, message: 'Не удалось начать круг.' });
@@ -1268,6 +1399,11 @@ function setupSocketIo(io, deps) {
     socket.on('duel:checkpoint', (data) => {
       const sess = socket.request.session;
       if (!sess || !sess.userId) return;
+      // Group rate limit
+      if (!socketRateLimit(duelEventRateLimits, socket.id, DUEL_EVENT_MAX, DUEL_EVENT_WINDOW_MS)) {
+        socket.emit('duel:error', { code: 'rate_limited', message: 'Слишком много запросов.' });
+        return;
+      }
       const index = data && Number.isInteger(data.index) ? data.index : -1;
       if (index < 0) {
         socket.emit('duel:error', { code: 'invalid_checkpoint', message: 'Неверный индекс чекпоинта.' });
@@ -1289,6 +1425,11 @@ function setupSocketIo(io, deps) {
     socket.on('duel:finish_lap', () => {
       const sess = socket.request.session;
       if (!sess || !sess.userId) return;
+      // Group rate limit
+      if (!socketRateLimit(duelEventRateLimits, socket.id, DUEL_EVENT_MAX, DUEL_EVENT_WINDOW_MS)) {
+        socket.emit('duel:error', { code: 'rate_limited', message: 'Слишком много запросов.' });
+        return;
+      }
       const result = duelManager.handleFinishLap(socket.id);
       if (!result.ok) {
         // When cancelled is true the duel:cancelled event was already emitted to both players
