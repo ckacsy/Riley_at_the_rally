@@ -27,6 +27,9 @@ playwright-report/
 test-results/
 backend/.playwright/
 
+# Backups
+backups/
+
 # Python
 __pycache__/
 *.py[cod]
