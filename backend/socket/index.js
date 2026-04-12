@@ -90,6 +90,7 @@ function setupSocketIo(io, deps) {
 
   // --- Global Chat (DB-backed) ---
   const CHAT_HISTORY_LIMIT = parseInt(process.env.CHAT_HISTORY_LIMIT, 10) || 500;
+  const CHAT_PRUNE_INTERVAL_MS = 60_000; // run message pruning every 60 s (off the hot path)
   const CHAT_COOLDOWN_MS = 700; // min ms between messages per user
   const CHAT_BURST_MAX = 5;     // max burst before enforcing cooldown
   const CHAT_MSG_MAX_LEN = 300;
@@ -552,11 +553,6 @@ function setupSocketIo(io, deps) {
       const result = db.prepare(
         'INSERT INTO chat_messages (user_id, username, text) VALUES (?, ?, ?)'
       ).run(authUserId, authUsername, trimmed);
-
-      // Prune oldest messages beyond the retention limit
-      db.prepare(
-        'DELETE FROM chat_messages WHERE id NOT IN (SELECT id FROM chat_messages ORDER BY id DESC LIMIT ?)'
-      ).run(CHAT_HISTORY_LIMIT);
 
       const msg = {
         id: result.lastInsertRowid,
@@ -1396,6 +1392,20 @@ function setupSocketIo(io, deps) {
     }
   }, HEARTBEAT_CHECK_INTERVAL_MS);
 
+  // ---------------------------------------------------------------------------
+  // Periodic chat message pruning: keep only the CHAT_HISTORY_LIMIT most-recent
+  // messages. Runs on a fixed schedule to stay off the chat:send hot path.
+  // ---------------------------------------------------------------------------
+  const chatPruneInterval = setInterval(() => {
+    try {
+      db.prepare(
+        'DELETE FROM chat_messages WHERE id NOT IN (SELECT id FROM chat_messages ORDER BY id DESC LIMIT ?)'
+      ).run(CHAT_HISTORY_LIMIT);
+    } catch (e) {
+      metrics.log('error', 'chat_prune_error', { error: e.message });
+    }
+  }, CHAT_PRUNE_INTERVAL_MS);
+
   return {
     activeSessions,
     raceRooms,
@@ -1411,6 +1421,7 @@ function setupSocketIo(io, deps) {
     duelManager,
     deviceSockets,
     heartbeatCheckInterval,
+    chatPruneInterval,
   };
 }
 
