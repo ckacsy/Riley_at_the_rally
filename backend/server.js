@@ -76,6 +76,11 @@ app.use(express.json());
 // Session middleware — uses connect-sqlite3 to persist sessions across server
 // restarts, replacing the default in-memory store which lost sessions on restart.
 const SESSION_SECRET = process.env.SESSION_SECRET || 'riley-secret-change-in-production';
+if (process.env.NODE_ENV === 'production' && SESSION_SECRET === 'riley-secret-change-in-production') {
+  console.error('[FATAL] SESSION_SECRET is set to the default value in production. This is a critical security risk.');
+  console.error('[FATAL] Generate a secure secret: node -e "console.log(require(\'crypto\').randomBytes(48).toString(\'hex\'))"');
+  process.exit(1);
+}
 const sessionMiddleware = session({
   secret: SESSION_SECRET,
   resave: false,
@@ -487,7 +492,7 @@ const apiReadLimiter = rateLimit({
 
 // Mount all auth & profile routes; get back shared middleware and dev maps
 const mountAuthRoutes = require('./routes/auth');
-const { requireAuth, requireActiveUser, loadCurrentUser, requireRole, _devVerificationLinks, _devMagicLinks, _devResetLinks } = mountAuthRoutes(app, db, {
+const { requireAuth, requireActiveUser, loadCurrentUser, requireRole, invalidateUserSessions, _devVerificationLinks, _devMagicLinks, _devResetLinks } = mountAuthRoutes(app, db, {
   csrfMiddleware,
   generateCsrfToken,
   apiReadLimiter,
@@ -501,6 +506,7 @@ const adminRouteDeps = {
   requireRole,
   csrfMiddleware,
   logAdminAudit: (auditData) => logAdminAudit(db, auditData),
+  invalidateUserSessions,
 };
 app.locals.adminRouteDeps = adminRouteDeps;
 
@@ -553,6 +559,7 @@ const mountDuelRoutes = require('./routes/duel');
 // current DuelManager instance after socketState is initialized below.
 mountDuelRoutes(app, db, {
   requireAuth,
+  requireActiveUser,
   apiReadLimiter,
   getDuelManager: () => socketState && socketState.duelManager,
 });

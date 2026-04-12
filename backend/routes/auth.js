@@ -29,6 +29,7 @@ const {
  *   requireActiveUser: Function,
  *   loadCurrentUser: Function,
  *   requireRole: (...roles: string[]) => Function,
+ *   invalidateUserSessions: Function,
  *   _devVerificationLinks: Map|null,
  *   _devMagicLinks: Map|null,
  *   _devResetLinks: Map|null
@@ -149,6 +150,36 @@ module.exports = function mountAuthRoutes(app, db, deps) {
   function requireAuth(req, res, next) {
     if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
     next();
+  }
+
+  /**
+   * Invalidate all sessions for a given user ID.
+   * Opens the sessions.sqlite database and deletes matching rows.
+   */
+  function invalidateUserSessions(userId) {
+    try {
+      const sessionsDbPath = path.join(__dirname, '..', 'sessions.sqlite');
+      if (!fs.existsSync(sessionsDbPath)) return;
+      const Database = require('better-sqlite3');
+      const sessDb = new Database(sessionsDbPath);
+      // connect-sqlite3 stores session data as JSON string in `sess` column
+      // The JSON contains {"userId": <number>, ...}
+      // We use exact match on the parsed userId field
+      const rows = sessDb.prepare('SELECT sid, sess FROM sessions').all();
+      for (const row of rows) {
+        try {
+          const data = JSON.parse(row.sess);
+          if (data && data.userId === userId) {
+            sessDb.prepare('DELETE FROM sessions WHERE sid = ?').run(row.sid);
+          }
+        } catch (_) {
+          // Skip malformed session data
+        }
+      }
+      sessDb.close();
+    } catch (e) {
+      console.error('[Session] Failed to invalidate sessions for user', userId, ':', e.message);
+    }
   }
 
   function requireActiveUser(req, res, next) {
@@ -663,11 +694,14 @@ module.exports = function mountAuthRoutes(app, db, deps) {
       db.prepare('DELETE FROM password_reset_tokens WHERE id = ?').run(record.id);
     })();
 
+    // Invalidate all existing sessions for this user
+    invalidateUserSessions(record.user_id);
+
     res.json({ success: true, message: 'Пароль успешно изменён. Теперь вы можете войти с новым паролем.' });
   });
 
   // --- Profile routes ---
-  app.get('/api/profile', requireAuth, apiReadLimiter, (req, res) => {
+  app.get('/api/profile', requireActiveUser, apiReadLimiter, (req, res) => {
     const userId = req.session.userId;
     const user = db
       .prepare('SELECT id, username, email, avatar_path, status, created_at FROM users WHERE id = ?')
@@ -747,5 +781,5 @@ module.exports = function mountAuthRoutes(app, db, deps) {
     res.json({ success: true, username: newUsername });
   });
 
-  return { requireAuth, requireActiveUser, loadCurrentUser, requireRole, _devVerificationLinks, _devMagicLinks, _devResetLinks };
+  return { requireAuth, requireActiveUser, loadCurrentUser, requireRole, invalidateUserSessions, _devVerificationLinks, _devMagicLinks, _devResetLinks };
 };

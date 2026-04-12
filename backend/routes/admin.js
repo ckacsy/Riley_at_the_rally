@@ -29,7 +29,7 @@ const COMPENSATION_REASONS = Object.keys(REASON_LABELS);
  * }} deps
  */
 module.exports = function mountAdminRoutes(app, db, deps) {
-  const { requireRole, csrfMiddleware, logAdminAudit } = deps;
+  const { requireRole, csrfMiddleware, logAdminAudit, invalidateUserSessions } = deps;
 
   const adminReadLimiter = rateLimit({
     windowMs: 60 * 1000,
@@ -108,6 +108,11 @@ module.exports = function mountAdminRoutes(app, db, deps) {
       db.prepare(
         "UPDATE users SET status = 'banned', updated_at = CURRENT_TIMESTAMP WHERE id = ?"
       ).run(targetId);
+
+      // Invalidate all sessions for the banned user
+      if (typeof invalidateUserSessions === 'function') {
+        invalidateUserSessions(targetId);
+      }
 
       logAdminAudit({
         adminId: actor.id,
@@ -225,6 +230,11 @@ module.exports = function mountAdminRoutes(app, db, deps) {
         newEmail.toLowerCase(),
         targetId
       );
+
+      // Invalidate all sessions for the deleted user
+      if (typeof invalidateUserSessions === 'function') {
+        invalidateUserSessions(targetId);
+      }
 
       logAdminAudit({
         adminId: actor.id,
