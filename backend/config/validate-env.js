@@ -77,6 +77,84 @@ function validateEnv() {
     }
   }
 
+  // --- SESSION_SECRET strength (production) ---
+  if (isProduction && process.env.SESSION_SECRET) {
+    const secret = process.env.SESSION_SECRET;
+    if (secret.length < 32) {
+      errors.push(
+        `SESSION_SECRET is too short (${secret.length} chars). ` +
+        'Minimum 32 characters required in production.'
+      );
+    }
+    // Reject common placeholder values from .env.example
+    const PLACEHOLDER_SECRETS = [
+      'your-session-secret-here',
+      'change-me',
+      'secret',
+      'session-secret',
+      'mysecret',
+    ];
+    if (PLACEHOLDER_SECRETS.includes(secret.toLowerCase())) {
+      errors.push(
+        'SESSION_SECRET appears to be a placeholder value. ' +
+        'Generate a real secret: node -e "console.log(require(\'crypto\').randomBytes(48).toString(\'hex\'))"'
+      );
+    }
+  }
+
+  // --- TRUST_PROXY in production ---
+  if (isProduction && !process.env.TRUST_PROXY) {
+    warnings.push(
+      'TRUST_PROXY is not set in production. If behind a reverse proxy (nginx/Cloudflare), ' +
+      'rate limiting will not work correctly (all requests share one IP bucket). ' +
+      'Set TRUST_PROXY=1 or to your proxy IP/subnet.'
+    );
+  }
+
+  // --- APP_BASE_URL format ---
+  if (process.env.APP_BASE_URL) {
+    const baseUrl = process.env.APP_BASE_URL;
+    if (!/^https?:\/\/.+/.test(baseUrl)) {
+      errors.push(
+        `APP_BASE_URL must start with http:// or https:// — got: "${baseUrl}"`
+      );
+    }
+    if (baseUrl.endsWith('/')) {
+      warnings.push(
+        'APP_BASE_URL has a trailing slash — this may cause double-slash issues in generated URLs. ' +
+        `Consider: "${baseUrl.replace(/\/+$/, '')}"`
+      );
+    }
+  }
+
+  // --- ADMIN_USERNAMES in production ---
+  if (isProduction && !process.env.ADMIN_USERNAMES) {
+    warnings.push(
+      'ADMIN_USERNAMES is not set in production — no users will have chat moderation rights. ' +
+      'Set to a comma-separated list of admin usernames.'
+    );
+  }
+
+  // --- SESSION_MAX_DURATION_MS format ---
+  if (process.env.SESSION_MAX_DURATION_MS) {
+    const val = parseInt(process.env.SESSION_MAX_DURATION_MS, 10);
+    if (isNaN(val) || val <= 0) {
+      errors.push(
+        `Invalid SESSION_MAX_DURATION_MS value: "${process.env.SESSION_MAX_DURATION_MS}" — must be a positive integer (milliseconds).`
+      );
+    }
+  }
+
+  // --- CONTROL_RATE_LIMIT_MAX format ---
+  if (process.env.CONTROL_RATE_LIMIT_MAX) {
+    const val = parseInt(process.env.CONTROL_RATE_LIMIT_MAX, 10);
+    if (isNaN(val) || val <= 0) {
+      errors.push(
+        `Invalid CONTROL_RATE_LIMIT_MAX value: "${process.env.CONTROL_RATE_LIMIT_MAX}" — must be a positive integer.`
+      );
+    }
+  }
+
   // --- Log warnings ---
   for (const w of warnings) {
     console.warn(`[config] ⚠️  ${w}`);
