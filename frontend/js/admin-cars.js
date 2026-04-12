@@ -32,7 +32,7 @@
             maintenance: { cls: 'badge--maintenance', text: 'На обслуживании' },
         };
         var info = map[status] || { cls: '', text: status };
-        return '<span class="badge ' + info.cls + '">' + info.text + '</span>';
+        return '<span class="badge ' + info.cls + '">' + escapeHtml(info.text) + '</span>';
     }
 
     // ---------------------------------------------------------------------------
@@ -229,7 +229,8 @@
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     // ---------------------------------------------------------------------------
