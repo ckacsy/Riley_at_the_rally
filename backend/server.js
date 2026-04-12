@@ -1471,8 +1471,7 @@ app.use((req, res) => {
 // ---------------------------------------------------------------------------
 // Global error handler — must be last middleware (4-argument signature)
 // ---------------------------------------------------------------------------
-// eslint-disable-next-line no-unused-vars
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   metrics.log('error', 'unhandled_error', {
     method: req.method,
     path: req.path,
