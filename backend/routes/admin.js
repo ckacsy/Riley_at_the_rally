@@ -71,7 +71,7 @@ module.exports = function mountAdminRoutes(app, db, deps) {
     (req, res) => {
       const actor = req.user;
       const targetId = parseInt(req.params.id, 10);
-      if (!Number.isInteger(targetId)) {
+      if (!Number.isInteger(targetId) || targetId < 1) {
         return res.status(400).json({ error: 'Некорректный ID пользователя' });
       }
 
@@ -124,7 +124,7 @@ module.exports = function mountAdminRoutes(app, db, deps) {
     (req, res) => {
       const actor = req.user;
       const targetId = parseInt(req.params.id, 10);
-      if (!Number.isInteger(targetId)) {
+      if (!Number.isInteger(targetId) || targetId < 1) {
         return res.status(400).json({ error: 'Некорректный ID пользователя' });
       }
 
@@ -173,7 +173,7 @@ module.exports = function mountAdminRoutes(app, db, deps) {
     (req, res) => {
       const actor = req.user;
       const targetId = parseInt(req.params.id, 10);
-      if (!Number.isInteger(targetId)) {
+      if (!Number.isInteger(targetId) || targetId < 1) {
         return res.status(400).json({ error: 'Некорректный ID пользователя' });
       }
 
@@ -382,7 +382,7 @@ module.exports = function mountAdminRoutes(app, db, deps) {
     (req, res) => {
       const actor = req.user;
       const targetId = parseInt(req.params.id, 10);
-      if (!Number.isInteger(targetId)) {
+      if (!Number.isInteger(targetId) || targetId < 1) {
         return res.status(400).json({ error: 'Некорректный ID пользователя' });
       }
 
@@ -513,7 +513,7 @@ module.exports = function mountAdminRoutes(app, db, deps) {
     (req, res) => {
       const actor = req.user;
       const targetId = parseInt(req.params.id, 10);
-      if (!Number.isInteger(targetId)) {
+      if (!Number.isInteger(targetId) || targetId < 1) {
         return res.status(400).json({ error: 'Некорректный ID пользователя' });
       }
 

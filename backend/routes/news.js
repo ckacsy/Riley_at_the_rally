@@ -94,6 +94,13 @@ function uniqueSlug(db, title, excludeId) {
 // ---------------------------------------------------------------------------
 const VALID_STATUSES = new Set(['draft', 'published', 'archived']);
 
+// Whitelist of column names that may appear in a dynamic UPDATE SET clause.
+// Prevents future accidental injection of attacker-controlled column names.
+const ALLOWED_UPDATE_COLUMNS = new Set([
+  'title', 'slug', 'summary', 'cover_image', 'body_markdown', 'body_html',
+  'status', 'pinned', 'author_id', 'published_at', 'updated_at',
+]);
+
 function validateNewsBody(body) {
   const errors = [];
   const { title, body_markdown, status, pinned, slug } = body;
@@ -326,10 +333,9 @@ module.exports = function mountNewsRoutes(app, db, deps) {
 
       updates.updated_at = new Date().toISOString();
 
-      const setClauses = Object.keys(updates)
-        .map((k) => `${k} = ?`)
-        .join(', ');
-      const values = [...Object.values(updates), newsId];
+      const safeKeys = Object.keys(updates).filter((k) => ALLOWED_UPDATE_COLUMNS.has(k));
+      const setClauses = safeKeys.map((k) => `${k} = ?`).join(', ');
+      const values = [...safeKeys.map((k) => updates[k]), newsId];
 
       db.prepare(`UPDATE news SET ${setClauses} WHERE id = ?`).run(...values);
 
