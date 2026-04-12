@@ -1,6 +1,6 @@
 'use strict';
 
-const rateLimit = require('express-rate-limit');
+const { createRateLimiter } = require('../middleware/rateLimiter');
 
 /**
  * Grace period (minutes) for orphaned hold detection.
@@ -37,15 +37,7 @@ const HIGH_IMPACT_ACTIONS = [
 module.exports = function mountAdminDashboardRoutes(app, db, deps) {
   const { requireRole, getActiveSessions, CARS } = deps;
 
-  const adminReadLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 60,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Слишком много запросов. Попробуйте позже.' },
-    keyGenerator: (req) => req.ip,
-    skip: () => process.env.NODE_ENV === 'test',
-  });
+  const adminReadLimiter = createRateLimiter({ max: 60 });
 
   // ---------------------------------------------------------------------------
   // GET /api/admin/dashboard

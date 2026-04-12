@@ -1,6 +1,6 @@
 'use strict';
 
-const rateLimit = require('express-rate-limit');
+const { createRateLimiter } = require('../middleware/rateLimiter');
 
 /**
  * Mount admin chat-moderation routes.
@@ -18,25 +18,9 @@ module.exports = function mountAdminChatRoutes(app, db, deps, extra) {
   const { requireRole, csrfMiddleware, logAdminAudit } = deps;
   const { io } = extra;
 
-  const adminReadLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 120,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Слишком много запросов. Попробуйте позже.' },
-    keyGenerator: (req) => req.ip,
-    skip: () => process.env.NODE_ENV === 'test',
-  });
+  const adminReadLimiter = createRateLimiter({ max: 120 });
 
-  const adminMutationLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 60,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Слишком много запросов. Попробуйте позже.' },
-    keyGenerator: (req) => req.ip,
-    skip: () => process.env.NODE_ENV === 'test',
-  });
+  const adminMutationLimiter = createRateLimiter({ max: 60 });
 
   // GET /api/admin/chat/messages
   // Returns recent chat messages (including deleted) for admin moderation.

@@ -1,6 +1,6 @@
 'use strict';
 
-const rateLimit = require('express-rate-limit');
+const { createRateLimiter } = require('../middleware/rateLimiter');
 
 /**
  * Mount admin car-maintenance routes.
@@ -18,25 +18,9 @@ module.exports = function mountAdminCarsRoutes(app, db, deps, extra) {
   const { requireRole, csrfMiddleware, logAdminAudit } = deps;
   const { CARS } = extra;
 
-  const adminReadLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 60,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Слишком много запросов. Попробуйте позже.' },
-    keyGenerator: (req) => req.ip,
-    skip: () => process.env.NODE_ENV === 'test',
-  });
+  const adminReadLimiter = createRateLimiter({ max: 60 });
 
-  const adminWriteLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 20,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Слишком много запросов. Попробуйте позже.' },
-    keyGenerator: (req) => req.ip,
-    skip: () => process.env.NODE_ENV === 'test',
-  });
+  const adminWriteLimiter = createRateLimiter({ max: 20 });
 
   // -------------------------------------------------------------------------
   // GET /api/admin/cars

@@ -1,6 +1,6 @@
 'use strict';
 
-const rateLimit = require('express-rate-limit');
+const { createRateLimiter } = require('../middleware/rateLimiter');
 const { canActOn } = require('../middleware/roles');
 
 const MAX_COMPENSATION_AMOUNT = 10000;
@@ -31,25 +31,9 @@ const COMPENSATION_REASONS = Object.keys(REASON_LABELS);
 module.exports = function mountAdminRoutes(app, db, deps) {
   const { requireRole, csrfMiddleware, logAdminAudit, invalidateUserSessions } = deps;
 
-  const adminReadLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 60,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Слишком много запросов. Попробуйте позже.' },
-    keyGenerator: (req) => req.ip,
-    skip: () => process.env.NODE_ENV === 'test',
-  });
+  const adminReadLimiter = createRateLimiter({ max: 60 });
 
-  const adminWriteLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 30,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Слишком много запросов. Попробуйте позже.' },
-    keyGenerator: (req) => req.ip,
-    skip: () => process.env.NODE_ENV === 'test',
-  });
+  const adminWriteLimiter = createRateLimiter({ max: 30 });
 
   // Prepared statements
   const stmtGetUserById = db.prepare(

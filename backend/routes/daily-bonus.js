@@ -1,6 +1,6 @@
 'use strict';
 
-const rateLimit = require('express-rate-limit');
+const { createRateLimiter } = require('../middleware/rateLimiter');
 
 const REWARD_SCHEDULE = [2, 3, 5, 5, 8, 10, 15];
 const SCHEDULE_VERSION = 1;
@@ -31,25 +31,9 @@ function getRewardForCycleDay(cycleDay) {
  * @param {{ requireAuth: Function, requireActiveUser: Function, csrfMiddleware: Function, apiReadLimiter: Function }} deps
  */
 module.exports = function mountDailyBonusRoutes(app, db, { requireAuth, requireActiveUser, csrfMiddleware, apiReadLimiter }) {
-  const dailyBonusReadLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 60,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Слишком много запросов. Попробуйте позже.' },
-    keyGenerator: (req) => req.ip,
-    skip: () => process.env.NODE_ENV === 'test',
-  });
+  const dailyBonusReadLimiter = createRateLimiter({ max: 60 });
 
-  const dailyBonusClaimLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 5,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Слишком много запросов. Попробуйте позже.' },
-    keyGenerator: (req) => req.ip,
-    skip: () => process.env.NODE_ENV === 'test',
-  });
+  const dailyBonusClaimLimiter = createRateLimiter({ max: 5 });
 
   // -------------------------------------------------------------------------
   // GET /api/daily-bonus/status

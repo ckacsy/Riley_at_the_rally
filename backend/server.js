@@ -25,7 +25,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const socketIo = require('socket.io');
-const rateLimit = require('express-rate-limit');
+const { createRateLimiter } = require('./middleware/rateLimiter');
 const Database = require('better-sqlite3');
 const session = require('express-session');
 const SQLiteStore = require('connect-sqlite3')(session);
@@ -540,15 +540,7 @@ function csrfMiddleware(req, res, next) {
 }
 
 // General API rate limiter — used by auth routes and /api/leaderboard
-const apiReadLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 60,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Слишком много запросов. Попробуйте позже.' },
-  keyGenerator: (req) => req.ip,
-  skip: () => process.env.NODE_ENV === 'test',
-});
+const apiReadLimiter = createRateLimiter({ max: 60 });
 
 // Mount all auth & profile routes; get back shared middleware and dev maps
 const mountAuthRoutes = require('./routes/auth');
@@ -759,15 +751,7 @@ function getCarAvailabilityStatus() {
 
 // --- Routes ---
 
-const healthLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Слишком много запросов. Попробуйте позже.' },
-  keyGenerator: (req) => req.ip,
-  skip: () => process.env.NODE_ENV === 'test',
-});
+const healthLimiter = createRateLimiter({ max: 30 });
 
 app.get('/api/health', healthLimiter, async (req, res) => {
   const health = { ok: true, ts: new Date().toISOString(), details: {} };
@@ -834,15 +818,7 @@ app.get('/api/health', healthLimiter, async (req, res) => {
 const IS_DEV_MODE = process.env.DEBUG === 'true' || process.env.NODE_ENV !== 'production';
 const METRICS_SECRET = process.env.METRICS_SECRET || '';
 
-const metricsLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Слишком много запросов. Попробуйте позже.' },
-  keyGenerator: (req) => req.ip,
-  skip: () => process.env.NODE_ENV === 'test',
-});
+const metricsLimiter = createRateLimiter({ max: 30 });
 
 app.get('/api/metrics', metricsLimiter, requireAuth, (req, res) => {
   // Access control: open in debug/dev mode; require METRICS_SECRET header in production
@@ -999,7 +975,7 @@ app.post('/api/session/end', (req, res) => {
 });
 
 // Routes for frontend pages
-const pageRateLimit = rateLimit({ windowMs: 60 * 1000, max: 60 });
+const pageRateLimit = createRateLimiter({ max: 60 });
 
 app.get('/', pageRateLimit, (req, res) => {
   res.redirect(302, '/garage');
@@ -1102,15 +1078,7 @@ app.get('/admin-chat', pageRateLimit, (req, res) => {
 // --- Dev-only: reset database (delete all users and sessions) ---
 // Accessible only when NODE_ENV !== 'production'
 if (process.env.NODE_ENV !== 'production') {
-  const devLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 20,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Too many requests from this IP, please try again later.' },
-    keyGenerator: (req) => req.ip,
-    skip: () => process.env.NODE_ENV === 'test',
-  });
+  const devLimiter = createRateLimiter({ max: 20, message: 'Too many requests from this IP, please try again later.' });
 
   const { MIN_LAP_TIME_MS } = require('./lib/rank-config');
 
