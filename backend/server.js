@@ -26,7 +26,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const socketIo = require('socket.io');
 const { createRateLimiter } = require('./middleware/rateLimiter');
-const Database = require('better-sqlite3');
+const { openDatabase } = require('./db/connection');
 const session = require('express-session');
 const SQLiteStore = require('connect-sqlite3')(session);
 const helmet = require('helmet');
@@ -193,7 +193,7 @@ app.use(express.static(frontendDir));
 
 // --- SQLite Database ---
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'riley.sqlite');
-const db = new Database(DB_PATH);
+const db = openDatabase(DB_PATH);
 const { runMigrations } = require('./db/migrate');
 runMigrations(db);
 
@@ -390,7 +390,7 @@ function runTokenCleanup() {
   try {
     const sessionsDbPath = path.join(__dirname, 'sessions.sqlite');
     if (fs.existsSync(sessionsDbPath)) {
-      const sessDb = new Database(sessionsDbPath, { timeout: 5000 });
+      const sessDb = openDatabase(sessionsDbPath, { timeout: 5000 });
       try {
         // connect-sqlite3 stores: sid, expired (INTEGER epoch ms), sess (TEXT JSON)
         const r = sessDb.prepare('DELETE FROM sessions WHERE expired < ?').run(Date.now());

@@ -8,7 +8,7 @@
 
 const { test, describe, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
-const Database = require('better-sqlite3');
+const { openDatabase } = require('../../db/connection');
 
 const DuelManager = require('../../lib/duel-manager');
 const { DUEL_REQUIRED_CHECKPOINTS, RECENTLY_RESOLVED_GRACE_MS } = require('../../lib/rank-config');
@@ -18,7 +18,7 @@ const { DUEL_REQUIRED_CHECKPOINTS, RECENTLY_RESOLVED_GRACE_MS } = require('../..
 // ---------------------------------------------------------------------------
 
 function createTestDb() {
-  const db = new Database(':memory:');
+  const db = openDatabase(':memory:');
 
   db.exec(`
     CREATE TABLE users (

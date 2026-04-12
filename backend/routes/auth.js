@@ -91,8 +91,8 @@ module.exports = function mountAuthRoutes(app, db, deps) {
     try {
       const sessionsDbPath = path.join(__dirname, '..', 'sessions.sqlite');
       if (!fs.existsSync(sessionsDbPath)) return;
-      const Database = require('better-sqlite3');
-      const sessDb = new Database(sessionsDbPath, { timeout: 5000 });
+      const { openDatabase } = require('../db/connection');
+      const sessDb = openDatabase(sessionsDbPath, { timeout: 5000 });
       // connect-sqlite3 stores session data as JSON string in `sess` column
       // Use SQLite's json_extract to filter at the database level for efficiency
       sessDb.prepare(
