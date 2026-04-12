@@ -7,6 +7,15 @@ package-lock.json
 
 # Database
 *.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.db
+*.db-wal
+*.db-shm
+
+# Log files
+*.log
+backend/logs/
 
 # Uploaded files
 backend/uploads/*
