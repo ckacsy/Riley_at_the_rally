@@ -99,7 +99,7 @@ module.exports = function mountPaymentRoutes(app, db, deps) {
   // -------------------------------------------------------------------------
   // GET /api/balance
   // -------------------------------------------------------------------------
-  app.get('/api/balance', paymentReadLimiter, requireAuth, (req, res) => {
+  app.get('/api/balance', paymentReadLimiter, requireActiveUser, (req, res) => {
     const row = db.prepare('SELECT balance FROM users WHERE id = ?').get(req.session.userId);
     if (!row) return res.status(404).json({ error: 'Пользователь не найден.' });
     let activeHold = 0;
@@ -311,7 +311,7 @@ module.exports = function mountPaymentRoutes(app, db, deps) {
   // -------------------------------------------------------------------------
   // GET /api/transactions
   // -------------------------------------------------------------------------
-  app.get('/api/transactions', paymentReadLimiter, requireAuth, (req, res) => {
+  app.get('/api/transactions', paymentReadLimiter, requireActiveUser, (req, res) => {
     const transactions = db.prepare(
       "SELECT id, type, amount, balance_after, description, reference_id, created_at FROM transactions WHERE user_id = ? AND type NOT IN ('hold', 'release') ORDER BY created_at DESC LIMIT 50"
     ).all(req.session.userId);

@@ -9,10 +9,10 @@
  *
  * @param {import('express').Application} app
  * @param {import('better-sqlite3').Database} db
- * @param {{ requireAuth: Function, apiReadLimiter: Function, getDuelManager: Function }} deps
+ * @param {{ requireAuth: Function, requireActiveUser: Function, apiReadLimiter: Function, getDuelManager: Function }} deps
  */
 module.exports = function mountDuelRoutes(app, db, deps) {
-  const { requireAuth, apiReadLimiter, getDuelManager } = deps;
+  const { requireAuth, requireActiveUser, apiReadLimiter, getDuelManager } = deps;
 
   /**
    * GET /api/duel/status
@@ -21,7 +21,7 @@ module.exports = function mountDuelRoutes(app, db, deps) {
    * Response shape:
    *   { status: 'none'|'searching'|'matched'|'in_progress'|'finished' }
    */
-  app.get('/api/duel/status', requireAuth, apiReadLimiter, (req, res) => {
+  app.get('/api/duel/status', requireActiveUser, apiReadLimiter, (req, res) => {
     try {
       const userId = req.session.userId;
       const duelManager = getDuelManager();
@@ -42,7 +42,7 @@ module.exports = function mountDuelRoutes(app, db, deps) {
    *                       winnerLapTimeMs, loserLapTimeMs, createdAt,
    *                       isWin: boolean }> }
    */
-  app.get('/api/duel/history', requireAuth, apiReadLimiter, (req, res) => {
+  app.get('/api/duel/history', requireActiveUser, apiReadLimiter, (req, res) => {
     try {
       const userId = req.session.userId;
 
