@@ -29,6 +29,15 @@ function openDatabase(dbPath, options = {}, pragmaOverrides = {}) {
   const pragmas = { ...DEFAULT_PRAGMAS, ...pragmaOverrides };
 
   for (const [key, value] of Object.entries(pragmas)) {
+    // Guard against injection: key must be a plain identifier, value must be
+    // a number or one of the known safe keyword/string values.
+    if (!/^\w+$/.test(key)) {
+      throw new Error(`[db] Invalid PRAGMA key: ${key}`);
+    }
+    // Numeric values are always safe; string values must not contain quotes or semicolons.
+    if (typeof value === 'string' && /['"`;]/.test(value)) {
+      throw new Error(`[db] Unsafe PRAGMA value for key '${key}': ${value}`);
+    }
     db.pragma(`${key} = ${value}`);
   }
 

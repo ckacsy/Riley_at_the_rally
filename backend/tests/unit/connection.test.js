@@ -26,7 +26,8 @@ describe('openDatabase', () => {
   it('applies PRAGMA to file-based database', () => {
     const path = require('path');
     const fs = require('fs');
-    const tmpPath = path.join(require('os').tmpdir(), `test-riley-${Date.now()}.sqlite`);
+    const crypto = require('crypto');
+    const tmpPath = path.join(require('os').tmpdir(), `test-riley-${crypto.randomBytes(8).toString('hex')}.sqlite`);
 
     try {
       const db = openDatabase(tmpPath);
@@ -47,7 +48,9 @@ describe('openDatabase', () => {
     } finally {
       // Cleanup: remove DB file and WAL/SHM files
       for (const suffix of ['', '-wal', '-shm']) {
-        try { fs.unlinkSync(tmpPath + suffix); } catch {}
+        try { fs.unlinkSync(tmpPath + suffix); } catch (e) {
+          if (e.code !== 'ENOENT') throw e;
+        }
       }
     }
   });
