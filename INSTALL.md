@@ -117,3 +117,31 @@ If you encounter issues, check the following:
 
 ## Conclusion
 You are now ready to start developing with the Riley_at_the_rally project!
+## Production deployment with PM2
+
+Install PM2 globally (or use npx):
+```bash
+npm install -g pm2
+```
+
+Start the server:
+```bash
+cd backend
+npm run pm2:start
+```
+
+Useful commands:
+```bash
+npm run pm2:logs      # View logs
+npm run pm2:monit     # Monitor CPU/memory
+npm run pm2:restart   # Restart
+npm run pm2:stop      # Stop
+```
+
+Enable auto-start on system boot (Raspberry Pi):
+```bash
+pm2 startup systemd
+pm2 save
+```
+
+The server uses graceful shutdown — active rental sessions are saved to the database before the process exits. PM2 allows 8 seconds for graceful shutdown before sending SIGKILL.
