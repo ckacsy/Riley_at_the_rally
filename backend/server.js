@@ -29,6 +29,8 @@ const rateLimit = require('express-rate-limit');
 const Database = require('better-sqlite3');
 const session = require('express-session');
 const SQLiteStore = require('connect-sqlite3')(session);
+const helmet = require('helmet');
+const cors = require('cors');
 // Load environment variables from backend/.env (works regardless of cwd).
 // Falls back to repo-root .env if backend/.env does not exist.
 {
@@ -71,7 +73,51 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
+// Trust first proxy (nginx/Cloudflare) so req.ip returns the real client IP.
+// Without this, all rate limiters see the proxy IP and share one bucket.
+// Set to specific number (not 'true') to prevent spoofing via X-Forwarded-For.
+if (process.env.TRUST_PROXY) {
+  const trustValue = process.env.TRUST_PROXY;
+  // Accept numeric (e.g. "1"), boolean "true", or a subnet/IP string
+  const numVal = parseInt(trustValue, 10);
+  if (!isNaN(numVal)) {
+    app.set('trust proxy', numVal);
+  } else if (trustValue === 'true') {
+    app.set('trust proxy', 1);
+  } else {
+    // Treat as IP/subnet string (e.g. "loopback", "10.0.0.0/8")
+    app.set('trust proxy', trustValue);
+  }
+  console.log('[server] trust proxy set to:', app.get('trust proxy'));
+}
+
+const corsOrigin = process.env.NODE_ENV === 'production'
+  ? (process.env.APP_BASE_URL || false)
+  : true; // allow all in development
+app.use(cors({
+  origin: corsOrigin,
+  credentials: true, // needed for session cookies
+}));
+
 app.use(express.json());
+
+app.use(helmet({
+  contentSecurityPolicy: false, // CSP is complex for this app (inline scripts, external streams) — add separately later
+  crossOriginEmbedderPolicy: false, // Breaks camera stream embedding
+}));
+
+// Restrict browser features the app doesn't use
+app.use((req, res, next) => {
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+  next();
+});
+
+app.use((req, res, next) => {
+  const requestId = crypto.randomUUID();
+  req.requestId = requestId;
+  res.setHeader('X-Request-Id', requestId);
+  next();
+});
 
 // Session middleware — uses connect-sqlite3 to persist sessions across server
 // restarts, replacing the default in-memory store which lost sessions on restart.
