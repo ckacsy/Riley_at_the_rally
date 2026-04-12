@@ -30,7 +30,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 function normalizeText(str) {
   return String(str)
     .normalize('NFKC')
-    .replace(/[\u0000-\u001F\u007F\u00AD\u200B-\u200D\u2028\u2029\uFEFF]/g, '')
+    .replace(/[\u0000-\u001F\u007F\u00AD\u200B-\u200D\u2028\u2029\uFEFF]/g, '') // eslint-disable-line no-control-regex
     .trim();
 }
 
