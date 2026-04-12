@@ -1,4 +1,5 @@
 import argparse
+import os
 import threading
 import time
 
@@ -24,7 +25,6 @@ parser.add_argument('--device-key', default=None,
                     help='Device key for authentication (or set DEVICE_KEY env var)')
 args = parser.parse_args()
 
-import os
 SERVER_URL  = args.server
 STREAM_PORT = args.stream_port
 MOCK        = args.mock

@@ -1323,6 +1323,7 @@ function setupSocketIo(io, deps) {
       const sock = deviceSockets.get(Number(dev.car_id));
       if (sock) {
         metrics.log('warn', 'device_heartbeat_timeout', { deviceId: dev.id, carId: dev.car_id });
+        sock.emit('device:kicked', { reason: 'heartbeat_timeout' });
         sock.disconnect(true);
         deviceSockets.delete(Number(dev.car_id));
       }
