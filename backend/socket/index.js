@@ -366,24 +366,15 @@ function setupSocketIo(io, deps) {
     // --- Chat events ---
 
     socket.on('chat:send', (data) => {
-      const { message, userId: clientUserId, username: clientUsername } = data || {};
+      const { message } = data || {};
 
-      // Auth: try HTTP session first, then fall back to client-provided identity
-      // (same pattern as presence:hello — validates against DB either way)
+      // Auth: require HTTP session — no fallback to client-provided identity
       let authUserId, authUsername;
       const sess = socket.request.session;
       if (sess && sess.userId) {
         const user = db.prepare('SELECT username, status FROM users WHERE id = ?').get(sess.userId);
         if (user && user.status === 'active') {
           authUserId = sess.userId;
-          authUsername = user.username;
-        }
-      }
-      // Fallback: client-provided userId+username (validated against DB)
-      if (!authUserId && Number.isInteger(clientUserId) && clientUsername) {
-        const user = db.prepare('SELECT username, status FROM users WHERE id = ? AND username = ?').get(clientUserId, clientUsername);
-        if (user && user.status === 'active') {
-          authUserId = clientUserId;
           authUsername = user.username;
         }
       }
@@ -470,7 +461,7 @@ function setupSocketIo(io, deps) {
     // --- Presence events ---
 
     socket.on('presence:hello', (data) => {
-      const { page, userId, username } = data || {};
+      const { page } = data || {};
       if (page !== 'control') {
         // Non-control pages: send current presence snapshot without registering
         socket.emit('presence:update', {
@@ -485,7 +476,15 @@ function setupSocketIo(io, deps) {
         });
         return;
       }
-      if (!Number.isInteger(userId) || !username) return;
+
+      // Require HTTP session authentication — ignore client-provided userId/username
+      const sess = socket.request.session;
+      const userId = sess && sess.userId;
+      if (!userId) return;
+
+      const user = db.prepare('SELECT username, status FROM users WHERE id = ?').get(userId);
+      if (!user || user.status !== 'active') return;
+      const username = user.username;
 
       // Cancel any pending grace-period removal for this user
       if (presenceGraceTimers.has(userId)) {
@@ -510,6 +509,8 @@ function setupSocketIo(io, deps) {
     });
 
     socket.on('presence:heartbeat', () => {
+      const sess = socket.request.session;
+      if (!sess || !sess.userId) return;
       for (const entry of presenceMap.values()) {
         if (entry.socketId === socket.id) {
           entry.lastSeen = Date.now();
