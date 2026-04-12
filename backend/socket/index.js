@@ -639,9 +639,18 @@ function setupSocketIo(io, deps) {
 
       // Validate control_command payload fields
       const { direction, speed, steering_angle } = data || {};
-      if (direction !== undefined && !['forward', 'backward', 'stop'].includes(direction)) return;
-      if (speed !== undefined && (typeof speed !== 'number' || speed < -100 || speed > 100)) return;
-      if (steering_angle !== undefined && (typeof steering_angle !== 'number' || steering_angle < -90 || steering_angle > 90)) return;
+      if (direction !== undefined && !['forward', 'backward', 'stop'].includes(direction)) {
+        socket.emit('control_error', { message: 'Недопустимое направление.', code: 'invalid_direction' });
+        return;
+      }
+      if (speed !== undefined && (!Number.isFinite(speed) || speed < -100 || speed > 100)) {
+        socket.emit('control_error', { message: 'Скорость должна быть числом от -100 до 100.', code: 'invalid_speed' });
+        return;
+      }
+      if (steering_angle !== undefined && (!Number.isFinite(steering_angle) || steering_angle < -90 || steering_angle > 90)) {
+        socket.emit('control_error', { message: 'Угол поворота должен быть числом от -90 до 90.', code: 'invalid_steering_angle' });
+        return;
+      }
 
       metrics.log('info', 'control_command', {
         socketId: socket.id,
