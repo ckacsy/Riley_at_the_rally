@@ -190,6 +190,46 @@ async function waitForSocketEvent(
 }
 
 /**
+ * Wait for a socket event, failing fast if 'duel:error' is received first.
+ * Accepts optional alternate success events (resolves with first matching event payload).
+ */
+async function waitForSocketEventOrError(
+  page: import('@playwright/test').Page,
+  eventName: string,
+  timeout = 10_000,
+  altEvents: string[] = [],
+): Promise<any> {
+  return page.evaluate(
+    ({ evt, ms, alts }) =>
+      new Promise((resolve, reject) => {
+        const timer = setTimeout(
+          () => reject(new Error(`Timeout waiting for socket event: ${evt}`)),
+          ms,
+        );
+        const interval = setInterval(() => {
+          const s = (window as any).__socketEventStore;
+          if (!s) return;
+          if (Object.prototype.hasOwnProperty.call(s, 'duel:error')) {
+            clearInterval(interval);
+            clearTimeout(timer);
+            reject(new Error(`duel:error received while waiting for ${evt}: ${JSON.stringify(s['duel:error'])}`));
+            return;
+          }
+          for (const e of [evt, ...alts]) {
+            if (Object.prototype.hasOwnProperty.call(s, e)) {
+              clearInterval(interval);
+              clearTimeout(timer);
+              resolve(s[e]);
+              return;
+            }
+          }
+        }, 50);
+      }),
+    { evt: eventName, ms: timeout, alts: altEvents },
+  );
+}
+
+/**
  * Wait for socket to reach 'connected' state.
  */
 async function waitForSocketConnected(
@@ -244,15 +284,17 @@ test.describe('Duel backend — matchmaking', () => {
       const socketIdB = await pageB.evaluate(() => (window as any).__testSocket.id);
       await injectServerActiveSession(pageB, 2, userB.id, socketIdB);
 
-      // Both emit duel:search — wait for searching confirmation to ensure sequential queueing
+      // Player A: search and wait for queue confirmation — fail fast if duel:error is received
       await pageA.evaluate(() => (window as any).__testSocket.emit('duel:search'));
-      await waitForSocketEvent(pageA, 'duel:searching');
+      await waitForSocketEventOrError(pageA, 'duel:searching');
 
+      // Player B: search — may receive duel:matched immediately (if A already queued)
       await pageB.evaluate(() => (window as any).__testSocket.emit('duel:search'));
-      // Player B's search should trigger immediate match
+      await waitForSocketEventOrError(pageB, 'duel:searching', 10_000, ['duel:matched']);
 
-      const matchedA = await waitForSocketEvent(pageA, 'duel:matched', 15_000);
-      const matchedB = await waitForSocketEvent(pageB, 'duel:matched', 15_000);
+      // Both players should receive duel:matched — fail fast on duel:error
+      const matchedA = await waitForSocketEventOrError(pageA, 'duel:matched', 15_000);
+      const matchedB = await waitForSocketEventOrError(pageB, 'duel:matched', 15_000);
 
       expect(matchedA.duelId).toBeTruthy();
       expect(matchedB.duelId).toBe(matchedA.duelId);
@@ -260,8 +302,8 @@ test.describe('Duel backend — matchmaking', () => {
       expect(matchedB.opponent.username).toBe('duel_a');
       expect(typeof matchedA.requiredCheckpoints).toBe('number');
     } finally {
-      await ctxA.close();
-      await ctxB.close();
+      await ctxA.close().catch(() => {});
+      await ctxB.close().catch(() => {});
     }
   });
 
