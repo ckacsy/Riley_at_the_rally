@@ -628,16 +628,77 @@ const ADMIN_USERNAMES = new Set(
     .filter(Boolean)
 );
 
-// Periodic cleanup of expired magic links (older than 24 hours)
-setInterval(() => {
-  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const result = db.prepare(
-    "DELETE FROM magic_links WHERE expires_at < ?"
-  ).run(cutoff);
-  if (result.changes > 0) {
-    metrics.log('debug', 'magic_links_cleaned', { deleted: result.changes });
+// ---------------------------------------------------------------------------
+// Periodic cleanup of expired tokens and stale data
+// ---------------------------------------------------------------------------
+function runTokenCleanup() {
+  const now = new Date().toISOString();
+  let totalDeleted = 0;
+
+  // 1. Expired email verification tokens
+  try {
+    const r = db.prepare('DELETE FROM email_verification_tokens WHERE expires_at < ?').run(now);
+    if (r.changes > 0) {
+      totalDeleted += r.changes;
+      metrics.log('debug', 'token_cleanup', { table: 'email_verification_tokens', deleted: r.changes });
+    }
+  } catch (e) {
+    metrics.log('error', 'token_cleanup_error', { table: 'email_verification_tokens', error: e.message });
   }
-}, 60 * 60 * 1000); // every hour
+
+  // 2. Expired password reset tokens
+  try {
+    const r = db.prepare('DELETE FROM password_reset_tokens WHERE expires_at < ?').run(now);
+    if (r.changes > 0) {
+      totalDeleted += r.changes;
+      metrics.log('debug', 'token_cleanup', { table: 'password_reset_tokens', deleted: r.changes });
+    }
+  } catch (e) {
+    metrics.log('error', 'token_cleanup_error', { table: 'password_reset_tokens', error: e.message });
+  }
+
+  // 3. Expired or used magic links (older than 24h past expiry for safety margin)
+  try {
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const r = db.prepare('DELETE FROM magic_links WHERE expires_at < ?').run(cutoff);
+    if (r.changes > 0) {
+      totalDeleted += r.changes;
+      metrics.log('debug', 'token_cleanup', { table: 'magic_links', deleted: r.changes });
+    }
+  } catch (e) {
+    metrics.log('error', 'token_cleanup_error', { table: 'magic_links', error: e.message });
+  }
+
+  // 4. Expired HTTP sessions from sessions.sqlite
+  try {
+    const sessionsDbPath = path.join(__dirname, 'sessions.sqlite');
+    if (fs.existsSync(sessionsDbPath)) {
+      const sessDb = new Database(sessionsDbPath, { timeout: 5000 });
+      try {
+        // connect-sqlite3 stores: sid, expired (INTEGER epoch ms), sess (TEXT JSON)
+        const r = sessDb.prepare('DELETE FROM sessions WHERE expired < ?').run(Date.now());
+        if (r.changes > 0) {
+          totalDeleted += r.changes;
+          metrics.log('debug', 'token_cleanup', { table: 'sessions', deleted: r.changes });
+        }
+      } finally {
+        sessDb.close();
+      }
+    }
+  } catch (e) {
+    metrics.log('error', 'token_cleanup_error', { table: 'sessions', error: e.message });
+  }
+
+  if (totalDeleted > 0) {
+    metrics.log('info', 'token_cleanup_complete', { totalDeleted });
+  }
+}
+
+// Run immediately on startup, then every hour.
+// TOKEN_CLEANUP_INTERVAL is kept as a module-level const so tests can
+// clear the interval via clearInterval(TOKEN_CLEANUP_INTERVAL) if needed.
+runTokenCleanup();
+const TOKEN_CLEANUP_INTERVAL = setInterval(runTokenCleanup, 60 * 60 * 1000);
 
 // Set up all Socket.IO logic and get back shared state for REST endpoints
 const { setupSocketIo } = require('./socket');
