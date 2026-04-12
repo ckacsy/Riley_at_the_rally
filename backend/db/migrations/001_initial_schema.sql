@@ -89,7 +89,6 @@ CREATE TABLE IF NOT EXISTS payment_orders (
   status TEXT DEFAULT 'pending',
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT,
-  webhook_event_id TEXT UNIQUE,
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 CREATE INDEX IF NOT EXISTS idx_payment_orders_yookassa_id ON payment_orders(yookassa_payment_id);
