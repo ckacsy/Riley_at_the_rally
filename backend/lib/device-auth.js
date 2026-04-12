@@ -34,17 +34,13 @@ function verifyDeviceKey(db, carId, rawKey) {
     return { valid: false, reason: 'no_device' };
   }
 
-  if (device.status === 'disabled') {
-    return { valid: false, reason: 'disabled' };
-  }
-
   const inputHash = crypto.createHash('sha256').update(String(rawKey)).digest('hex');
 
   let safe;
   try {
     safe = crypto.timingSafeEqual(
-      Buffer.from(inputHash, 'utf8'),
-      Buffer.from(device.device_key_hash, 'utf8')
+      Buffer.from(inputHash, 'hex'),
+      Buffer.from(device.device_key_hash, 'hex')
     );
   } catch (_) {
     safe = false;
