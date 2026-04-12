@@ -117,6 +117,21 @@ describe('Migration runner', () => {
     const cols = new Set(db.pragma('table_info(rental_sessions)').map(c => c.name));
 
     assert.ok(cols.has('session_ref'), 'rental_sessions should have session_ref column');
+    assert.ok(cols.has('termination_reason'), 'rental_sessions should have termination_reason column');
+
+    db.close();
+  });
+
+  it('creates pending_recovery table with expected columns', () => {
+    const db = new Database(':memory:');
+    runMigrations(db);
+
+    const cols = new Set(db.pragma('table_info(pending_recovery)').map(c => c.name));
+
+    const expectedColumns = ['id', 'user_id', 'type', 'amount', 'session_ref', 'details_json', 'status', 'resolved_by', 'resolved_at', 'created_at'];
+    for (const col of expectedColumns) {
+      assert.ok(cols.has(col), `pending_recovery should have column '${col}'`);
+    }
 
     db.close();
   });
@@ -134,6 +149,8 @@ describe('Migration runner', () => {
       'idx_transactions_user_id',
       'idx_payment_orders_yookassa_id',
       'idx_magic_links_token_hash',
+      'idx_pending_recovery_user_id',
+      'idx_pending_recovery_status',
     ];
 
     for (const idx of expectedIndexes) {
