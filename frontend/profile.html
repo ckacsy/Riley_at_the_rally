@@ -464,6 +464,7 @@
 
     </div>
 
+    <script src="js/escape-html.js"></script>
     <script src="js/rank-ui.js"></script>
     <script>
         var csrfToken = '';
@@ -570,7 +571,7 @@
                     '<div class="best-lap-info">' +
                     '<div class="best-lap-title">Лучший круг</div>' +
                     '<div class="best-lap-time">' + formatLapTime(stats.bestLap.lap_time_ms) + '</div>' +
-                    '<div class="best-lap-car">🚗 ' + (stats.bestLap.car_name || '—') + '</div>' +
+                    '<div class="best-lap-car">🚗 ' + esc(stats.bestLap.car_name || '—') + '</div>' +
                     '<div class="best-lap-date">' + formatDate(stats.bestLap.created_at) + '</div>' +
                     '</div></div>';
             } else {
@@ -587,7 +588,7 @@
                     const isBest = bestTime && lap.lap_time_ms === bestTime;
                     return '<tr>' +
                         '<td>' + formatLapTime(lap.lap_time_ms) + (isBest ? '<span class="best-badge">Рекорд</span>' : '') + '</td>' +
-                        '<td>' + (lap.car_name || '—') + '</td>' +
+                        '<td>' + esc(lap.car_name || '—') + '</td>' +
                         '<td>' + formatDate(lap.created_at) + '</td>' +
                         '</tr>';
                 }).join('');
@@ -619,7 +620,12 @@
                 .then(function (data) {
                     if (data.success) {
                         const container = document.getElementById('avatar-container');
-                        container.innerHTML = '<img class="avatar-img" src="' + data.avatarPath + '?t=' + Date.now() + '" alt="Аватар">';
+                        const newImg = document.createElement('img');
+                        newImg.className = 'avatar-img';
+                        newImg.src = data.avatarPath + '?t=' + Date.now();
+                        newImg.alt = 'Аватар';
+                        container.innerHTML = '';
+                        container.appendChild(newImg);
                         statusEl.textContent = 'Фото обновлено!';
                         statusEl.style.color = '#4caf50';
                         setTimeout(function () { statusEl.textContent = ''; }, 3000);
