@@ -213,6 +213,7 @@ db.exec(`
     status TEXT DEFAULT 'pending',
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT,
+    webhook_event_id TEXT UNIQUE,
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
   CREATE INDEX IF NOT EXISTS idx_payment_orders_yookassa_id ON payment_orders(yookassa_payment_id);
@@ -445,6 +446,14 @@ db.exec(`
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_duel_results_winner_id ON duel_results(winner_id)'); } catch (e) { /* ignore */ }
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_duel_results_loser_id ON duel_results(loser_id)'); } catch (e) { /* ignore */ }
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_duel_results_created_at ON duel_results(created_at)'); } catch (e) { /* ignore */ }
+
+  // --- Webhook deduplication: webhook_event_id on payment_orders ---
+  try {
+    db.prepare('SELECT webhook_event_id FROM payment_orders LIMIT 0').get();
+  } catch (_) {
+    db.prepare('ALTER TABLE payment_orders ADD COLUMN webhook_event_id TEXT UNIQUE').run();
+    console.log('[DB] Added webhook_event_id column to payment_orders');
+  }
 })();
 
 // --- File uploads (avatars) ---
