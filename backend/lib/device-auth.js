@@ -147,11 +147,6 @@ function replaceDevice(db, { deviceId, name }, metrics) {
  * @returns {{ device: object }}
  */
 function disableDevice(db, deviceId, metrics) {
-  const now = new Date().toISOString();
-  db.prepare(
-    "UPDATE devices SET status = 'disabled', disabled_at = ? WHERE id = ?"
-  ).run(now, deviceId);
-
   const device = db.prepare('SELECT * FROM devices WHERE id = ?').get(deviceId);
   if (!device) {
     const err = new Error('Устройство не найдено.');
@@ -159,11 +154,18 @@ function disableDevice(db, deviceId, metrics) {
     throw err;
   }
 
+  const now = new Date().toISOString();
+  db.prepare(
+    "UPDATE devices SET status = 'disabled', disabled_at = ? WHERE id = ?"
+  ).run(now, deviceId);
+
+  const updated = db.prepare('SELECT * FROM devices WHERE id = ?').get(deviceId);
+
   if (metrics) {
-    metrics.log('info', 'device_disabled', { deviceId, carId: device.car_id });
+    metrics.log('info', 'device_disabled', { deviceId, carId: updated.car_id });
   }
 
-  return { device };
+  return { device: updated };
 }
 
 /**
@@ -219,10 +221,6 @@ function enableDevice(db, deviceId, metrics) {
  * @returns {{ device: object, rawKey: string }}
  */
 function regenerateKey(db, deviceId, metrics) {
-  const { rawKey, keyHash } = generateDeviceKey();
-
-  db.prepare('UPDATE devices SET device_key_hash = ? WHERE id = ?').run(keyHash, deviceId);
-
   const device = db.prepare('SELECT * FROM devices WHERE id = ?').get(deviceId);
   if (!device) {
     const err = new Error('Устройство не найдено.');
@@ -230,11 +228,16 @@ function regenerateKey(db, deviceId, metrics) {
     throw err;
   }
 
+  const { rawKey, keyHash } = generateDeviceKey();
+  db.prepare('UPDATE devices SET device_key_hash = ? WHERE id = ?').run(keyHash, deviceId);
+
+  const updated = db.prepare('SELECT * FROM devices WHERE id = ?').get(deviceId);
+
   if (metrics) {
-    metrics.log('info', 'device_key_regenerated', { deviceId, carId: device.car_id });
+    metrics.log('info', 'device_key_regenerated', { deviceId, carId: updated.car_id });
   }
 
-  return { device, rawKey };
+  return { device: updated, rawKey };
 }
 
 /**
