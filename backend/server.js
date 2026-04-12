@@ -102,7 +102,21 @@ app.use(cors({
 app.use(express.json());
 
 app.use(helmet({
-  contentSecurityPolicy: false, // CSP is complex for this app (inline scripts, external streams) — add separately later
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "blob:", "*"],
+      mediaSrc: ["'self'", "*"],
+      connectSrc: ["'self'", "ws:", "wss:"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      frameSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+    },
+  },
   crossOriginEmbedderPolicy: false, // Breaks camera stream embedding
 }));
 
