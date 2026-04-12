@@ -879,29 +879,42 @@ app.get('/api/config/video', (req, res) => {
 
 // End session via HTTP (used by navigator.sendBeacon on page unload)
 app.post('/api/session/end', (req, res) => {
-  const { sessionId, dbUserId, sessionRef: bodySessionRef } = req.body || {};
+  const { sessionId } = req.body || {};
   if (!sessionId || typeof sessionId !== 'string') {
     return res.status(400).json({ ended: false, message: 'Invalid sessionId.' });
   }
+
+  // Require authentication
+  const reqUserId = req.session?.userId;
+  if (!reqUserId) {
+    return res.status(401).json({ ended: false, message: 'Authentication required.' });
+  }
+
   const session = socketState.activeSessions.get(sessionId);
   if (!session) {
     return res.json({ ended: false, message: 'No active session found.' });
   }
+
+  // Ownership check: only the session owner can end it via HTTP
+  if (session.dbUserId !== reqUserId) {
+    return res.status(403).json({ ended: false, message: 'Not your session.' });
+  }
+
   socketState.clearInactivityTimeout(sessionId);
+  socketState.clearSessionDurationTimeout(sessionId);
   const endTime = new Date();
   const durationMs = endTime - session.startTime;
   const durationSeconds = Math.floor(durationMs / 1000);
   const durationMinutes = durationMs / 60000;
   const cost = durationMinutes * RATE_PER_MINUTE;
   socketState.activeSessions.delete(sessionId);
-  const effectiveDbUserId = session.dbUserId || (Number.isInteger(dbUserId) ? dbUserId : null);
-  const effectiveSessionRef = session.sessionRef || (typeof bodySessionRef === 'string' ? bodySessionRef : null);
-  saveRentalSession(effectiveDbUserId, session.carId, durationSeconds, cost, effectiveSessionRef);
-  socketState.processHoldDeduct(effectiveDbUserId, session.holdAmount, cost, session.carId, durationSeconds, effectiveSessionRef);
+  // Use server-side values only — no client-provided fallbacks
+  saveRentalSession(session.dbUserId, session.carId, durationSeconds, cost, session.sessionRef);
+  socketState.processHoldDeduct(session.dbUserId, session.holdAmount, cost, session.carId, durationSeconds, session.sessionRef);
   socketState.broadcastCarsUpdate();
   metrics.log('info', 'session_end', {
     userId: session.userId,
-    dbUserId: effectiveDbUserId,
+    dbUserId: session.dbUserId,
     carId: session.carId,
     durationSeconds,
     cost: parseFloat(cost.toFixed(4)),
