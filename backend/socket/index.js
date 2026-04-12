@@ -992,6 +992,8 @@ function setupSocketIo(io, deps) {
     });
 
     socket.on('leave_race', () => {
+      const sess = socket.request.session;
+      if (!sess || !sess.userId) return;
       // If the player is in a duel, treat leave as a duel loss (intentional forfeit)
       if (duelManager.getDuelBySocketId(socket.id)) {
         duelManager.handlePlayerLeave(socket.id);
@@ -1007,6 +1009,8 @@ function setupSocketIo(io, deps) {
     });
 
     socket.on('start_lap', () => {
+      const sess = socket.request.session;
+      if (!sess || !sess.userId) return;
       const race = findRaceBySocketId(socket.id);
       if (!race) return;
       const player = race.players.find((p) => p.socketId === socket.id);
@@ -1016,6 +1020,8 @@ function setupSocketIo(io, deps) {
     });
 
     socket.on('end_lap', () => {
+      const sess = socket.request.session;
+      if (!sess || !sess.userId) return;
       const race = findRaceBySocketId(socket.id);
       if (!race) return;
       const player = race.players.find((p) => p.socketId === socket.id);
@@ -1215,6 +1221,8 @@ function setupSocketIo(io, deps) {
      * Both matched players receive duel:cancelled.
      */
     socket.on('duel:cancel_ready', () => {
+      const sess = socket.request.session;
+      if (!sess || !sess.userId) return;
       const result = duelManager.cancelReady(socket.id);
       if (result.cancelled) {
         result.affectedSocketIds.forEach((sid) => {
@@ -1229,6 +1237,8 @@ function setupSocketIo(io, deps) {
      * Both players must emit this before the duel transitions to in_progress.
      */
     socket.on('duel:ready', () => {
+      const sess = socket.request.session;
+      if (!sess || !sess.userId) return;
       const result = duelManager.handleReady(socket.id);
       if (!result.ok) {
         socket.emit('duel:error', { code: result.error, message: 'Не удалось подтвердить готовность.' });
@@ -1240,6 +1250,8 @@ function setupSocketIo(io, deps) {
      * Player signals the start of their ranked lap in a matched duel.
      */
     socket.on('duel:start_lap', () => {
+      const sess = socket.request.session;
+      if (!sess || !sess.userId) return;
       const result = duelManager.handleStartLap(socket.id);
       if (!result.ok) {
         socket.emit('duel:error', { code: result.error, message: 'Не удалось начать круг.' });
@@ -1254,6 +1266,8 @@ function setupSocketIo(io, deps) {
      * Payload: { index: number }  (0-based)
      */
     socket.on('duel:checkpoint', (data) => {
+      const sess = socket.request.session;
+      if (!sess || !sess.userId) return;
       const index = data && Number.isInteger(data.index) ? data.index : -1;
       if (index < 0) {
         socket.emit('duel:error', { code: 'invalid_checkpoint', message: 'Неверный индекс чекпоинта.' });
@@ -1273,6 +1287,8 @@ function setupSocketIo(io, deps) {
      * The first accepted finish wins the duel immediately.
      */
     socket.on('duel:finish_lap', () => {
+      const sess = socket.request.session;
+      if (!sess || !sess.userId) return;
       const result = duelManager.handleFinishLap(socket.id);
       if (!result.ok) {
         // When cancelled is true the duel:cancelled event was already emitted to both players
