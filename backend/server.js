@@ -550,7 +550,7 @@ db.exec(`
   }
   try {
     db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_payment_orders_webhook_event ON payment_orders(webhook_event_id)');
-  } catch (e) { /* index already exists */ }
+  } catch (e) { /* ignore unexpected errors (e.g. schema conflicts on old DBs) */ }
 })();
 
 // --- File uploads (avatars) ---
