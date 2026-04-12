@@ -275,7 +275,7 @@ module.exports = function mountPaymentRoutes(app, db, deps) {
           try {
             db.prepare(
               'INSERT INTO webhook_events (event_id, payment_id, event_type) VALUES (?, ?, ?)'
-            ).run(eventId, paymentId, event.event || null);
+            ).run(eventId, paymentId, 'payment.succeeded');
           } catch (dupErr) {
             // Unique constraint — event already recorded, safe to continue
             console.log('[Payment] webhook_events insert skipped (duplicate):', eventId);
