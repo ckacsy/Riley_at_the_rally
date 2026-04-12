@@ -55,6 +55,9 @@ const cors = require('cors');
   }
 }
 
+const { validateEnv } = require('./config/validate-env');
+validateEnv();
+
 const metrics = require('./metrics');
 const mailer = require('./mailer');
 const { isKnownRole, STATUSES } = require('./middleware/roles');
@@ -160,16 +163,7 @@ app.use((req, res, next) => {
 
 // Session middleware — uses connect-sqlite3 to persist sessions across server
 // restarts, replacing the default in-memory store which lost sessions on restart.
-const _rawSessionSecret = process.env.SESSION_SECRET;
-if (!_rawSessionSecret) {
-  if (process.env.NODE_ENV === 'production') {
-    console.error('[FATAL] SESSION_SECRET is required in production. Exiting.');
-    console.error('[FATAL] Generate a secure secret: node -e "console.log(require(\'crypto\').randomBytes(48).toString(\'hex\'))"');
-    process.exit(1);
-  }
-  console.warn('[WARN] SESSION_SECRET not set — using random secret (sessions will not persist across restarts)');
-}
-const sessionSecret = _rawSessionSecret || crypto.randomBytes(32).toString('hex');
+const sessionSecret = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
 const sessionMiddleware = session({
   secret: sessionSecret,
   resave: false,
