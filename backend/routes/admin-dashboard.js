@@ -95,8 +95,8 @@ module.exports = function mountAdminDashboardRoutes(app, db, deps) {
                WHERE t2.reference_id = t.reference_id
                  AND t2.type IN ('deduct', 'release')
             )
-            AND t.created_at < datetime('now', '-${ORPHAN_GRACE_MINUTES} minutes')`
-      ).all();
+            AND t.created_at < datetime('now', ?)`
+      ).all(`-${ORPHAN_GRACE_MINUTES} minutes`);
 
       // Exclude currently active session refs
       let activeSessionRefs = new Set();

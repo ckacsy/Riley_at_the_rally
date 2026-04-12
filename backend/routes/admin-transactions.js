@@ -359,10 +359,10 @@ module.exports = function mountAdminTransactionRoutes(app, db, deps) {
              SELECT 1 FROM transactions t2
              WHERE t2.reference_id = t.reference_id AND t2.type IN ('deduct', 'release')
            )
-           AND t.created_at < datetime('now', '-${ORPHAN_GRACE_MINUTES} minutes')
+           AND t.created_at < datetime('now', ?)
          ORDER BY t.created_at DESC
          LIMIT 100`
-      ).all();
+      ).all(`-${ORPHAN_GRACE_MINUTES} minutes`);
 
       // Collect active session refs to exclude
       let activeSessionRefs = new Set();
@@ -433,8 +433,8 @@ module.exports = function mountAdminTransactionRoutes(app, db, deps) {
 
       // E. Must be older than grace period (SQL comparison, not JS Date arithmetic)
       const withinGrace = db.prepare(
-        `SELECT 1 WHERE ? >= datetime('now', '-${ORPHAN_GRACE_MINUTES} minutes')`
-      ).get(hold.created_at);
+        `SELECT 1 WHERE ? >= datetime('now', ?)`
+      ).get(hold.created_at, `-${ORPHAN_GRACE_MINUTES} minutes`);
       if (withinGrace) {
         return res.status(409).json({ error: 'Hold is within grace period' });
       }
