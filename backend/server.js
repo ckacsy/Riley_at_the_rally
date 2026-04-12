@@ -197,6 +197,12 @@ const db = openDatabase(DB_PATH);
 const { runMigrations } = require('./db/migrate');
 runMigrations(db);
 
+// --- Startup recovery: enforce state invariants after restart ---
+{
+  const startupRecovery = require('./lib/startup-recovery');
+  startupRecovery(db, metrics);
+}
+
 // --- Orphan detection: check for unresolved recovery records ---
 {
   try {
