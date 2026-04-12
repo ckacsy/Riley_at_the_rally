@@ -213,6 +213,21 @@ const db = new Database(DB_PATH);
 const { runMigrations } = require('./db/migrate');
 runMigrations(db);
 
+// --- Orphan detection: check for unresolved recovery records ---
+{
+  try {
+    const pending = db.prepare(
+      "SELECT COUNT(*) as count FROM pending_recovery WHERE status = 'pending'"
+    ).get();
+    if (pending && pending.count > 0) {
+      console.warn(`[startup] ⚠️  ${pending.count} pending recovery record(s) from previous shutdown. Review in admin panel.`);
+      metrics.log('warn', 'orphan_recovery_pending', { count: pending.count });
+    }
+  } catch (e) {
+    // Table may not exist yet on first run — ignore
+  }
+}
+
 // --- File uploads (avatars) ---
 const { upload, uploadsDir } = require('./middleware/upload');
 app.use('/uploads', express.static(uploadsDir, { dotfiles: 'deny', index: false, redirect: false }));
@@ -322,13 +337,13 @@ mountDuelRoutes(app, db, {
   getDuelManager: () => socketState && socketState.duelManager,
 });
 
-function saveRentalSession(dbUserId, carId, durationSeconds, cost, sessionRef) {
+function saveRentalSession(dbUserId, carId, durationSeconds, cost, sessionRef, terminationReason) {
   if (!dbUserId) return;
   const carName = CARS.find((c) => c.id === carId)?.name || ('Машина #' + carId);
   try {
     db.prepare(
-      'INSERT INTO rental_sessions (user_id, car_id, car_name, duration_seconds, cost, session_ref) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(dbUserId, carId, carName, durationSeconds, cost, sessionRef || null);
+      'INSERT INTO rental_sessions (user_id, car_id, car_name, duration_seconds, cost, session_ref, termination_reason) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).run(dbUserId, carId, carName, durationSeconds, cost, sessionRef || null, terminationReason || null);
   } catch (e) {
     console.error('Failed to save rental session:', e.message);
   }
@@ -673,7 +688,7 @@ app.post('/api/session/end', (req, res) => {
   const cost = durationMinutes * RATE_PER_MINUTE;
   socketState.activeSessions.delete(sessionId);
   // Use server-side values only — no client-provided fallbacks
-  saveRentalSession(session.dbUserId, session.carId, durationSeconds, cost, session.sessionRef);
+  saveRentalSession(session.dbUserId, session.carId, durationSeconds, cost, session.sessionRef, 'http_beacon');
   socketState.processHoldDeduct(session.dbUserId, session.holdAmount, cost, session.carId, durationSeconds, session.sessionRef);
   socketState.broadcastCarsUpdate();
   metrics.log('info', 'session_end', {
@@ -873,8 +888,9 @@ if (process.env.NODE_ENV !== 'production') {
         db.exec('DELETE FROM car_maintenance');
         db.exec('DELETE FROM player_ranks');
         db.exec('DELETE FROM duel_results');
+        db.exec('DELETE FROM pending_recovery');
         // Reset autoincrement counters
-        db.exec("DELETE FROM sqlite_sequence WHERE name IN ('users','lap_times','rental_sessions','email_verification_tokens','password_reset_tokens','chat_messages','magic_links','transactions','payment_orders','news','admin_audit_log','daily_checkins','player_ranks','duel_results')");
+        db.exec("DELETE FROM sqlite_sequence WHERE name IN ('users','lap_times','rental_sessions','email_verification_tokens','password_reset_tokens','chat_messages','magic_links','transactions','payment_orders','news','admin_audit_log','daily_checkins','player_ranks','duel_results','pending_recovery')");
       })();
       req.session.destroy((err) => { if (err) console.error('Session destroy error:', err); });
       if (_devVerificationLinks) _devVerificationLinks.clear();
@@ -1271,8 +1287,25 @@ function gracefulShutdown(signal) {
       const durationSeconds = Math.floor(durationMs / 1000);
       const durationMinutes = durationMs / 60000;
       const cost = durationMinutes * RATE_PER_MINUTE;
-      saveRentalSession(session.dbUserId, session.carId, durationSeconds, cost, session.sessionRef);
-      socketState.processHoldDeduct(session.dbUserId, session.holdAmount, cost, session.carId, durationSeconds, session.sessionRef);
+      saveRentalSession(session.dbUserId, session.carId, durationSeconds, cost, session.sessionRef, 'server_shutdown');
+      try {
+        socketState.processHoldDeduct(session.dbUserId, session.holdAmount, cost, session.carId, durationSeconds, session.sessionRef);
+      } catch (holdErr) {
+        metrics.log('error', 'shutdown_hold_error', { sessionId, error: holdErr.message });
+        // Record for admin resolution
+        try {
+          db.prepare(
+            "INSERT INTO pending_recovery (user_id, type, amount, session_ref, details_json) VALUES (?, 'hold_refund', ?, ?, ?)"
+          ).run(
+            session.dbUserId,
+            session.holdAmount || 0,
+            session.sessionRef || null,
+            JSON.stringify({ carId: session.carId, durationSeconds, cost, error: holdErr.message })
+          );
+        } catch (recErr) {
+          metrics.log('error', 'pending_recovery_insert_error', { sessionId, error: recErr.message });
+        }
+      }
       metrics.log('info', 'session_end', {
         userId: session.userId,
         dbUserId: session.dbUserId,
