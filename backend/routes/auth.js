@@ -39,23 +39,23 @@ module.exports = function mountAuthRoutes(app, db, deps) {
   const { csrfMiddleware, generateCsrfToken, apiReadLimiter, PORT } = deps;
 
   // --- Rate limiters ---
-  const registerLimiter = createRateLimiter({ max: 5, message: 'Слишком много регистраций с этого IP. Попробуйте через минуту.' });
+  const registerLimiter = createRateLimiter({ windowMs: 60 * 60 * 1000, max: 3, message: 'Слишком много регистраций. Попробуйте через час.' });
 
-  const loginLimiter = createRateLimiter({ max: 10, message: 'Слишком много попыток входа. Попробуйте позже.' });
+  const loginLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 5, message: 'Слишком много попыток входа. Попробуйте через 15 минут.' });
 
-  const magicLinkLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 5, message: 'Слишком много запросов. Попробуйте через 15 минут.' });
+  const magicLinkLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 3, message: 'Слишком много запросов. Попробуйте через 15 минут.' });
 
   const magicVerifyLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 20, message: 'Слишком много попыток. Попробуйте через 15 минут.' });
 
-  const verifyResendLimiter = createRateLimiter({ max: 3, message: 'Слишком много запросов. Попробуйте через минуту.' });
+  const verifyResendLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 3, message: 'Слишком много запросов. Попробуйте через 15 минут.' });
 
-  const forgotPasswordLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 5, message: 'Слишком много запросов. Попробуйте через 15 минут.' });
+  const forgotPasswordLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 3, message: 'Слишком много запросов сброса пароля. Попробуйте через 15 минут.' });
 
   const resetPasswordLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 10, message: 'Слишком много запросов. Попробуйте через 15 минут.' });
 
   const avatarUploadLimiter = createRateLimiter({ max: 10, message: 'Слишком много загрузок. Попробуйте через минуту.' });
 
-  const usernameChangeLimiter = createRateLimiter({ max: 5, message: 'Слишком много попыток. Попробуйте через минуту.' });
+  const usernameChangeLimiter = createRateLimiter({ windowMs: 60 * 60 * 1000, max: 3, message: 'Слишком много попыток смены имени. Попробуйте через час.' });
 
   // --- Auth middleware ---
 

@@ -91,6 +91,16 @@ function setupSocketIo(io, deps) {
   // Per-user chat rate-limit state: userId -> { lastSent: timestamp, burst: number }
   const chatRateLimits = new Map();
 
+  // Per-user session-start rate-limit state: userId -> { count: number, windowStart: timestamp }
+  const sessionStartRateLimits = new Map();
+  const SESSION_START_MAX = 5;       // max attempts per window
+  const SESSION_START_WINDOW_MS = 60 * 1000; // 1 minute
+
+  // Per-user duel-search rate-limit state: userId -> { count: number, windowStart: timestamp }
+  const duelSearchRateLimits = new Map();
+  const DUEL_SEARCH_MAX = 3;         // max searches per window
+  const DUEL_SEARCH_WINDOW_MS = 60 * 1000; // 1 minute
+
   // --- Helper functions ---
 
   /** Minimum balance required to start a session (in RC). */
@@ -533,6 +543,22 @@ function setupSocketIo(io, deps) {
         socket.emit('session_error', { message: 'Требуется авторизация.', code: 'auth_required' });
         return;
       }
+
+      // Rate limit: max SESSION_START_MAX attempts per SESSION_START_WINDOW_MS per user
+      if (process.env.NODE_ENV !== 'test') {
+        const now = Date.now();
+        let ssrl = sessionStartRateLimits.get(dbUserId) || { count: 0, windowStart: now };
+        if (now - ssrl.windowStart >= SESSION_START_WINDOW_MS) {
+          ssrl = { count: 0, windowStart: now };
+        }
+        ssrl.count += 1;
+        sessionStartRateLimits.set(dbUserId, ssrl);
+        if (ssrl.count > SESSION_START_MAX) {
+          socket.emit('session_error', { message: 'Слишком много попыток запуска сессии. Попробуйте через минуту.', code: 'rate_limited' });
+          return;
+        }
+      }
+
       const user = db.prepare('SELECT username, status FROM users WHERE id = ?').get(dbUserId);
       if (!user) {
         metrics.log('warn', 'auth_fail', { event: 'start_session', code: 'user_not_found', socketId: socket.id });
@@ -936,6 +962,21 @@ function setupSocketIo(io, deps) {
       if (!dbUserId) {
         socket.emit('duel:error', { code: 'auth_required', message: 'Требуется авторизация.' });
         return;
+      }
+
+      // Rate limit: max DUEL_SEARCH_MAX searches per DUEL_SEARCH_WINDOW_MS per user
+      if (process.env.NODE_ENV !== 'test') {
+        const now = Date.now();
+        let dsrl = duelSearchRateLimits.get(dbUserId) || { count: 0, windowStart: now };
+        if (now - dsrl.windowStart >= DUEL_SEARCH_WINDOW_MS) {
+          dsrl = { count: 0, windowStart: now };
+        }
+        dsrl.count += 1;
+        duelSearchRateLimits.set(dbUserId, dsrl);
+        if (dsrl.count > DUEL_SEARCH_MAX) {
+          socket.emit('duel:error', { code: 'rate_limited', message: 'Слишком много запросов поиска дуэли. Попробуйте через минуту.' });
+          return;
+        }
       }
 
       const user = db.prepare(
