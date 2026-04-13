@@ -515,4 +515,161 @@ describe('Idempotency (Task 6.2)', () => {
     });
   });
 
+  // -------------------------------------------------------------------------
+  // 7. Webhook hardening (Task 7.2)
+  // -------------------------------------------------------------------------
+  describe('webhook hardening', () => {
+
+    // ── 7a. HMAC signature verification ────────────────────────────────────
+    describe('verifyWebhookSignature', () => {
+      // Inline the same function used by payment.js so we can unit-test it
+      // without spinning up a server.
+      function verifyWebhookSignature(rawBody, secret, signatureHeader) {
+        if (!secret) return true;
+        if (!signatureHeader) return false;
+        const sig = signatureHeader.startsWith('sha256=') ? signatureHeader.slice(7) : signatureHeader;
+        if (!/^[0-9a-f]{64}$/i.test(sig)) return false;
+        const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+        try {
+          return crypto.timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(sig, 'hex'));
+        } catch {
+          return false;
+        }
+      }
+
+      it('returns true when no secret is configured', () => {
+        const body = Buffer.from('{"type":"notification"}');
+        assert.equal(verifyWebhookSignature(body, '', 'any'), true);
+        assert.equal(verifyWebhookSignature(body, '', ''), true);
+        assert.equal(verifyWebhookSignature(body, '', null), true);
+      });
+
+      it('returns false when secret is set but header is missing', () => {
+        const body = Buffer.from('{"type":"notification"}');
+        assert.equal(verifyWebhookSignature(body, 'mysecret', ''), false);
+        assert.equal(verifyWebhookSignature(body, 'mysecret', null), false);
+      });
+
+      it('returns true for a correct HMAC-SHA256 signature', () => {
+        const body = Buffer.from('{"type":"notification","event":"payment.succeeded"}');
+        const secret = 'supersecretkey';
+        const sig = crypto.createHmac('sha256', secret).update(body).digest('hex');
+        assert.equal(verifyWebhookSignature(body, secret, sig), true);
+        // Also with sha256= prefix
+        assert.equal(verifyWebhookSignature(body, secret, 'sha256=' + sig), true);
+      });
+
+      it('returns false for a wrong HMAC-SHA256 signature', () => {
+        const body = Buffer.from('{"type":"notification","event":"payment.succeeded"}');
+        const secret = 'supersecretkey';
+        const wrongSig = crypto.createHmac('sha256', 'wrongsecret').update(body).digest('hex');
+        assert.equal(verifyWebhookSignature(body, secret, wrongSig), false);
+        assert.equal(verifyWebhookSignature(body, secret, 'sha256=' + wrongSig), false);
+      });
+
+      it('returns false for a truncated or malformed signature', () => {
+        const body = Buffer.from('{"type":"notification"}');
+        const secret = 'mysecret';
+        assert.equal(verifyWebhookSignature(body, secret, 'notahexstring'), false);
+        assert.equal(verifyWebhookSignature(body, secret, 'abc123'), false);
+        assert.equal(verifyWebhookSignature(body, secret, 'sha256=abc'), false);
+      });
+    });
+
+    // ── 7b. payment.canceled idempotency ───────────────────────────────────
+    describe('payment.canceled idempotency', () => {
+      it('canceling a pending order sets status to canceled', () => {
+        const db = createTestDb();
+        const userId = insertUser(db, 'canceluser1', 0);
+        const paymentId = 'pay_cancel_' + crypto.randomUUID();
+        insertPaymentOrder(db, userId, paymentId, 100, 'pending');
+
+        // Simulate idempotent cancel logic (only pending → canceled)
+        const order = db.prepare(
+          "SELECT status FROM payment_orders WHERE yookassa_payment_id = ?"
+        ).get(paymentId);
+        if (order && order.status === 'pending') {
+          db.prepare(
+            "UPDATE payment_orders SET status = 'canceled', updated_at = CURRENT_TIMESTAMP WHERE yookassa_payment_id = ? AND status = 'pending'"
+          ).run(paymentId);
+        }
+
+        const updated = db.prepare(
+          'SELECT status FROM payment_orders WHERE yookassa_payment_id = ?'
+        ).get(paymentId);
+        assert.equal(updated.status, 'canceled');
+        db.close();
+      });
+
+      it('canceling a succeeded order does NOT overwrite succeeded status', () => {
+        const db = createTestDb();
+        const userId = insertUser(db, 'canceluser2', 100);
+        const paymentId = 'pay_cancel_' + crypto.randomUUID();
+        insertPaymentOrder(db, userId, paymentId, 100, 'succeeded');
+
+        // Simulate idempotent cancel logic (only pending → canceled)
+        const order = db.prepare(
+          "SELECT status FROM payment_orders WHERE yookassa_payment_id = ?"
+        ).get(paymentId);
+        if (order && order.status === 'pending') {
+          db.prepare(
+            "UPDATE payment_orders SET status = 'canceled', updated_at = CURRENT_TIMESTAMP WHERE yookassa_payment_id = ? AND status = 'pending'"
+          ).run(paymentId);
+        }
+
+        const updated = db.prepare(
+          'SELECT status FROM payment_orders WHERE yookassa_payment_id = ?'
+        ).get(paymentId);
+        // Must still be succeeded
+        assert.equal(updated.status, 'succeeded', 'Succeeded order must not be overwritten by a late cancellation');
+        db.close();
+      });
+    });
+
+    // ── 7c. Audit log entries ───────────────────────────────────────────────
+    describe('webhook audit log (migration 017 columns)', () => {
+      it('migration 017 adds status, ip_address, raw_body_hash columns', () => {
+        const db = createTestDb();
+        const cols = new Set(db.pragma('table_info(webhook_events)').map((c) => c.name));
+        assert.ok(cols.has('status'), 'status column should exist');
+        assert.ok(cols.has('ip_address'), 'ip_address column should exist');
+        assert.ok(cols.has('raw_body_hash'), 'raw_body_hash column should exist');
+        db.close();
+      });
+
+      it('can insert audit entries with all new columns', () => {
+        const db = createTestDb();
+        const eventId = 'evt_audit_' + crypto.randomUUID();
+        db.prepare(
+          `INSERT INTO webhook_events (event_id, payment_id, event_type, status, ip_address, raw_body_hash)
+           VALUES (?, ?, ?, ?, ?, ?)`
+        ).run(eventId, 'pay_123', 'payment.succeeded', 'processed', '127.0.0.1', 'abc123hash');
+
+        const row = db.prepare('SELECT * FROM webhook_events WHERE event_id = ?').get(eventId);
+        assert.equal(row.status, 'processed');
+        assert.equal(row.ip_address, '127.0.0.1');
+        assert.equal(row.raw_body_hash, 'abc123hash');
+        db.close();
+      });
+
+      it('audit entries with auto-generated id do not conflict', () => {
+        const db = createTestDb();
+        // Simulate two rejected (no event_id) entries
+        for (let i = 0; i < 3; i++) {
+          const syntheticId = 'auto_' + crypto.randomUUID();
+          assert.doesNotThrow(() => {
+            db.prepare(
+              `INSERT INTO webhook_events (event_id, event_type, status, ip_address)
+               VALUES (?, ?, ?, ?)`
+            ).run(syntheticId, 'sig_invalid', 'sig_invalid', '10.0.0.1');
+          }, 'Each synthetic id should not conflict');
+        }
+        const cnt = db.prepare("SELECT COUNT(*) AS c FROM webhook_events WHERE status = 'sig_invalid'").get().c;
+        assert.equal(cnt, 3, 'Three sig_invalid entries should exist');
+        db.close();
+      });
+    });
+
+  });
+
 });

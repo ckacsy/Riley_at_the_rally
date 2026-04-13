@@ -111,7 +111,10 @@ app.use(cors({
   credentials: true, // needed for session cookies
 }));
 
-app.use(express.json());
+app.use(express.json({
+  // Preserve raw request body for HMAC signature verification (e.g. payment webhooks).
+  verify: (req, _res, buf) => { req.rawBody = buf; },
+}));
 
 app.use(helmet({
   contentSecurityPolicy: {
