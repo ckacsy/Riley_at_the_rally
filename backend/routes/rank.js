@@ -41,7 +41,7 @@ module.exports = function mountRankRoutes(app, db, deps) {
         duelsLost: row.duels_lost || 0,
         display: getRankDisplay(state),
       });
-    } catch (e) {
+    } catch (_e) {
       return res.status(500).json({ error: 'Внутренняя ошибка сервера.' });
     }
   });
@@ -99,7 +99,7 @@ module.exports = function mountRankRoutes(app, db, deps) {
       });
 
       return res.json({ ladder, legend });
-    } catch (e) {
+    } catch (_e) {
       return res.status(500).json({ error: 'Внутренняя ошибка сервера.' });
     }
   });

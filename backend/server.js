@@ -165,12 +165,12 @@ runMigrations(db);
       console.warn(`[startup] ⚠️  ${pending.count} pending recovery record(s) from previous shutdown. Review in admin panel.`);
       metrics.log('warn', 'orphan_recovery_pending', { count: pending.count });
     }
-  } catch (e) {
+  } catch (_e) {
     // Table may not exist yet on first run — ignore
   }
 }
 
-const { upload, uploadsDir } = require('./middleware/upload');
+const { uploadsDir } = require('./middleware/upload');
 app.use('/uploads', express.static(uploadsDir, { dotfiles: 'deny', index: false, redirect: false }));
 
 // Prevent caching of sensitive API responses (auth, admin, payment).
@@ -290,7 +290,7 @@ function saveRentalSession(dbUserId, carId, durationSeconds, cost, sessionRef, t
 // (config/validate-env.js warns when it is absent in production).
 // It is NO LONGER used for runtime authorization — admin auth is now unified
 // under the DB-based RBAC system (users.role column).
-const ADMIN_USERNAMES = new Set(
+const _ADMIN_USERNAMES = new Set(
   (process.env.ADMIN_USERNAMES || '').split(',')
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean)

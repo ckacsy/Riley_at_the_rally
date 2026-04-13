@@ -268,7 +268,7 @@ module.exports = function mountNewsRoutes(app, db, deps) {
       let bodyHtml;
       try {
         bodyHtml = renderMarkdown(bodyMarkdown);
-      } catch (e) {
+      } catch (_e) {
         return res.status(400).json({ error: 'Ошибка обработки markdown.' });
       }
 
@@ -350,7 +350,7 @@ module.exports = function mountNewsRoutes(app, db, deps) {
         updates.body_markdown = newMarkdown;
         try {
           updates.body_html = renderMarkdown(newMarkdown);
-        } catch (e) {
+        } catch (_e) {
           return res.status(400).json({ error: 'Ошибка обработки markdown.' });
         }
       }

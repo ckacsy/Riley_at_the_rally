@@ -13,7 +13,7 @@ module.exports = function (db) {
   // session_ref column for deterministic join
   const sessionCols = new Set(db.pragma('table_info(rental_sessions)').map((c) => c.name));
   if (!sessionCols.has('session_ref')) {
-    try { db.exec('ALTER TABLE rental_sessions ADD COLUMN session_ref TEXT'); } catch (e) { /* already exists */ }
+    try { db.exec('ALTER TABLE rental_sessions ADD COLUMN session_ref TEXT'); } catch (_e) { /* already exists */ }
   }
-  try { db.exec('CREATE INDEX IF NOT EXISTS idx_rental_sessions_session_ref ON rental_sessions(session_ref)'); } catch (e) { /* ignore */ }
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_rental_sessions_session_ref ON rental_sessions(session_ref)'); } catch (_e) { /* ignore */ }
 };

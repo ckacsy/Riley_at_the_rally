@@ -141,7 +141,7 @@ function startupRecovery(db, metrics) {
     metrics.log('info', 'startup_recovery_presence_reset', {
       note: 'presenceMap cleared on restart; clients will re-send presence:hello',
     });
-  } catch (e) {
+  } catch (_e) {
     // Ignore logging errors
   }
 

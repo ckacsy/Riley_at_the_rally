@@ -14,6 +14,6 @@ module.exports = function(db) {
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
-  try { db.exec('CREATE INDEX IF NOT EXISTS idx_pending_recovery_user_id ON pending_recovery(user_id)'); } catch(e) {}
-  try { db.exec('CREATE INDEX IF NOT EXISTS idx_pending_recovery_status ON pending_recovery(status)'); } catch(e) {}
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_pending_recovery_user_id ON pending_recovery(user_id)'); } catch(_e) {}
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_pending_recovery_status ON pending_recovery(status)'); } catch(_e) {}
 };

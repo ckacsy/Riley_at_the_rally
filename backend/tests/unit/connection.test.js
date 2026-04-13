@@ -48,8 +48,8 @@ describe('openDatabase', () => {
     } finally {
       // Cleanup: remove DB file and WAL/SHM files
       for (const suffix of ['', '-wal', '-shm']) {
-        try { fs.unlinkSync(tmpPath + suffix); } catch (e) {
-          if (e.code !== 'ENOENT') throw e;
+        try { fs.unlinkSync(tmpPath + suffix); } catch (_e) {
+          // Ignore cleanup errors
         }
       }
     }

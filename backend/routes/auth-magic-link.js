@@ -50,7 +50,7 @@ module.exports = function setup(app, db, helpers, deps) {
     const emailNorm = record.email;
     let user = db.prepare('SELECT * FROM users WHERE email_normalized = ?').get(emailNorm);
     if (!user) {
-      let baseUsername = (emailNorm.split('@')[0].replace(/[^a-z0-9_]/gi, '') || 'user').slice(0, 28);
+      const baseUsername = (emailNorm.split('@')[0].replace(/[^a-z0-9_]/gi, '') || 'user').slice(0, 28);
       let username = baseUsername;
       const checkUsername = db.prepare('SELECT id FROM users WHERE username_normalized = ?');
       while (checkUsername.get(username.toLowerCase())) {

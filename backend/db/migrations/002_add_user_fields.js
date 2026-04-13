@@ -18,10 +18,10 @@ module.exports = function (db) {
   }
   if (!userCols.has('last_login_at')) db.exec('ALTER TABLE users ADD COLUMN last_login_at TEXT');
   if (!userCols.has('username_changed_at')) {
-    try { db.exec('ALTER TABLE users ADD COLUMN username_changed_at TEXT'); } catch (e) { /* already exists */ }
+    try { db.exec('ALTER TABLE users ADD COLUMN username_changed_at TEXT'); } catch (_e) { /* already exists */ }
   }
   if (!userCols.has('balance')) {
-    try { db.exec('ALTER TABLE users ADD COLUMN balance REAL DEFAULT 0'); } catch (e) { /* already exists */ }
+    try { db.exec('ALTER TABLE users ADD COLUMN balance REAL DEFAULT 0'); } catch (_e) { /* already exists */ }
   }
 
   // PR 1: role, soft-delete fields
@@ -30,10 +30,10 @@ module.exports = function (db) {
     db.exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'");
   }
   if (!userCols.has('deleted_at')) {
-    try { db.exec('ALTER TABLE users ADD COLUMN deleted_at TEXT'); } catch (e) { /* already exists */ }
+    try { db.exec('ALTER TABLE users ADD COLUMN deleted_at TEXT'); } catch (_e) { /* already exists */ }
   }
   if (!userCols.has('deleted_by')) {
-    try { db.exec('ALTER TABLE users ADD COLUMN deleted_by INTEGER'); } catch (e) { /* already exists */ }
+    try { db.exec('ALTER TABLE users ADD COLUMN deleted_by INTEGER'); } catch (_e) { /* already exists */ }
   }
 
   // Normalize legacy 'disabled' status to 'banned'
@@ -58,16 +58,16 @@ module.exports = function (db) {
   // PR 1: transactions — admin_id, idempotency_key
   const transCols = new Set(db.pragma('table_info(transactions)').map((c) => c.name));
   if (!transCols.has('admin_id')) {
-    try { db.exec('ALTER TABLE transactions ADD COLUMN admin_id INTEGER'); } catch (e) { /* already exists */ }
+    try { db.exec('ALTER TABLE transactions ADD COLUMN admin_id INTEGER'); } catch (_e) { /* already exists */ }
   }
   if (!transCols.has('idempotency_key')) {
-    try { db.exec('ALTER TABLE transactions ADD COLUMN idempotency_key TEXT'); } catch (e) { /* already exists */ }
+    try { db.exec('ALTER TABLE transactions ADD COLUMN idempotency_key TEXT'); } catch (_e) { /* already exists */ }
   }
 
   // Indexes on transactions
-  try { db.exec('CREATE INDEX IF NOT EXISTS idx_transactions_reference_id ON transactions(reference_id)'); } catch (e) { /* ignore */ }
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_transactions_reference_id ON transactions(reference_id)'); } catch (_e) { /* ignore */ }
   try {
     // Partial unique index — SQLite supports WHERE clause in CREATE INDEX
     db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_idempotency_key ON transactions(idempotency_key) WHERE idempotency_key IS NOT NULL');
-  } catch (e) { /* ignore */ }
+  } catch (_e) { /* ignore */ }
 };

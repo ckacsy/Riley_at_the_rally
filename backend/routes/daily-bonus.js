@@ -30,7 +30,7 @@ function getRewardForCycleDay(cycleDay) {
  * @param {import('better-sqlite3').Database} db
  * @param {{ requireAuth: Function, requireActiveUser: Function, csrfMiddleware: Function, apiReadLimiter: Function }} deps
  */
-module.exports = function mountDailyBonusRoutes(app, db, { requireAuth, requireActiveUser, csrfMiddleware, apiReadLimiter }) {
+module.exports = function mountDailyBonusRoutes(app, db, { requireAuth, requireActiveUser, csrfMiddleware, _apiReadLimiter }) {
   const dailyBonusReadLimiter = createRateLimiter({ max: 60 });
 
   const dailyBonusClaimLimiter = createRateLimiter({ max: 5 });

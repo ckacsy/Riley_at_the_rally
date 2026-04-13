@@ -3,19 +3,15 @@
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const bcrypt = require('bcrypt');
 const { createRateLimiter } = require('../middleware/rateLimiter');
 const mailer = require('../mailer');
-const { upload, uploadsDir, validateMagicBytes } = require('../middleware/upload');
 const { hasRequiredRole, getAccessBlockReason } = require('../middleware/roles');
 const {
-  validateEmail,
   normalizeEmail,
-  normalizeUsername,
 } = require('../validators');
 
 module.exports = function createAuthHelpers(db, deps) {
-  const { csrfMiddleware, generateCsrfToken, apiReadLimiter, PORT } = deps;
+  const { PORT } = deps;
 
   // --- Rate limiters ---
   const registerLimiter = createRateLimiter({ windowMs: 60 * 60 * 1000, max: 3, message: 'Слишком много регистраций. Попробуйте через час.' });

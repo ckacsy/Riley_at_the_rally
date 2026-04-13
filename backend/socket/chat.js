@@ -64,7 +64,7 @@ function setup(io, socket, state, deps) {
     }
 
     const now = Date.now();
-    let rateState = state.chatRateLimits.get(authUserId) || { lastSent: 0, burst: 0 };
+    const rateState = state.chatRateLimits.get(authUserId) || { lastSent: 0, burst: 0 };
     const elapsed = now - rateState.lastSent;
     if (elapsed >= CHAT_COOLDOWN_MS) {
       rateState.burst = Math.max(0, rateState.burst - Math.floor(elapsed / CHAT_COOLDOWN_MS));
