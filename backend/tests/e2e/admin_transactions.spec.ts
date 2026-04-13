@@ -1005,12 +1005,16 @@ test.describe('POST /api/admin/transactions/orphaned-holds/:holdId/release', () 
       const sessionRef = sessionData.sessionRef as string;
       expect(typeof sessionRef).toBe('string');
 
-      // Insert an old hold using the active session's sessionRef
-      const oldTs = new Date(Date.now() - 15 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19);
-      const hold = await insertTransaction(page, user.id, 'hold', -100, 100, {
-        reference_id: sessionRef,
-        created_at: oldTs,
-      });
+      // The server already created a hold when the session started.
+      // Find it via the admin API instead of inserting a duplicate.
+      await loginUser(page, user.username);
+      const txRes = await page.request.get(
+        `/api/admin/transactions?user_id=${user.id}&type=hold&reference_id=${sessionRef}`,
+      );
+      expect(txRes.status()).toBe(200);
+      const txBody = await txRes.json();
+      const hold = txBody.items.find((t: any) => t.reference_id === sessionRef);
+      expect(hold).toBeTruthy();
 
       // Use a separate admin context for the API call
       const adminCtx = await browser.newContext();

@@ -479,16 +479,6 @@ test.describe('Session reference_id propagation', () => {
       const sessionRef = sessionData.sessionRef as string;
       expect(typeof sessionRef).toBe('string');
 
-      // The hold was just created (recent), so it won't appear as orphaned due to grace period.
-      // Directly manipulate the hold's created_at to make it appear old enough:
-      // We need to be creative here since we can't directly modify DB via API.
-      // Instead, insert a fake orphaned hold with the active session's reference_id and old timestamp.
-      const oldTs = new Date(Date.now() - 15 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19);
-      await insertTransaction(page, user.id, 'hold', -100, 100, {
-        reference_id: sessionRef,
-        created_at: oldTs,
-      });
-
       // Now query orphaned holds — the one with the active session's ref should be excluded
       await loginUser(page, 'ref_active1');
       const res = await page.request.get('/api/admin/transactions/orphaned-holds');

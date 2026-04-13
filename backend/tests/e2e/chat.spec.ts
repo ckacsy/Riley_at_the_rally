@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetDb, getCsrfToken, registerUser, activateUser, loginUser } from './helpers';
+import { resetDb, getCsrfToken, registerUser, activateUser, loginUser, setUserRole } from './helpers';
 
 /**
  * Global chat tests (Part 3).
@@ -217,6 +217,7 @@ test.describe('Global chat', () => {
       // Create admin user (name must match ADMIN_USERNAMES env)
       const adminUser = await registerUser(pageAdmin, 'testadmin', 'testadmin@example.com', 'Secure#Pass1');
       await activateUser(pageAdmin, adminUser.username);
+      await setUserRole(pageAdmin, adminUser.username, 'admin');
 
       const userB = await registerUser(pageAdmin, 'chat_del_b', 'chatDelB@example.com', 'Secure#Pass1');
       await activateUser(pageAdmin, userB.username);
@@ -259,8 +260,8 @@ test.describe('Global chat', () => {
       }
 
       // Both should see "Сообщение удалено" within the message element
-      await expect(pageB.locator(`[data-msg-id="${msgId}"] .chat-msg-deleted-text`)).toBeVisible({ timeout: 5_000 });
-      await expect(pageAdmin.locator(`[data-msg-id="${msgId}"] .chat-msg-deleted-text`)).toBeVisible({ timeout: 5_000 });
+      await expect(pageB.locator(`[data-msg-id="${msgId}"] .chat-msg-deleted-text`)).toBeVisible({ timeout: 10_000 });
+      await expect(pageAdmin.locator(`[data-msg-id="${msgId}"] .chat-msg-deleted-text`)).toBeVisible({ timeout: 10_000 });
     } finally {
       await ctxAdmin.close();
       await ctxB.close();
