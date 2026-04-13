@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  NODE_ENV: test
+  DB_PATH: riley-test.sqlite
+  SESSION_SECRET: ci-test-secret-not-for-production
+  ADMIN_USERNAMES: testadmin
+  DISABLE_EMAIL: 'true'
+
+jobs:
+  test:
+    name: Lint, Unit Tests & E2E
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: cd backend && npm ci
+
+      - name: Lint
+        run: cd backend && npm run lint
+
+      - name: Unit tests
+        run: cd backend && npm run test:unit
+
+      - name: Install Playwright browsers
+        run: cd backend && npx playwright install --with-deps chromium
+
+      - name: E2E tests (subset)
+        run: cd backend && npx playwright test api.spec.ts auth_cta.spec.ts presence.spec.ts broadcast.spec.ts
+
+  e2e-full:
+    name: Full E2E (main only)
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: cd backend && npm ci
+
+      - name: Install Playwright browsers
+        run: cd backend && npx playwright install --with-deps chromium
+
+      - name: Full E2E tests
+        run: cd backend && npm run test:e2e

@@ -15,7 +15,8 @@
     "pm2:logs": "pm2 logs riley-backend",
     "pm2:monit": "pm2 monit",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "test:load": "node ../scripts/load-test.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

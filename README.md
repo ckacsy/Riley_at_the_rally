@@ -1,5 +1,7 @@
 # RC Car Control — Riley at the Rally
 
+[![CI](https://github.com/ckacsy/Riley_at_the_rally/actions/workflows/ci.yml/badge.svg)](https://github.com/ckacsy/Riley_at_the_rally/actions/workflows/ci.yml)
+
 A web-based platform for remotely controlling an **MJX Hyper Go 14302** RC car via a browser.  The backend runs on any PC or server; motor control and camera streaming run on a Raspberry Pi connected to the car.
 
 ## Features

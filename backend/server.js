@@ -553,7 +553,27 @@ app.get('/api/metrics', metricsLimiter, requireAuth, (req, res) => {
   if (!IS_DEV_MODE && !(METRICS_SECRET && providedSecret === METRICS_SECRET)) {
     return res.status(403).json({ error: 'Доступ запрещён' });
   }
-  res.json(metrics.getMetrics(socketState.activeSessions, socketState.raceRooms));
+  const extraGauges = {
+    activeSockets: io.engine.clientsCount,
+    connectedDevices: socketState.deviceSockets ? socketState.deviceSockets.size : 0,
+    staleDevices: 0,
+  };
+  res.json(metrics.getMetrics(socketState.activeSessions, socketState.raceRooms, extraGauges));
+});
+
+app.get('/api/metrics/prometheus', metricsLimiter, requireAuth, (req, res) => {
+  // Access control: same as JSON endpoint
+  const providedSecret = req.headers['x-metrics-key'];
+  if (!IS_DEV_MODE && !(METRICS_SECRET && providedSecret === METRICS_SECRET)) {
+    return res.status(403).json({ error: 'Доступ запрещён' });
+  }
+  const extraGauges = {
+    activeSockets: io.engine.clientsCount,
+    connectedDevices: socketState.deviceSockets ? socketState.deviceSockets.size : 0,
+    staleDevices: 0,
+  };
+  res.set('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
+  res.send(metrics.getPrometheusMetrics(socketState.activeSessions, socketState.raceRooms, extraGauges));
 });
 app.get('/api/cars', apiReadLimiter, (req, res) => {
   const activeCars = new Set([...socketState.activeSessions.values()].map((s) => s.carId));
