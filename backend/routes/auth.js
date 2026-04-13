@@ -193,6 +193,7 @@ module.exports = function mountAuthRoutes(app, db, deps) {
   // Prevents inbox-flooding by rate-limiting email-sending endpoints per
   // email address, independently of the per-IP express-rate-limit.
   // NOTE: Resets on server restart — acceptable for single-process deployment.
+  // Stale entries are pruned lazily on each check (no unbounded growth).
 
   // magic-link: max 1 email per 60 seconds per address
   const magicLinkEmailCooldowns = new Map(); // emailNorm -> lastSentAt (ms)
@@ -201,6 +202,17 @@ module.exports = function mountAuthRoutes(app, db, deps) {
   // forgot-password: max 1 email per 5 minutes per address
   const forgotPasswordEmailCooldowns = new Map(); // emailNorm -> lastSentAt (ms)
   const FORGOT_PASSWORD_EMAIL_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
+
+  /** Returns true if the email is in cooldown; prunes expired entries lazily. */
+  function isEmailInCooldown(map, emailNorm, windowMs) {
+    const lastSent = map.get(emailNorm);
+    if (!lastSent) return false;
+    if (Date.now() - lastSent >= windowMs) {
+      map.delete(emailNorm); // lazy prune
+      return false;
+    }
+    return true;
+  }
 
   // --- Dev maps ---
   // In non-production environments, keep the last verification URL per normalised email
@@ -466,14 +478,14 @@ module.exports = function mountAuthRoutes(app, db, deps) {
     const emailNorm = normalizeEmail(rawEmail);
 
     // Per-email cooldown: prevent inbox flooding from multiple IPs
-    const lastSent = magicLinkEmailCooldowns.get(emailNorm);
-    if (lastSent && (Date.now() - lastSent) < MAGIC_LINK_EMAIL_COOLDOWN_MS) {
+    if (isEmailInCooldown(magicLinkEmailCooldowns, emailNorm, MAGIC_LINK_EMAIL_COOLDOWN_MS)) {
       // Return same success message to avoid leaking cooldown state
       return res.json({ success: true, message: 'Если этот email зарегистрирован или является новым, вы получите письмо со ссылкой для входа.' });
     }
 
     try {
       const rawToken = createMagicLinkToken(emailNorm);
+      // Record cooldown only after the token was successfully created and email dispatched
       magicLinkEmailCooldowns.set(emailNorm, Date.now());
       sendMagicLinkEmail(emailNorm, rawToken, req);
     } catch (e) {
@@ -612,8 +624,7 @@ module.exports = function mountAuthRoutes(app, db, deps) {
     const emailNorm = rawEmail.trim().toLowerCase();
 
     // Per-email cooldown: prevent inbox flooding from multiple IPs
-    const lastSent = forgotPasswordEmailCooldowns.get(emailNorm);
-    if (lastSent && (Date.now() - lastSent) < FORGOT_PASSWORD_EMAIL_COOLDOWN_MS) {
+    if (isEmailInCooldown(forgotPasswordEmailCooldowns, emailNorm, FORGOT_PASSWORD_EMAIL_COOLDOWN_MS)) {
       return successResponse();
     }
 
@@ -622,8 +633,9 @@ module.exports = function mountAuthRoutes(app, db, deps) {
       .get(emailNorm);
 
     if (user) {
-      forgotPasswordEmailCooldowns.set(emailNorm, Date.now());
       const token = createPasswordResetToken(user.id);
+      // Record cooldown only after the token was successfully created
+      forgotPasswordEmailCooldowns.set(emailNorm, Date.now());
       sendPasswordResetEmail(user.email_normalized || user.email, token, req);
     }
 
