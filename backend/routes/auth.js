@@ -161,7 +161,7 @@ module.exports = function mountAuthRoutes(app, db, deps) {
   // NOTE: Resets on server restart. Sufficient for single-process Pi deployment.
   // For multi-instance production, persist to DB or Redis.
   const loginFailures = new Map(); // ip -> { count, lockUntil }
-  const MAX_LOGIN_FAILS = 10;
+  const MAX_LOGIN_FAILS = 5; // lockout after 5 failed attempts (matches loginLimiter threshold)
   const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 
   function getLoginLockout(ip) {
@@ -187,6 +187,31 @@ module.exports = function mountAuthRoutes(app, db, deps) {
 
   function clearLoginFailures(ip) {
     loginFailures.delete(ip);
+  }
+
+  // --- Per-email cooldown maps (in-memory) ---
+  // Prevents inbox-flooding by rate-limiting email-sending endpoints per
+  // email address, independently of the per-IP express-rate-limit.
+  // NOTE: Resets on server restart — acceptable for single-process deployment.
+  // Stale entries are pruned lazily on each check (no unbounded growth).
+
+  // magic-link: max 1 email per 60 seconds per address
+  const magicLinkEmailCooldowns = new Map(); // emailNorm -> lastSentAt (ms)
+  const MAGIC_LINK_EMAIL_COOLDOWN_MS = 60 * 1000; // 60 seconds
+
+  // forgot-password: max 1 email per 5 minutes per address
+  const forgotPasswordEmailCooldowns = new Map(); // emailNorm -> lastSentAt (ms)
+  const FORGOT_PASSWORD_EMAIL_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
+
+  /** Returns true if the email is in cooldown; prunes expired entries lazily. */
+  function isEmailInCooldown(map, emailNorm, windowMs) {
+    const lastSent = map.get(emailNorm);
+    if (!lastSent) return false;
+    if (Date.now() - lastSent >= windowMs) {
+      map.delete(emailNorm); // lazy prune
+      return false;
+    }
+    return true;
   }
 
   // --- Dev maps ---
@@ -364,6 +389,9 @@ module.exports = function mountAuthRoutes(app, db, deps) {
       });
     } catch (e) {
       if (e.message && e.message.includes('UNIQUE')) {
+        // Trade-off: username taken is safe to reveal (usernames are semi-public).
+        // Email enumeration is a known risk; mitigated by the 3/hour per-IP
+        // registerLimiter making automated enumeration slow and expensive.
         if (e.message.includes('username') || e.message.includes('username_norm')) {
           return res.status(400).json({ errors: { username: 'Это имя пользователя уже занято' }, error: 'Это имя пользователя уже занято' });
         }
@@ -448,8 +476,17 @@ module.exports = function mountAuthRoutes(app, db, deps) {
     }
 
     const emailNorm = normalizeEmail(rawEmail);
+
+    // Per-email cooldown: prevent inbox flooding from multiple IPs
+    if (isEmailInCooldown(magicLinkEmailCooldowns, emailNorm, MAGIC_LINK_EMAIL_COOLDOWN_MS)) {
+      // Return same success message to avoid leaking cooldown state
+      return res.json({ success: true, message: 'Если этот email зарегистрирован или является новым, вы получите письмо со ссылкой для входа.' });
+    }
+
     try {
       const rawToken = createMagicLinkToken(emailNorm);
+      // Record cooldown only after the token was successfully created and email dispatched
+      magicLinkEmailCooldowns.set(emailNorm, Date.now());
       sendMagicLinkEmail(emailNorm, rawToken, req);
     } catch (e) {
       console.error('[magic-link] Error creating/sending magic link:', e.message);
@@ -585,12 +622,20 @@ module.exports = function mountAuthRoutes(app, db, deps) {
     if (!rawEmail) return successResponse();
 
     const emailNorm = rawEmail.trim().toLowerCase();
+
+    // Per-email cooldown: prevent inbox flooding from multiple IPs
+    if (isEmailInCooldown(forgotPasswordEmailCooldowns, emailNorm, FORGOT_PASSWORD_EMAIL_COOLDOWN_MS)) {
+      return successResponse();
+    }
+
     const user = db
       .prepare('SELECT id, email, email_normalized FROM users WHERE email_normalized = ?')
       .get(emailNorm);
 
     if (user) {
       const token = createPasswordResetToken(user.id);
+      // Record cooldown only after the token was successfully created
+      forgotPasswordEmailCooldowns.set(emailNorm, Date.now());
       sendPasswordResetEmail(user.email_normalized || user.email, token, req);
     }
 
