@@ -53,7 +53,12 @@ module.exports = function mountAuthRoutes(app, db, deps) {
 
   const resetPasswordLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 10, message: 'Слишком много запросов. Попробуйте через 15 минут.' });
 
-  const avatarUploadLimiter = createRateLimiter({ max: 10, message: 'Слишком много загрузок. Попробуйте через минуту.' });
+  const avatarUploadLimiter = createRateLimiter({
+    windowMs: 60 * 60 * 1000,
+    max: 5,
+    keyGenerator: (req) => req.session && req.session.userId ? String(req.session.userId) : req.ip,
+    message: 'Слишком много загрузок аватара. Попробуйте через час.',
+  });
 
   const usernameChangeLimiter = createRateLimiter({ windowMs: 60 * 60 * 1000, max: 3, message: 'Слишком много попыток смены имени. Попробуйте через час.' });
 
@@ -714,7 +719,20 @@ module.exports = function mountAuthRoutes(app, db, deps) {
     });
   });
 
-  app.post('/api/profile/avatar', requireAuth, avatarUploadLimiter, csrfMiddleware, upload.single('avatar'), validateMagicBytes, (req, res) => {
+  app.post('/api/profile/avatar', requireAuth, avatarUploadLimiter, csrfMiddleware, (req, res, next) => {
+    upload.single('avatar')(req, res, (err) => {
+      if (err) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(413).json({ error: 'Файл слишком большой. Максимальный размер: 2 МБ.' });
+        }
+        if (err.message === 'Invalid file type') {
+          return res.status(400).json({ error: 'Недопустимый тип файла. Разрешены: JPG, PNG, WebP.' });
+        }
+        return res.status(400).json({ error: 'Ошибка загрузки файла.' });
+      }
+      next();
+    });
+  }, validateMagicBytes, (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'Файл не загружен или неверный формат' });
     const avatarPath = '/uploads/' + req.file.filename;
     const existing = db.prepare('SELECT avatar_path FROM users WHERE id = ?').get(req.session.userId);
