@@ -23,6 +23,13 @@ cd backend && NODE_ENV=test npm start
 node scripts/load-test.js --base-url http://localhost:5000
 ```
 
+> **Note:** The load test script hits endpoints without CSRF tokens and without an authenticated session.
+> Scenario 1 errors reflect CSRF/auth failures (403), not server crashes.
+> Scenarios 3 & 4 latencies are dominated by the client-side timeout because the server
+> correctly ignores unauthenticated `control_command` events (returns nothing) and emits
+> `chat:error` (not the generic `'error'` event the script listens for).
+> Re-run with a seeded authenticated user and CSRF-aware HTTP client for production baselines.
+
 ### Scenarios
 
 | # | Scenario | Description |
@@ -34,21 +41,82 @@ node scripts/load-test.js --base-url http://localhost:5000
 
 ---
 
-## Baseline Results
+## Baseline Results (dev machine — CI sandbox)
 
-> **Note:** Fill these in after running `node scripts/load-test.js` against the production server on a Raspberry Pi.
+> Measured on a CI/sandbox instance: Node.js v24, localhost, SQLite in `/tmp`.
+> **These are not Pi hardware numbers** — re-run on Raspberry Pi 4 and update the
+> "Raspberry Pi Baseline" section below for production reference.
 
 ### Scenario 1 — 50 Concurrent Logins (POST /api/auth/login)
 
 | Metric | Value |
 |--------|-------|
+| p50 latency | 38 ms |
+| p95 latency | 52 ms |
+| p99 latency | 53 ms |
+| Min latency | 19 ms |
+| Max latency | 53 ms |
+| Error rate | 100 % ¹ |
+| Throughput | 769 req/s |
+
+¹ All requests returned 403 (CSRF token required). The latency numbers reflect real round-trip
+time to the server; the errors are expected when using the load-test script without a CSRF token.
+
+### Scenario 2 — 20 Concurrent Socket.IO Connections
+
+| Metric | Value |
+|--------|-------|
+| p50 connect latency | 33 ms |
+| p95 connect latency | 35 ms |
+| p99 connect latency | 46 ms |
+| Min latency | 30 ms |
+| Max latency | 46 ms |
+| Error rate | 0 % |
+
+### Scenario 3 — 100 Control Commands (10 sockets × 10 commands)
+
+| Metric | Value |
+|--------|-------|
+| p50 latency | 100 ms |
+| p95 latency | 101 ms |
+| p99 latency | 101 ms |
+| Min latency | 100 ms |
+| Max latency | 102 ms |
+| Error rate | 0 % ² |
+| Throughput | 735 cmd/s |
+
+² No errors — latency capped at the 100 ms client-side timeout because unauthenticated
+`control_command` events are silently ignored (no `session_error` emitted without a session).
+
+### Scenario 4 — Chat Burst (50 msg/sec)
+
+| Metric | Value |
+|--------|-------|
+| p50 latency | 200 ms |
+| p95 latency | 201 ms |
+| p99 latency | 201 ms |
+| Min latency | 200 ms |
+| Max latency | 201 ms |
+| Error rate | 0 % ³ |
+| Throughput | 41 msg/s |
+
+³ Server emits `chat:error` (auth_required) but the script listens for the generic `'error'`
+event, so responses are not captured; latency reflects the 200 ms client-side timeout.
+
+---
+
+## Raspberry Pi Baseline (target — fill in after running on hardware)
+
+> Run `node scripts/load-test.js --base-url http://<pi-ip>:5000` on Pi hardware and replace
+> the `_TBD_` values below.
+
+### Scenario 1 — 50 Concurrent Logins
+
+| Metric | Value |
+|--------|-------|
 | p50 latency | _TBD_ ms |
 | p95 latency | _TBD_ ms |
-| p99 latency | _TBD_ ms |
-| Min latency | _TBD_ ms |
-| Max latency | _TBD_ ms |
 | Error rate | _TBD_ % |
-| Throughput | _TBD_ req/s |
 
 ### Scenario 2 — 20 Concurrent Socket.IO Connections
 
@@ -56,22 +124,15 @@ node scripts/load-test.js --base-url http://localhost:5000
 |--------|-------|
 | p50 connect latency | _TBD_ ms |
 | p95 connect latency | _TBD_ ms |
-| p99 connect latency | _TBD_ ms |
-| Min latency | _TBD_ ms |
-| Max latency | _TBD_ ms |
 | Error rate | _TBD_ % |
 
-### Scenario 3 — 100 Control Commands (10 sockets × 10 commands)
+### Scenario 3 — 100 Control Commands
 
 | Metric | Value |
 |--------|-------|
 | p50 latency | _TBD_ ms |
 | p95 latency | _TBD_ ms |
-| p99 latency | _TBD_ ms |
-| Min latency | _TBD_ ms |
-| Max latency | _TBD_ ms |
 | Error rate | _TBD_ % |
-| Throughput | _TBD_ cmd/s |
 
 ### Scenario 4 — Chat Burst (50 msg/sec)
 
@@ -79,17 +140,11 @@ node scripts/load-test.js --base-url http://localhost:5000
 |--------|-------|
 | p50 latency | _TBD_ ms |
 | p95 latency | _TBD_ ms |
-| p99 latency | _TBD_ ms |
-| Min latency | _TBD_ ms |
-| Max latency | _TBD_ ms |
 | Error rate | _TBD_ % |
-| Throughput | _TBD_ msg/s |
 
 ---
 
 ## Bottleneck Analysis
-
-> _Fill in after running the baseline tests and profiling._
 
 ### Known Bottlenecks (anticipated)
 

@@ -549,6 +549,7 @@ function setup(io, socket, state, deps, helpers) {
 
     metrics.log('info', 'control_command', {
       socketId: socket.id,
+      requestId: socket.data.requestId,
       direction: direction || null,
       speed: speed || 0,
       steering_angle: steering_angle || 0,

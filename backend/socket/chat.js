@@ -99,7 +99,7 @@ function setup(io, socket, state, deps) {
     };
 
     io.emit('chat:message', msg);
-    metrics.log('debug', 'chat_message', { userId: authUserId, username: authUsername });
+    metrics.log('debug', 'chat_message', { userId: authUserId, username: authUsername, requestId: socket.data.requestId });
   });
 
   socket.on('chat:delete', (data) => {
