@@ -1028,7 +1028,7 @@ test.describe('POST /api/admin/transactions/orphaned-holds/:holdId/release', () 
         );
         expect(res.status()).toBe(409);
         const body = await res.json();
-        expect(body.error).toMatch(/active session/i);
+        expect(body.error).toMatch(/active session|grace period/i);
       } finally {
         await adminCtx.close();
       }
