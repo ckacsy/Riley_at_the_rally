@@ -4,36 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Вход через email — Riley at the Rally</title>
+    <link rel="stylesheet" href="styles/auth.css">
     <style>
-        * { box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }
-        .auth-nav { text-align: right; max-width: 480px; margin: 0 auto 16px; font-size: 14px; }
-        .auth-nav a { color: #007BFF; text-decoration: none; }
-        .auth-nav a:hover { text-decoration: underline; }
-        .auth-card { background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.10); padding: 36px 40px; max-width: 480px; margin: 0 auto; }
-        h1 { text-align: center; color: #222; margin-top: 0; margin-bottom: 8px; font-size: 24px; }
-        .subtitle { text-align: center; color: #666; font-size: 14px; margin-bottom: 24px; }
-        .form-group { margin-bottom: 18px; }
-        label { display: block; margin-bottom: 6px; font-size: 14px; color: #444; font-weight: bold; }
-        input[type="email"] {
-            width: 100%; padding: 10px 12px; border: 1px solid #ccc; border-radius: 6px;
-            font-size: 15px; outline: none; transition: border-color 0.2s; min-height: 44px;
-        }
-        input:focus { border-color: #007BFF; }
-        input[aria-invalid="true"] { border-color: #dc3545; }
-        .field-error { color: #dc3545; font-size: 12px; margin-top: 4px; display: none; }
-        .field-error.visible { display: block; }
-        .submit-btn { width: 100%; padding: 12px; background-color: #007BFF; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; transition: background-color 0.3s; margin-top: 8px; min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .submit-btn:hover { background-color: #0056b3; }
-        .submit-btn:disabled { background-color: #aaa; cursor: not-allowed; }
-        .spinner { display: none; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .success-box { background: #d4edda; border: 1px solid #c3e6cb; border-radius: 6px; padding: 16px; color: #155724; margin-top: 16px; font-size: 14px; display: none; line-height: 1.5; }
-        .error-box { background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 6px; padding: 12px 16px; color: #721c24; margin-bottom: 16px; font-size: 14px; display: none; }
-        .links { text-align: center; margin-top: 20px; font-size: 14px; color: #666; }
-        .links a { color: #007BFF; text-decoration: none; }
-        .links a:hover { text-decoration: underline; }
-        .links + .links { margin-top: 8px; }
+        h1 { margin-bottom: 8px; }
+        .error-box { margin-top: 0; margin-bottom: 16px; padding: 12px 16px; font-size: 14px; }
+        .success-box { padding: 16px; line-height: 1.5; }
     </style>
 </head>
 <body>

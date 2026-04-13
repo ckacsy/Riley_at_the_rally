@@ -1,0 +1,22 @@
+/* Audit page uses a narrower container */
+.admin-container { max-width: 1200px; }
+
+/* Audit log details toggle */
+.btn-details { padding: 3px 10px; font-size: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); border-radius: 5px; color: rgba(255,255,255,0.7); cursor: pointer; }
+.btn-details:hover { background: rgba(255,255,255,0.18); }
+.details-block { margin-top: 6px; }
+.details-block pre {
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 11px;
+    color: #a3e635;
+    max-width: 340px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+/* Audit table uses vertical-align: top for multi-line detail cells */
+td { vertical-align: top; }
