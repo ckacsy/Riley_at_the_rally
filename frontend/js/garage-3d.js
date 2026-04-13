@@ -225,9 +225,11 @@ function renderCarousel() {
         thumb.setAttribute('data-variant-index', i);
         thumb.title = v.name;
         thumb.innerHTML =
-            '<div class="thumb-car-img" style="color:' + v.bodyHex + '" aria-hidden="true">\uD83C\uDFCE\uFE0F</div>' +
+            '<div class="thumb-car-img" aria-hidden="true">\uD83C\uDFCE\uFE0F</div>' +
             '<div class="thumb-name">' + v.name + '</div>' +
             '<div class="thumb-avail"></div>';
+        var thumbImg = thumb.querySelector('.thumb-car-img');
+        if (thumbImg) thumbImg.style.color = v.bodyHex;
         thumb.addEventListener('click', () => swapVariant(i));
         el.appendChild(thumb);
     });

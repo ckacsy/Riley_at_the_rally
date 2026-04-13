@@ -5,6 +5,22 @@
         h1 {
             text-align: center;
         }
+
+        /* Initially-hidden elements (toggled by JS) */
+        #session-timers-bar { display: none; }
+        #camera-no-url { display: none; color: var(--text-secondary); font-size: 13px; margin-top: 8px; }
+        #race-in-session { display: none; }
+        #race-status-bar { display: none; }
+        #lap-timer-section { display: none; }
+        #positions-section { display: none; }
+        #duel-cancel-btn { display: none; }
+        #duel-match-card { display: none; }
+        #duel-progress-panel { display: none; }
+        #duel-result-card { display: none; }
+        #summary-reason { display: none; color: var(--accent-warning); font-weight: bold; }
+
+        /* Leaderboard empty state */
+        .lb-empty-cell { text-align: center; color: #888; }
         .control-panel {
             display: flex;
             justify-content: center;

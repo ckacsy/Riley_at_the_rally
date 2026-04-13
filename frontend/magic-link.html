@@ -5,19 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Вход через email — Riley at the Rally</title>
     <link rel="stylesheet" href="styles/auth.css">
-    <style>
-        h1 { margin-bottom: 8px; }
-        .error-box { margin-top: 0; margin-bottom: 16px; padding: 12px 16px; font-size: 14px; }
-        .success-box { padding: 16px; line-height: 1.5; }
-    </style>
 </head>
 <body>
     <div class="auth-nav"><a href="/">← Главная</a></div>
     <div class="auth-card">
-        <h1>🏎️ Вход через email</h1>
+        <h1 class="auth-h1-tight">🏎️ Вход через email</h1>
         <p class="subtitle">Введите ваш email — мы пришлём ссылку для входа. Регистрация происходит автоматически.</p>
 
-        <div class="error-box" id="error-box"></div>
+        <div class="error-box error-box--compact" id="error-box"></div>
 
         <form id="magic-form" novalidate>
             <div class="form-group">
@@ -35,7 +30,7 @@
             </button>
         </form>
 
-        <div class="success-box" id="success-box">
+        <div class="success-box success-box--wide" id="success-box">
             📧 Ссылка отправлена! Проверьте почту и перейдите по ссылке для входа. Ссылка действительна 15 минут.
         </div>
 

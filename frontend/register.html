@@ -5,11 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Регистрация — Riley at the Rally</title>
     <link rel="stylesheet" href="styles/auth.css">
-    <style>
-        .submit-btn { background-color: #28a745; }
-        .submit-btn:hover { background-color: #1e7e34; }
-        .success-msg { padding: 10px; background: #d4edda; border-radius: 6px; }
-    </style>
 </head>
 <body>
     <div class="auth-nav"><a href="/">← Главная</a></div>
@@ -62,11 +57,11 @@
                 <div class="field-error" id="confirm_password-err" role="alert"></div>
             </div>
 
-            <button type="submit" class="submit-btn" id="submit-btn">
+            <button type="submit" class="submit-btn submit-btn--green" id="submit-btn">
                 <span id="btn-text">Зарегистрироваться</span>
                 <span class="spinner" id="btn-spinner"></span>
             </button>
-            <div class="success-msg" id="success-msg"></div>
+            <div class="success-msg success-msg--block" id="success-msg"></div>
         </form>
         <div class="login-link">Уже есть аккаунт? <a href="/login">Войти</a></div>
     </div>

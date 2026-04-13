@@ -135,7 +135,7 @@
             inactivityRemainingMs = inactivityMs;
 
             const bar = document.getElementById('session-timers-bar');
-            if (bar) bar.style.display = '';
+            if (bar) bar.style.display = 'flex';
 
             maxCountdownInterval = setInterval(function () {
                 sessionMaxRemainingMs -= COUNTDOWN_TICK_MS;
@@ -379,13 +379,13 @@
             if (reasonEl) {
                 if (data.reason === 'time_limit') {
                     reasonEl.textContent = '⏱ Сессия завершена: превышен лимит времени.';
-                    reasonEl.style.display = '';
+                    reasonEl.style.display = 'block';
                 } else if (data.reason === 'inactivity') {
                     reasonEl.textContent = '💤 Сессия завершена: превышен лимит бездействия.';
-                    reasonEl.style.display = '';
+                    reasonEl.style.display = 'block';
                 } else if (data.reason === 'admin_force_end') {
                     reasonEl.textContent = '🛑 Сессия завершена оператором.';
-                    reasonEl.style.display = '';
+                    reasonEl.style.display = 'block';
                 } else {
                     reasonEl.style.display = 'none';
                 }
@@ -602,7 +602,7 @@
         function renderLeaderboard(entries) {
             const tbody = document.getElementById('lb-body');
             if (!entries || entries.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888">Нет рекордов</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="4" class="lb-empty-cell">Нет рекордов</td></tr>';
                 return;
             }
             tbody.innerHTML = entries.slice(0, 5).map(function (e, i) {
@@ -621,7 +621,7 @@
                 .then(function (data) { renderLeaderboard(data.leaderboard || []); })
                 .catch(function () {
                     var tbody = document.getElementById('lb-body');
-                    if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888">Пока нет рекордов</td></tr>';
+                    if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="lb-empty-cell">Пока нет рекордов</td></tr>';
                 });
         }
 

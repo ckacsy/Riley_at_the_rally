@@ -29,9 +29,9 @@
 <div class="modal-overlay" id="modal-enable">
     <div class="modal">
         <h2>Поставить на обслуживание</h2>
-        <p id="modal-enable-car-name" style="font-weight:bold;color:#fff;"></p>
+        <p id="modal-enable-car-name" class="modal-car-name"></p>
         <div class="form-row">
-            <label for="modal-reason">Причина <span style="color:#e53935;">*</span></label>
+            <label for="modal-reason">Причина <span class="modal-required-mark">*</span></label>
             <input type="text" id="modal-reason" class="form-input" placeholder="Например: замена колеса" maxlength="200" />
         </div>
         <div class="modal-actions">
@@ -45,8 +45,8 @@
 <div class="modal-overlay" id="modal-disable">
     <div class="modal">
         <h2>Снять с обслуживания</h2>
-        <p id="modal-disable-car-name" style="font-weight:bold;color:#fff;"></p>
-        <p id="modal-disable-reason" style="color:rgba(255,152,0,0.9);"></p>
+        <p id="modal-disable-car-name" class="modal-car-name"></p>
+        <p id="modal-disable-reason" class="modal-warning-text"></p>
         <p>Снять машину с технического обслуживания и сделать её доступной для аренды?</p>
         <div class="modal-actions">
             <button class="btn btn-cancel" id="modal-disable-cancel">Отмена</button>

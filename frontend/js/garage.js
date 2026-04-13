@@ -559,7 +559,7 @@
                     if (!container) return;
                     container.innerHTML = '';
                     if (!rows.length) {
-                        container.innerHTML = '<div class="lb-row" style="color:rgba(255,255,255,0.38);font-size:12px;">\u041d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445</div>';
+                        container.innerHTML = '<div class="lb-row lb-row--empty">\u041d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445</div>';
                         return;
                     }
                     rows.slice(0, 5).forEach(function (row, i) {
@@ -584,7 +584,7 @@
                 })
                 .catch(function () {
                     var c = document.getElementById('lb-preview');
-                    if (c) c.innerHTML = '<div class="lb-row" style="color:rgba(255,255,255,0.38);font-size:12px;">\u041e\u0448\u0438\u0431\u043a\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043a\u0438</div>';
+                    if (c) c.innerHTML = '<div class="lb-row lb-row--empty">\u041e\u0448\u0438\u0431\u043a\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043a\u0438</div>';
                 });
         }
 
@@ -791,7 +791,7 @@
 
             w.innerHTML = '<div class="daily-bonus-streak">' + dotsHtml + '</div>' +
                 rewardHtml + streakHtml + btnHtml +
-                '<div id="daily-bonus-error" class="daily-bonus-error" style="display:none"></div>';
+                '<div id="daily-bonus-error" class="daily-bonus-error"></div>';
 
             if (!claimedToday) {
                 var btn = document.getElementById('daily-bonus-claim-btn');
@@ -852,13 +852,13 @@
                 } else {
                     if (btn) { btn.disabled = false; btn.textContent = 'Попробовать снова'; }
                     var errEl = document.getElementById('daily-bonus-error');
-                    if (errEl) { errEl.textContent = resp.body.error || 'Ошибка'; errEl.style.display = ''; }
+                    if (errEl) { errEl.textContent = resp.body.error || 'Ошибка'; errEl.style.display = 'block'; }
                 }
             })
             .catch(function () {
                 if (btn) { btn.disabled = false; btn.textContent = 'Попробовать снова'; }
                 var errEl = document.getElementById('daily-bonus-error');
-                if (errEl) { errEl.textContent = 'Ошибка сети'; errEl.style.display = ''; }
+                if (errEl) { errEl.textContent = 'Ошибка сети'; errEl.style.display = 'block'; }
             });
         }
 

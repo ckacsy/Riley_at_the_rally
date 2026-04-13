@@ -13,8 +13,8 @@
     <div id="main-nav"></div>
 
     <div id="loading" class="loading-msg">Загрузка профиля…</div>
-    <div id="error" class="error-msg" style="display:none"></div>
-    <div id="pending-banner" class="pending-banner" style="display:none">
+    <div id="error" class="error-msg"></div>
+    <div id="pending-banner" class="pending-banner">
         <div class="pending-banner-icon">📧</div>
         <div class="pending-banner-text">
             <strong>Подтвердите ваш email</strong>
@@ -24,7 +24,7 @@
             <button class="resend-btn" id="resend-btn">Отправить повторно</button>
         </div>
     </div>
-    <div id="profile-content" style="display:none">
+    <div id="profile-content">
 
         <!-- Profile header -->
         <div class="profile-header">
@@ -46,11 +46,11 @@
                     <button class="username-save-btn" id="username-save-btn">Сохранить</button>
                     <button class="username-cancel-btn" id="username-cancel-btn">Отмена</button>
                 </div>
-                <div class="username-msg" id="username-msg" style="display:none;"></div>
+                <div class="username-msg" id="username-msg"></div>
                 <div class="profile-email" id="profile-email">—</div>
                 <div class="profile-joined" id="profile-joined">—</div>
                 <div class="profile-balance" id="profile-balance">Баланс: — RC</div>
-                <button class="logout-btn" id="logout-btn" style="margin-top:12px;">Выйти</button>
+                <button class="logout-btn" id="logout-btn">Выйти</button>
             </div>
         </div>
 
@@ -78,7 +78,7 @@
         </div>
 
         <!-- Rank block -->
-        <div id="rank-section" class="rank-section" style="display:none">
+        <div id="rank-section" class="rank-section">
             <div class="rank-section-title">🎖 Ранговый рейтинг</div>
             <div id="rank-block-content">
                 <div class="rank-badge rank-badge-loading">Загрузка…</div>
@@ -94,13 +94,13 @@
         </div>
 
         <!-- Transaction History -->
-        <div class="transactions-section" style="max-width:860px;margin:0 auto 40px;">
+        <div class="transactions-section">
             <button class="transactions-toggle" id="transactions-toggle">
                 💳 Информация о транзакциях ▶
             </button>
-            <div class="transactions-content" id="transactions-content" style="display:none;">
+            <div class="transactions-content" id="transactions-content">
                 <div id="transactions-container">
-                    <p style="text-align:center;color:var(--text-secondary);">Загрузка...</p>
+                    <p class="tx-loading-msg">Загрузка...</p>
                 </div>
             </div>
         </div>
