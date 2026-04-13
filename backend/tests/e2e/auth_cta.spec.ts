@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { resetDb, getCsrfToken, registerUser, activateUser } from './helpers';
 
 /**
  * CTA button role-state tests.
@@ -19,58 +20,6 @@ const CTA_TIMEOUT = 20_000;
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Reset the database and destroy the current session.
- * The endpoint is only available when NODE_ENV !== 'production'.
- */
-async function resetDb(page: import('@playwright/test').Page): Promise<void> {
-  await page.request.post('/api/dev/reset-db');
-}
-
-/**
- * Obtain a fresh CSRF token for the current browser context / session.
- */
-async function getCsrfToken(page: import('@playwright/test').Page): Promise<string> {
-  const res = await page.request.get('/api/csrf-token');
-  const body = await res.json();
-  return body.csrfToken as string;
-}
-
-/**
- * Register a new user via the API (uses the page's cookie jar so the
- * resulting session is shared with the browser).
- */
-async function registerUser(
-  page: import('@playwright/test').Page,
-  username: string,
-  email: string,
-  password: string,
-): Promise<{ id: number; username: string; status: string }> {
-  const csrfToken = await getCsrfToken(page);
-  const res = await page.request.post('/api/auth/register', {
-    data: { username, email, password, confirm_password: password },
-    headers: { 'X-CSRF-Token': csrfToken },
-  });
-  expect(res.status(), `register failed: ${await res.text()}`).toBe(200);
-  const body = await res.json();
-  return body.user;
-}
-
-/**
- * Flip a user's status to 'active' via the dev API endpoint.
- * This bypasses the email-verification flow without requiring a direct DB
- * connection from the test process (avoids SQLite write-ahead log issues).
- */
-async function activateUser(
-  page: import('@playwright/test').Page,
-  username: string,
-): Promise<void> {
-  const res = await page.request.post('/api/dev/activate-user', {
-    data: { username },
-  });
-  expect(res.status(), `activateUser failed: ${await res.text()}`).toBe(200);
-}
 
 /**
  * Wait for the CTA button to leave its initial "Загрузка…" state and settle

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { resetDb, getCsrfToken, registerUser, activateUser, loginUser, setUserRole } from './helpers';
 
 const TEST_BASE_URL = process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:5000';
 
@@ -19,62 +20,6 @@ const TEST_BASE_URL = process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-async function resetDb(page: import('@playwright/test').Page): Promise<void> {
-  await page.request.post('/api/dev/reset-db');
-}
-
-async function getCsrfToken(page: import('@playwright/test').Page): Promise<string> {
-  const res = await page.request.get('/api/csrf-token');
-  const body = await res.json();
-  return body.csrfToken as string;
-}
-
-async function registerUser(
-  page: import('@playwright/test').Page,
-  username: string,
-  email: string,
-  password = 'Secure#Pass1',
-): Promise<{ id: number; username: string; status: string }> {
-  const csrfToken = await getCsrfToken(page);
-  const res = await page.request.post('/api/auth/register', {
-    data: { username, email, password, confirm_password: password },
-    headers: { 'X-CSRF-Token': csrfToken },
-  });
-  expect(res.status(), `register failed: ${await res.text()}`).toBe(200);
-  const body = await res.json();
-  return body.user;
-}
-
-async function activateUser(
-  page: import('@playwright/test').Page,
-  username: string,
-): Promise<void> {
-  const res = await page.request.post('/api/dev/activate-user', { data: { username } });
-  expect(res.status(), `activate failed: ${await res.text()}`).toBe(200);
-}
-
-async function loginUser(
-  page: import('@playwright/test').Page,
-  identifier: string,
-  password = 'Secure#Pass1',
-): Promise<void> {
-  const csrfToken = await getCsrfToken(page);
-  const res = await page.request.post('/api/auth/login', {
-    data: { identifier, password },
-    headers: { 'X-CSRF-Token': csrfToken },
-  });
-  expect(res.status(), `login failed: ${await res.text()}`).toBe(200);
-}
-
-async function setUserRole(
-  page: import('@playwright/test').Page,
-  username: string,
-  role: 'user' | 'moderator' | 'admin',
-): Promise<void> {
-  const res = await page.request.post('/api/dev/set-user-role', { data: { username, role } });
-  expect(res.status(), `set-user-role failed: ${await res.text()}`).toBe(200);
-}
 
 async function setUserStatus(
   page: import('@playwright/test').Page,

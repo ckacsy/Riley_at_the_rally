@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { resetDb, getCsrfToken, registerUser, activateUser, loginUser, setupSocketCapture, waitForSocketEvent, waitForSocketConnected } from './helpers';
 
 /**
  * Duel backend E2E tests.
@@ -16,57 +17,6 @@ import { test, expect } from '@playwright/test';
 // ---------------------------------------------------------------------------
 // Shared helpers (mirrors socket_race.spec.ts patterns)
 // ---------------------------------------------------------------------------
-
-async function resetDb(page: import('@playwright/test').Page): Promise<void> {
-  await page.request.post('/api/dev/reset-db');
-}
-
-async function getCsrfToken(
-  page: import('@playwright/test').Page,
-): Promise<string> {
-  const res = await page.request.get('/api/csrf-token');
-  const body = await res.json();
-  return body.csrfToken as string;
-}
-
-async function registerUser(
-  page: import('@playwright/test').Page,
-  username: string,
-  email: string,
-  password: string,
-): Promise<{ id: number; username: string; status: string }> {
-  const csrfToken = await getCsrfToken(page);
-  const res = await page.request.post('/api/auth/register', {
-    data: { username, email, password, confirm_password: password },
-    headers: { 'X-CSRF-Token': csrfToken },
-  });
-  expect(res.status(), `register failed: ${await res.text()}`).toBe(200);
-  const body = await res.json();
-  return body.user;
-}
-
-async function activateUser(
-  page: import('@playwright/test').Page,
-  username: string,
-): Promise<void> {
-  const res = await page.request.post('/api/dev/activate-user', {
-    data: { username },
-  });
-  expect(res.status(), `activateUser failed: ${await res.text()}`).toBe(200);
-}
-
-async function loginUser(
-  page: import('@playwright/test').Page,
-  identifier: string,
-  password = 'Secure#Pass1',
-): Promise<void> {
-  const csrfToken = await getCsrfToken(page);
-  const res = await page.request.post('/api/auth/login', {
-    data: { identifier, password },
-    headers: { 'X-CSRF-Token': csrfToken },
-  });
-  expect(res.status(), `login failed: ${await res.text()}`).toBe(200);
-}
 
 /**
  * Inject fake client-side activeSession into sessionStorage.
@@ -112,93 +62,6 @@ async function injectServerActiveSession(
     data: { carId, dbUserId, socketId },
   });
   expect(res.status(), `injectServerActiveSession failed: ${await res.text()}`).toBe(200);
-}
-
-/**
- * Sets up __testSocket capture on the page (must call before page.goto).
- */
-async function setupSocketCapture(
-  page: import('@playwright/test').Page,
-): Promise<void> {
-  await page.addInitScript(() => {
-    (window as any).__socketEventStore = {};
-
-    let _ioValue: any;
-    Object.defineProperty(window, 'io', {
-      configurable: true,
-      get() {
-        return _ioValue;
-      },
-      set(v: any) {
-        _ioValue = function (this: any, ...args: any[]) {
-          const sock = v.apply(this, args);
-          (window as any).__testSocket = sock;
-
-          // Capture all incoming socket events (including duel:* events
-          // that control.js doesn't register handlers for).
-          sock.onAny((event: string, ...cbArgs: any[]) => {
-            (window as any).__socketEventStore[event] =
-              cbArgs.length === 1 ? cbArgs[0] : cbArgs;
-          });
-
-          // Keep sock.on wrapper so control.js handlers still work.
-          const origOn = sock.on.bind(sock);
-          sock.on = function (event: string, cb: Function) {
-            origOn(event, (...cbArgs: any[]) => {
-              (window as any).__socketEventStore[event] =
-                cbArgs.length === 1 ? cbArgs[0] : cbArgs;
-              cb(...cbArgs);
-            });
-            return sock;
-          };
-
-          return sock;
-        };
-        Object.assign(_ioValue, v);
-        _ioValue.prototype = v.prototype;
-      },
-    });
-  });
-}
-
-/**
- * Wait for a socket event captured in __socketEventStore.
- */
-async function waitForSocketEvent(
-  page: import('@playwright/test').Page,
-  eventName: string,
-  timeout = 10_000,
-): Promise<any> {
-  return page.evaluate(
-    ({ evt, ms }) =>
-      new Promise((resolve, reject) => {
-        const timer = setTimeout(
-          () => reject(new Error(`Timeout waiting for socket event: ${evt}`)),
-          ms,
-        );
-        const interval = setInterval(() => {
-          const s = (window as any).__socketEventStore;
-          if (s && Object.prototype.hasOwnProperty.call(s, evt)) {
-            clearInterval(interval);
-            clearTimeout(timer);
-            resolve(s[evt]);
-          }
-        }, 50);
-      }),
-    { evt: eventName, ms: timeout },
-  );
-}
-
-/**
- * Wait for socket to reach 'connected' state.
- */
-async function waitForSocketConnected(
-  page: import('@playwright/test').Page,
-): Promise<void> {
-  await page.waitForFunction(
-    () => document.getElementById('status-dot')?.classList.contains('connected'),
-    { timeout: 10_000 },
-  );
 }
 
 // ---------------------------------------------------------------------------
