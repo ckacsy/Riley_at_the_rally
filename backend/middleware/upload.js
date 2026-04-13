@@ -16,12 +16,12 @@ const avatarStorage = multer.diskStorage({
   },
 });
 
-const ALLOWED_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp']);
-const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+const ALLOWED_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
+const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 const upload = multer({
   storage: avatarStorage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 2 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     // Reject filenames containing null bytes (can bypass extension checks on some systems)
     if (file.originalname.includes('\0')) {
@@ -40,8 +40,6 @@ const upload = multer({
 const IMAGE_MAGIC = [
   { bytes: [0xFF, 0xD8, 0xFF] },                                              // JPEG
   { bytes: [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A] },              // PNG
-  { bytes: [0x47, 0x49, 0x46, 0x38, 0x37, 0x61] },                           // GIF87a
-  { bytes: [0x47, 0x49, 0x46, 0x38, 0x39, 0x61] },                           // GIF89a
   // WebP: "RIFF" at bytes 0-3 and "WEBP" at bytes 8-11
   { webp: true },
 ];
