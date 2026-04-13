@@ -57,7 +57,9 @@ document.getElementById('login-form').addEventListener('submit', function(e){
             if(data.csrfToken)csrfToken=data.csrfToken;
             successEl.textContent='Вход выполнен! Перенаправление…';
             successEl.style.display='block';
-            var redirect=new URLSearchParams(window.location.search).get('redirect')||'/';
+            var rawRedirect=new URLSearchParams(window.location.search).get('redirect')||'/';
+            // Only allow same-origin relative redirects to prevent open redirect attacks
+            var redirect = (rawRedirect.startsWith('/') && !rawRedirect.startsWith('//')) ? rawRedirect : '/';
             setTimeout(function(){window.location.href=redirect;},800);
         }else{
             if(data.error && (data.error.indexOf('попытк')!==-1 || data.error.indexOf('заблокир')!==-1)){
