@@ -71,7 +71,7 @@ function setupSocketIo(io, deps) {
   fullDeps.duelManager = duelManager;
 
   // Create shared helper functions
-  const processHoldDeduct = sessionsModule.createProcessHoldDeduct(db, CARS);
+  const processHoldDeduct = sessionsModule.createProcessHoldDeduct(db, CARS, metrics);
   const broadcastCarsUpdate = sessionsModule.createBroadcastCarsUpdate(io, state, fullDeps);
   const clearInactivityTimeout = sessionsModule.createClearInactivityTimeout(state);
   const clearSessionDurationTimeout = sessionsModule.createClearSessionDurationTimeout(state);
@@ -95,7 +95,9 @@ function setupSocketIo(io, deps) {
   });
 
   io.on('connection', (socket) => {
-    metrics.log('debug', 'socket_connect', { socketId: socket.id });
+    const requestId = socket.handshake.headers['x-request-id'] || socket.request.requestId || undefined;
+    socket.data.requestId = requestId;
+    metrics.log('debug', 'socket_connect', { socketId: socket.id, requestId });
 
     // Device sockets are handled separately and return early
     if (devicesModule.setup(io, socket, state, fullDeps)) return;
@@ -122,7 +124,7 @@ function setupSocketIo(io, deps) {
       state.presenceHelloRateLimits.delete(socket.id);
       state.presenceHeartbeatRateLimits.delete(socket.id);
       metrics.clearLatency(socket.id);
-      metrics.log('debug', 'socket_disconnect', { socketId: socket.id, hadSession });
+      metrics.log('debug', 'socket_disconnect', { socketId: socket.id, requestId: socket.data.requestId, hadSession });
     });
   });
 

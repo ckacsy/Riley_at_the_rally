@@ -223,7 +223,6 @@ const adminRouteDeps = {
   logAdminAudit: (auditData) => logAdminAudit(db, auditData),
   invalidateUserSessions,
 };
-app.locals.adminRouteDeps = adminRouteDeps;
 
 const mountPaymentRoutes = require('./routes/payment');
 mountPaymentRoutes(app, db, {
@@ -236,13 +235,26 @@ mountDailyBonusRoutes(app, db, { requireAuth, requireActiveUser, csrfMiddleware,
 
 require('./routes/admin')(app, db, adminRouteDeps);
 require('./routes/news')(app, db, adminRouteDeps);
-require('./routes/admin-sessions')(app, db, adminRouteDeps);
+require('./routes/admin-sessions')(app, db, {
+  ...adminRouteDeps,
+  getActiveSessions: () => socketState && socketState.activeSessions,
+  getCars: () => CARS,
+  getRatePerMinute: () => RATE_PER_MINUTE,
+  forceEndSession: (carId, ctx) => socketState && socketState.forceEndSession(carId, ctx),
+});
 require('./routes/admin-transactions')(app, db, {
   ...adminRouteDeps,
   getActiveSessions: () => socketState && socketState.activeSessions,
 });
-require('./routes/admin-analytics')(app, db, adminRouteDeps);
-require('./routes/admin-cars')(app, db, adminRouteDeps, { CARS });
+require('./routes/admin-analytics')(app, db, {
+  ...adminRouteDeps,
+  getCars: () => CARS,
+});
+require('./routes/admin-cars')(app, db, {
+  ...adminRouteDeps,
+  getActiveSessions: () => socketState && socketState.activeSessions,
+  broadcastCarsUpdate: () => socketState && socketState.broadcastCarsUpdate(),
+}, { CARS });
 require('./routes/admin-devices')(app, db, adminRouteDeps, {
   CARS,
   getDeviceSockets: () => socketState && socketState.deviceSockets,
@@ -264,9 +276,11 @@ function saveRentalSession(dbUserId, carId, durationSeconds, cost, sessionRef, t
   if (!dbUserId) return;
   const carName = CARS.find((c) => c.id === carId)?.name || ('Машина #' + carId);
   try {
+    const t0 = Date.now();
     db.prepare(
       'INSERT INTO rental_sessions (user_id, car_id, car_name, duration_seconds, cost, session_ref, termination_reason) VALUES (?, ?, ?, ?, ?, ?, ?)'
     ).run(dbUserId, carId, carName, durationSeconds, cost, sessionRef || null, terminationReason || null);
+    metrics.recordDbLatency(Date.now() - t0);
   } catch (e) {
     console.error('Failed to save rental session:', e.message);
   }
@@ -305,13 +319,6 @@ const socketState = setupSocketIo(io, {
   saveRentalSession,
 });
 
-// Expose session state and constants for admin-sessions route (lazy access)
-app.locals.getActiveSessions = () => socketState.activeSessions;
-app.locals.getCars = () => CARS;
-app.locals.getRatePerMinute = () => RATE_PER_MINUTE;
-app.locals.forceEndSession = (carId, adminContext) => socketState.forceEndSession(carId, adminContext);
-app.locals.broadcastCarsUpdate = () => socketState.broadcastCarsUpdate();
-
 // --- Mount route modules ---
 const mountCarsRoutes = require('./routes/cars');
 mountCarsRoutes(app, db, { socketState, CARS, RATE_PER_MINUTE, apiReadLimiter });
@@ -320,7 +327,7 @@ const mountHealthRoutes = require('./routes/health');
 mountHealthRoutes(app, { io, metrics, socketState, db, https, http, createRateLimiter });
 
 const mountMetricsRoutes = require('./routes/metrics');
-mountMetricsRoutes(app, { metrics, socketState, io, requireAuth, createRateLimiter });
+mountMetricsRoutes(app, { metrics, socketState, io, requireAuth, createRateLimiter, db });
 
 const mountLeaderboardRoutes = require('./routes/leaderboard');
 mountLeaderboardRoutes(app, db, { apiReadLimiter });

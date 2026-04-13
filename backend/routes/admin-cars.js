@@ -15,7 +15,7 @@ const { createRateLimiter } = require('../middleware/rateLimiter');
  * @param {{ CARS: Array }} extra
  */
 module.exports = function mountAdminCarsRoutes(app, db, deps, extra) {
-  const { requireRole, csrfMiddleware, logAdminAudit } = deps;
+  const { requireRole, csrfMiddleware, logAdminAudit, getActiveSessions, broadcastCarsUpdate } = deps;
   const { CARS } = extra;
 
   const adminReadLimiter = createRateLimiter({ max: 60 });
@@ -32,7 +32,7 @@ module.exports = function mountAdminCarsRoutes(app, db, deps, extra) {
     adminReadLimiter,
     requireRole('admin'),
     (req, res) => {
-      const activeSessions = app.locals.getActiveSessions ? app.locals.getActiveSessions() : new Map();
+      const activeSessions = getActiveSessions ? getActiveSessions() : new Map();
       const activeCars = new Set([...activeSessions.values()].map((s) => s.carId));
 
       const maintMap = {};
@@ -111,7 +111,7 @@ module.exports = function mountAdminCarsRoutes(app, db, deps, extra) {
         }
 
         // Reject if car has an active session
-        const activeSessions = app.locals.getActiveSessions ? app.locals.getActiveSessions() : new Map();
+        const activeSessions = getActiveSessions ? getActiveSessions() : new Map();
         const hasActiveSession = [...activeSessions.values()].some((s) => s.carId === carId);
         if (hasActiveSession) {
           return res.status(409).json({
@@ -142,7 +142,7 @@ module.exports = function mountAdminCarsRoutes(app, db, deps, extra) {
           userAgent: req.headers['user-agent'] || null,
         });
 
-        if (app.locals.broadcastCarsUpdate) app.locals.broadcastCarsUpdate();
+        if (broadcastCarsUpdate) broadcastCarsUpdate();
 
         const updatedRow = db.prepare('SELECT * FROM car_maintenance WHERE car_id = ?').get(carId);
         return res.json({
@@ -183,7 +183,7 @@ module.exports = function mountAdminCarsRoutes(app, db, deps, extra) {
           userAgent: req.headers['user-agent'] || null,
         });
 
-        if (app.locals.broadcastCarsUpdate) app.locals.broadcastCarsUpdate();
+        if (broadcastCarsUpdate) broadcastCarsUpdate();
 
         return res.json({
           success: true,

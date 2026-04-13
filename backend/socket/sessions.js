@@ -15,12 +15,13 @@ const ALLOWED_CONTROL_FIELDS = new Set(['direction', 'speed', 'steering_angle'])
  * @param {Array} CARS
  * @returns {Function}
  */
-function createProcessHoldDeduct(db, CARS) {
+function createProcessHoldDeduct(db, CARS, metrics) {
   return function processHoldDeduct(dbUserId, holdAmount, actualCost, carId, durationSeconds, sessionRef) {
     if (!dbUserId || holdAmount == null) return;
     const carName = CARS.find((c) => c.id === carId)?.name || ('Машина #' + carId);
     const ref = sessionRef || null;
     try {
+      const t0 = Date.now();
       db.transaction(() => {
         if (ref) {
           const existingDeduct = db.prepare(
@@ -52,6 +53,7 @@ function createProcessHoldDeduct(db, CARS) {
            VALUES (?, 'deduct', ?, ?, ?, ?)`
         ).run(dbUserId, -actualCost, rowAfter ? rowAfter.balance : 0, `Аренда: ${carName}, ${mins}м ${secs}с`, ref);
       })();
+      if (metrics) metrics.recordDbLatency(Date.now() - t0);
     } catch (e) {
       if (e.code === 'SQLITE_CONSTRAINT_UNIQUE' || (e.message && e.message.includes('UNIQUE constraint'))) {
         console.warn('[Balance] processHoldDeduct: duplicate transaction blocked by constraint for ref:', ref);
@@ -480,6 +482,7 @@ function setup(io, socket, state, deps, helpers) {
 
     const carName = CARS.find((c) => c.id === carId)?.name || ('Машина #' + carId);
     const sessionRef = crypto.randomUUID();
+    const holdT0 = Date.now();
     db.transaction(() => {
       db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(HOLD_AMOUNT, dbUserId);
       const afterHold = db.prepare('SELECT balance FROM users WHERE id = ?').get(dbUserId);
@@ -488,6 +491,7 @@ function setup(io, socket, state, deps, helpers) {
          VALUES (?, 'hold', ?, ?, ?, ?)`
       ).run(dbUserId, -HOLD_AMOUNT, afterHold ? afterHold.balance : 0, 'Блокировка: ' + carName, sessionRef);
     })();
+    metrics.recordDbLatency?.(Date.now() - holdT0);
 
     state.activeSessions.set(socket.id, {
       carId,
