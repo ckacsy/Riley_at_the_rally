@@ -1,4 +1,5 @@
 var csrfToken = '';
+var currentUsername = '';
 fetch('/api/csrf-token', { credentials: 'same-origin' }).then(function(r){return r.json();}).then(function(d){csrfToken=d.csrfToken||'';});
 
 function formatLapTime(ms) {
@@ -211,7 +212,6 @@ if (resendBtn) {
 }
 
 // Username change
-var currentUsername = '';
 document.getElementById('username-edit-btn').addEventListener('click', function () {
     var input = document.getElementById('username-edit-input');
     input.value = currentUsername;

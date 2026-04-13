@@ -58,8 +58,15 @@ document.getElementById('login-form').addEventListener('submit', function(e){
             successEl.textContent='Вход выполнен! Перенаправление…';
             successEl.style.display='block';
             var rawRedirect=new URLSearchParams(window.location.search).get('redirect')||'/';
-            // Only allow same-origin relative redirects to prevent open redirect attacks
-            var redirect = (rawRedirect.startsWith('/') && !rawRedirect.startsWith('//')) ? rawRedirect : '/';
+            // Only allow same-origin relative redirects to prevent open redirect attacks.
+            // Reject anything that isn't a simple path starting with '/' (no protocol, no '//', no encoded slashes).
+            var redirect = '/';
+            try {
+                var decoded = decodeURIComponent(rawRedirect);
+                if (/^\/[^\/\\]/.test(decoded) || decoded === '/') {
+                    redirect = rawRedirect;
+                }
+            } catch (e) { /* malformed URI — fall back to '/' */ }
             setTimeout(function(){window.location.href=redirect;},800);
         }else{
             if(data.error && (data.error.indexOf('попытк')!==-1 || data.error.indexOf('заблокир')!==-1)){
