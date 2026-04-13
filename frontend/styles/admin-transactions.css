@@ -1,0 +1,64 @@
+/* Transactions page uses a wider container */
+.admin-container { max-width: 1400px; }
+
+/* By-type breakdown */
+.summary-section { margin-bottom: 20px; }
+.summary-section h2 { font-size: 14px; font-weight: bold; color: rgba(255,255,255,0.6); margin-bottom: 10px; }
+.bytype-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+.bytype-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    padding: 10px 14px;
+    min-width: 100px;
+    text-align: center;
+}
+.bytype-card-type { font-size: 12px; margin-bottom: 4px; }
+.bytype-card-count { font-size: 13px; color: rgba(255,255,255,0.6); }
+.bytype-card-total { font-size: 14px; font-weight: bold; color: #fff; margin-top: 2px; }
+
+/* Clickable username */
+.username-link {
+    color: #93c5fd;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+.username-link:hover { color: #60a5fa; }
+
+/* Ledger panel */
+#ledger-panel {
+    margin-top: 28px;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    background: rgba(255,255,255,0.03);
+    padding: 24px;
+}
+.ledger-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; gap: 16px; }
+.ledger-header-info h2 { font-size: 18px; font-weight: bold; color: #fff; margin-bottom: 6px; }
+.ledger-header-info .ledger-meta { font-size: 13px; color: rgba(255,255,255,0.55); }
+.ledger-user-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+.ledger-stat {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 10px 14px;
+    min-width: 120px;
+}
+.ledger-stat-label { font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 4px; }
+.ledger-stat-value { font-size: 16px; font-weight: bold; color: #fff; }
+#ledger-flash-container { margin-bottom: 12px; }
+.ledger-pagination { display: flex; align-items: center; gap: 10px; margin-top: 14px; font-size: 13px; }
+.ledger-pagination button { padding: 5px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.8); cursor: pointer; }
+.ledger-pagination button:disabled { opacity: 0.35; cursor: default; }
+.ledger-pagination button:not(:disabled):hover { background: rgba(255,255,255,0.14); }
