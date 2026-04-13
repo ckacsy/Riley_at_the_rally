@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { resetDb, getCsrfToken, registerUser, activateUser, loginUser, setUserRole, setupSocketCapture, waitForSocketEvent } from './helpers';
 
 const TEST_BASE_URL = process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:5000';
 
@@ -28,62 +29,6 @@ const TEST_BASE_URL = process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:
 // Helpers
 // ---------------------------------------------------------------------------
 
-async function resetDb(page: import('@playwright/test').Page): Promise<void> {
-  await page.request.post('/api/dev/reset-db');
-}
-
-async function getCsrfToken(page: import('@playwright/test').Page): Promise<string> {
-  const res = await page.request.get('/api/csrf-token');
-  const body = await res.json();
-  return body.csrfToken as string;
-}
-
-async function registerUser(
-  page: import('@playwright/test').Page,
-  username: string,
-  email: string,
-  password = 'Secure#Pass1',
-): Promise<{ id: number; username: string; status: string }> {
-  const csrfToken = await getCsrfToken(page);
-  const res = await page.request.post('/api/auth/register', {
-    data: { username, email, password, confirm_password: password },
-    headers: { 'X-CSRF-Token': csrfToken },
-  });
-  expect(res.status(), `register failed: ${await res.text()}`).toBe(200);
-  const body = await res.json();
-  return body.user;
-}
-
-async function activateUser(
-  page: import('@playwright/test').Page,
-  username: string,
-): Promise<void> {
-  const res = await page.request.post('/api/dev/activate-user', { data: { username } });
-  expect(res.status(), `activate failed: ${await res.text()}`).toBe(200);
-}
-
-async function loginUser(
-  page: import('@playwright/test').Page,
-  identifier: string,
-  password = 'Secure#Pass1',
-): Promise<void> {
-  const csrfToken = await getCsrfToken(page);
-  const res = await page.request.post('/api/auth/login', {
-    data: { identifier, password },
-    headers: { 'X-CSRF-Token': csrfToken },
-  });
-  expect(res.status(), `login failed: ${await res.text()}`).toBe(200);
-}
-
-async function setUserRole(
-  page: import('@playwright/test').Page,
-  username: string,
-  role: 'user' | 'moderator' | 'admin',
-): Promise<void> {
-  const res = await page.request.post('/api/dev/set-user-role', { data: { username, role } });
-  expect(res.status(), `set-user-role failed: ${await res.text()}`).toBe(200);
-}
-
 async function insertTransaction(
   page: import('@playwright/test').Page,
   userId: number,
@@ -107,61 +52,6 @@ async function insertTransaction(
   expect(res.status(), `insert transaction failed: ${await res.text()}`).toBe(200);
   const body = await res.json();
   return body.transaction;
-}
-
-/** Intercept socket events from the page. Must be called before page.goto(). */
-async function setupSocketCapture(page: import('@playwright/test').Page): Promise<void> {
-  await page.addInitScript(() => {
-    (window as any).__socketEventStore = {};
-    let _ioValue: any;
-    Object.defineProperty(window, 'io', {
-      configurable: true,
-      get() { return _ioValue; },
-      set(v: any) {
-        _ioValue = function (this: any, ...args: any[]) {
-          const sock = v.apply(this, args);
-          (window as any).__testSocket = sock;
-          const trackedEvents = ['session_started', 'session_error', 'session_ended'];
-          for (const evt of trackedEvents) {
-            sock.on(evt, (data: any) => {
-              (window as any).__socketEventStore[evt] = data !== undefined ? data : null;
-            });
-          }
-          return sock;
-        };
-      },
-    });
-  });
-}
-
-async function waitForSocketEvent(
-  page: import('@playwright/test').Page,
-  eventName: string,
-  timeout = 8000,
-): Promise<any> {
-  return page.evaluate(
-    ({ evt, ms }) =>
-      new Promise<any>((resolve, reject) => {
-        const store = (window as any).__socketEventStore;
-        if (store && Object.prototype.hasOwnProperty.call(store, evt)) {
-          resolve(store[evt]);
-          return;
-        }
-        const timer = setTimeout(
-          () => reject(new Error(`Socket event '${evt}' not received within ${ms}ms`)),
-          ms,
-        );
-        const interval = setInterval(() => {
-          const s = (window as any).__socketEventStore;
-          if (s && Object.prototype.hasOwnProperty.call(s, evt)) {
-            clearInterval(interval);
-            clearTimeout(timer);
-            resolve(s[evt]);
-          }
-        }, 50);
-      }),
-    { evt: eventName, ms: timeout },
-  );
 }
 
 async function injectActiveSession(

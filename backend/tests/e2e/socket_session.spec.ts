@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { resetDb, getCsrfToken, registerUser, activateUser, loginUser, setupSocketCapture, waitForSocketEvent } from './helpers';
 
 /**
  * Socket.IO session flow E2E tests.
@@ -10,55 +11,6 @@ import { test, expect } from '@playwright/test';
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-async function resetDb(page: import('@playwright/test').Page): Promise<void> {
-  await page.request.post('/api/dev/reset-db');
-}
-
-async function getCsrfToken(page: import('@playwright/test').Page): Promise<string> {
-  const res = await page.request.get('/api/csrf-token');
-  const body = await res.json();
-  return body.csrfToken as string;
-}
-
-async function registerUser(
-  page: import('@playwright/test').Page,
-  username: string,
-  email: string,
-  password: string,
-): Promise<{ id: number; username: string; status: string }> {
-  const csrfToken = await getCsrfToken(page);
-  const res = await page.request.post('/api/auth/register', {
-    data: { username, email, password, confirm_password: password },
-    headers: { 'X-CSRF-Token': csrfToken },
-  });
-  expect(res.status(), `register failed: ${await res.text()}`).toBe(200);
-  const body = await res.json();
-  return body.user;
-}
-
-async function activateUser(
-  page: import('@playwright/test').Page,
-  username: string,
-): Promise<void> {
-  const res = await page.request.post('/api/dev/activate-user', {
-    data: { username },
-  });
-  expect(res.status(), `activateUser failed: ${await res.text()}`).toBe(200);
-}
-
-async function loginUser(
-  page: import('@playwright/test').Page,
-  identifier: string,
-  password = 'Secure#Pass1',
-): Promise<void> {
-  const csrfToken = await getCsrfToken(page);
-  const res = await page.request.post('/api/auth/login', {
-    data: { identifier, password },
-    headers: { 'X-CSRF-Token': csrfToken },
-  });
-  expect(res.status(), `login failed: ${await res.text()}`).toBe(200);
-}
 
 /**
  * Inject fake activeSession into sessionStorage before navigating to /control.
@@ -87,88 +39,6 @@ async function injectActiveSession(
       );
     },
     { carId, userId, dbUserId },
-  );
-}
-
-/**
- * Intercept the socket.io io() call via Object.defineProperty so that:
- *  - window.__testSocket is set to the created socket
- *  - window.__socketEventStore[eventName] is populated when events arrive
- *
- * Must be called before page.goto().
- */
-async function setupSocketCapture(page: import('@playwright/test').Page): Promise<void> {
-  await page.addInitScript(() => {
-    (window as any).__socketEventStore = {};
-
-    // Intercept the assignment of window.io by the socket.io client script.
-    let _ioValue: any;
-    Object.defineProperty(window, 'io', {
-      configurable: true,
-      get() {
-        return _ioValue;
-      },
-      set(v: any) {
-        _ioValue = function (this: any, ...args: any[]) {
-          const sock = v.apply(this, args);
-          (window as any).__testSocket = sock;
-
-          const trackedEvents = [
-            'session_started',
-            'session_error',
-            'session_ended',
-            'race_joined',
-            'race_error',
-            'race_left',
-            'lap_started',
-            'lap_recorded',
-          ];
-          for (const evt of trackedEvents) {
-            sock.on(evt, (data: any) => {
-              // Store the event data. For events emitted without arguments,
-              // store null so that hasOwnProperty check still detects arrival.
-              (window as any).__socketEventStore[evt] = data !== undefined ? data : null;
-            });
-          }
-
-          return sock;
-        };
-      },
-    });
-  });
-}
-
-/**
- * Wait for a socket event to appear in __socketEventStore and return its data.
- * Handles both "already received" and "not yet received" cases.
- */
-async function waitForSocketEvent(
-  page: import('@playwright/test').Page,
-  eventName: string,
-  timeout = 8000,
-): Promise<any> {
-  return page.evaluate(
-    ({ evt, ms }) =>
-      new Promise<any>((resolve, reject) => {
-        const store = (window as any).__socketEventStore;
-        if (store && Object.prototype.hasOwnProperty.call(store, evt)) {
-          resolve(store[evt]);
-          return;
-        }
-        const timer = setTimeout(
-          () => reject(new Error(`Socket event '${evt}' not received within ${ms}ms`)),
-          ms,
-        );
-        const interval = setInterval(() => {
-          const s = (window as any).__socketEventStore;
-          if (s && Object.prototype.hasOwnProperty.call(s, evt)) {
-            clearInterval(interval);
-            clearTimeout(timer);
-            resolve(s[evt]);
-          }
-        }, 50);
-      }),
-    { evt: eventName, ms: timeout },
   );
 }
 

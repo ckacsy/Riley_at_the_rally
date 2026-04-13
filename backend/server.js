@@ -1188,6 +1188,15 @@ if (process.env.NODE_ENV !== 'production') {
     dm._handleDuelTimeout(duel.id);
     res.json({ success: true });
   });
+
+  // Dev helper: invalidate all sessions for a given user (by numeric DB id).
+  // Used by e2e helpers.ts → invalidateUserSessions().
+  app.post('/api/dev/invalidate-user-sessions', devLimiter, (req, res) => {
+    const { userId } = req.body || {};
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    invalidateUserSessions(Number(userId));
+    res.json({ success: true });
+  });
 }
 
 // ---------------------------------------------------------------------------
