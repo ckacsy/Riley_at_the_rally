@@ -365,7 +365,7 @@ module.exports = function mountAdminTransactionRoutes(app, db, deps) {
       ).all(`-${ORPHAN_GRACE_MINUTES} minutes`);
 
       // Collect active session refs to exclude
-      let activeSessionRefs = new Set();
+      const activeSessionRefs = new Set();
       try {
         const activeSessions = typeof getActiveSessions === 'function' ? getActiveSessions() : null;
         if (activeSessions) {

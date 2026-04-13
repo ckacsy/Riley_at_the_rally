@@ -15,7 +15,7 @@ const VALID_PRESETS = ['7d', '30d', '90d', 'all'];
  * }} deps
  */
 module.exports = function mountAdminAnalyticsRoutes(app, db, deps) {
-  const { requireRole } = deps;
+  const { requireRole, getCars } = deps;
 
   const adminReadLimiter = createRateLimiter({ max: 60 });
 
@@ -132,8 +132,8 @@ module.exports = function mountAdminAnalyticsRoutes(app, db, deps) {
          ORDER BY sessionCount DESC`
       ).all(...params);
 
-      // Enrich with car names from app.locals
-      const cars = app.locals.getCars ? app.locals.getCars() : [];
+      // Enrich with car names from deps
+      const cars = getCars ? getCars() : [];
       const byCarId = byCarRows.map((row) => {
         const car = cars.find((c) => c.id === row.car_id);
         return {

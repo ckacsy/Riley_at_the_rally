@@ -63,10 +63,13 @@ test.describe('Driver presence', () => {
       const driverUser = await registerUser(pageA, 'driver_presence', 'driver@example.com', 'Secure#Pass1');
       await activateUser(pageA, driverUser.username);
 
-      // Register spectator via pageA (separate DB user), then log in on pageB
-      const spectatorUser = await registerUser(pageA, 'spectator_presence', 'spectator@example.com', 'Secure#Pass1');
+      // Register spectator via pageB (its own context) so driver's cookie in ctxA is untouched
+      const spectatorUser = await registerUser(pageB, 'spectator_presence', 'spectator@example.com', 'Secure#Pass1');
       await activateUser(pageA, spectatorUser.username);
       await loginUser(pageB, spectatorUser.username, 'Secure#Pass1');
+
+      // Re-login driver explicitly so ctxA's session is guaranteed to be driverUser's
+      await loginUser(pageA, driverUser.username, 'Secure#Pass1');
 
       // ── Context A: open /control with injected session ────────────────
       await injectControlSession(pageA, driverUser.id, driverUser.username);

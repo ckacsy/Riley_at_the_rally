@@ -99,7 +99,7 @@ module.exports = function mountAdminDashboardRoutes(app, db, deps) {
       ).all(`-${ORPHAN_GRACE_MINUTES} minutes`);
 
       // Exclude currently active session refs
-      let activeSessionRefs = new Set();
+      const activeSessionRefs = new Set();
       for (const [, session] of activeSessions) {
         if (session.sessionRef) activeSessionRefs.add(session.sessionRef);
       }

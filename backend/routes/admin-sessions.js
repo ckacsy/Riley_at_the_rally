@@ -14,7 +14,7 @@ const { createRateLimiter } = require('../middleware/rateLimiter');
  * }} deps
  */
 module.exports = function mountAdminSessionRoutes(app, db, deps) {
-  const { requireRole, csrfMiddleware, logAdminAudit } = deps;
+  const { requireRole, csrfMiddleware, logAdminAudit, getActiveSessions, getCars, getRatePerMinute, forceEndSession } = deps;
 
   const adminReadLimiter = createRateLimiter({ max: 60 });
 
@@ -193,9 +193,9 @@ module.exports = function mountAdminSessionRoutes(app, db, deps) {
     adminReadLimiter,
     requireRole('moderator', 'admin'),
     (req, res) => {
-      const activeSessions = app.locals.getActiveSessions?.() || new Map();
-      const cars = app.locals.getCars?.() || [];
-      const ratePerMinute = app.locals.getRatePerMinute?.() || 0;
+      const activeSessions = getActiveSessions?.() || new Map();
+      const cars = getCars?.() || [];
+      const ratePerMinute = getRatePerMinute?.() || 0;
 
       const now = Date.now();
       const items = [];
@@ -322,7 +322,6 @@ module.exports = function mountAdminSessionRoutes(app, db, deps) {
       const admin = req.user;
       const adminContext = { adminId: admin.id, adminUsername: admin.username };
 
-      const forceEndSession = app.locals.forceEndSession;
       if (typeof forceEndSession !== 'function') {
         return res.status(503).json({ error: 'Service unavailable' });
       }

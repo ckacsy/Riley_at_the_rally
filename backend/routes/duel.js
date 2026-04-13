@@ -12,7 +12,7 @@
  * @param {{ requireAuth: Function, requireActiveUser: Function, apiReadLimiter: Function, getDuelManager: Function }} deps
  */
 module.exports = function mountDuelRoutes(app, db, deps) {
-  const { requireAuth, requireActiveUser, apiReadLimiter, getDuelManager } = deps;
+  const { requireActiveUser, apiReadLimiter, getDuelManager } = deps;
 
   /**
    * GET /api/duel/status
@@ -27,7 +27,7 @@ module.exports = function mountDuelRoutes(app, db, deps) {
       const duelManager = getDuelManager();
       const status = duelManager ? duelManager.getDuelStatus(userId) : 'none';
       return res.json({ status });
-    } catch (e) {
+    } catch (_e) {
       return res.status(500).json({ error: 'Внутренняя ошибка сервера.' });
     }
   });
@@ -70,7 +70,7 @@ module.exports = function mountDuelRoutes(app, db, deps) {
       }));
 
       return res.json({ history });
-    } catch (e) {
+    } catch (_e) {
       return res.status(500).json({ error: 'Внутренняя ошибка сервера.' });
     }
   });

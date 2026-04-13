@@ -127,7 +127,7 @@ module.exports = function mountPaymentRoutes(app, db, deps) {
         res.on('end', () => {
           try {
             resolve({ status: res.statusCode, body: JSON.parse(data) });
-          } catch (e) {
+          } catch (_e) {
             resolve({ status: res.statusCode, body: data });
           }
         });
@@ -381,7 +381,7 @@ module.exports = function mountPaymentRoutes(app, db, deps) {
                 `INSERT INTO webhook_events (event_id, payment_id, event_type, status, ip_address, raw_body_hash)
                  VALUES (?, ?, ?, 'processed', ?, ?)`
               ).run(eventId || ('auto_' + crypto.randomUUID()), paymentId, 'payment.succeeded', clientIp, rawBodyHash);
-            } catch (dupErr) {
+            } catch (_dupErr) {
               // Unique constraint — event already recorded, safe to continue
               console.log('[Payment] webhook_events insert skipped (duplicate):', eventId);
             }
@@ -390,7 +390,7 @@ module.exports = function mountPaymentRoutes(app, db, deps) {
               db.prepare(
                 'INSERT INTO webhook_events (event_id, payment_id, event_type) VALUES (?, ?, ?)'
               ).run(eventId, paymentId, 'payment.succeeded');
-            } catch (dupErr) {
+            } catch (_dupErr) {
               console.log('[Payment] webhook_events insert skipped (duplicate):', eventId);
             }
           }

@@ -1,0 +1,12 @@
+node_modules
+.git
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+backend/logs
+backend/uploads
+backend/.env
+playwright-report
+test-results
+rpi
+docs
