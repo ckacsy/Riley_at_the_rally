@@ -211,6 +211,20 @@
             });
         }
 
+        var qualityEl = document.getElementById('setting-3d-quality');
+        if (qualityEl) {
+            var savedQ = localStorage.getItem('garageQuality') || 'auto';
+            qualityEl.value = savedQ;
+            qualityEl.addEventListener('change', function () {
+                var val = this.value;
+                if (val === 'auto') {
+                    localStorage.removeItem('garageQuality');
+                } else {
+                    localStorage.setItem('garageQuality', val);
+                }
+            });
+        }
+
         // Status bar polling
         var sbServerDot  = document.getElementById('sb-server-dot');
         var sbServerText = document.getElementById('sb-server-text');
