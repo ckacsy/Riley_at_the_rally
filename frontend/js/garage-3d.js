@@ -2,6 +2,7 @@
 // initScene() so the 700 KB bundle is never fetched when WebGL is unavailable.
 let THREE;
 let OrbitControls;
+let garageLoader = null; // lazy-loaded garage-3d-loader module
 
 // Car color variants (class/type used for carousel filters)
 const CAR_VARIANTS = [
@@ -73,7 +74,31 @@ async function initScene() {
 
     addLighting();
     addEnvironment();
-    carGroup = buildCar(CAR_VARIANTS[0].body, CAR_VARIANTS[0].trim);
+
+    // Try loading real 3D model, fall back to procedural car
+    let carModel = null;
+    try {
+        garageLoader = await import('/js/garage-3d-loader.js');
+        const quality = garageLoader.detectQuality();
+        const loadingText = document.querySelector('.loading-text');
+        const progressFill = document.getElementById('loading-progress-fill');
+        carModel = await garageLoader.loadCarModel(quality, (progress) => {
+            if (progress.total > 0) {
+                const pct = Math.round((progress.loaded / progress.total) * 100);
+                if (loadingText) loadingText.textContent = 'Загрузка модели… ' + pct + '%';
+                if (progressFill) progressFill.style.width = pct + '%';
+            }
+        });
+    } catch (e) {
+        console.warn('[garage-3d] Model loader unavailable, using procedural car:', e.message);
+    }
+
+    if (carModel) {
+        carGroup = carModel;
+        carGroup.rotation.y = Math.PI;
+    } else {
+        carGroup = buildCar(CAR_VARIANTS[0].body, CAR_VARIANTS[0].trim);
+    }
     scene.add(carGroup);
 
     renderCarousel();
@@ -175,7 +200,7 @@ function buildCar(bodyColor, trimColor) {
     group.rotation.y = Math.PI; return group;
 }
 
-function swapVariant(index) {
+async function swapVariant(index) {
     activeVariant = index;
     window._activeVariant = index;
     const v = CAR_VARIANTS[index];
@@ -201,7 +226,20 @@ function swapVariant(index) {
     if (typeof renderAvailabilityBadge === 'function') renderAvailabilityBadge();
     if (!scene || !renderer) return;
     scene.remove(carGroup);
-    carGroup = buildCar(v.body, v.trim);
+    // Try loading real model for the variant
+    let newModel = null;
+    if (garageLoader) {
+        try {
+            const quality = garageLoader.detectQuality();
+            newModel = await garageLoader.loadCarModel(quality);
+        } catch (_) {}
+    }
+    if (newModel) {
+        carGroup = newModel;
+        carGroup.rotation.y = Math.PI;
+    } else {
+        carGroup = buildCar(v.body, v.trim);
+    }
     scene.add(carGroup);
 }
 

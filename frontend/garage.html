@@ -18,6 +18,9 @@
     <div class="scene-loading" id="scene-loading">
         <div class="spinner"></div>
         <div class="loading-text">Загрузка гаража…</div>
+        <div class="loading-progress" id="loading-progress">
+            <div class="loading-progress-fill" id="loading-progress-fill"></div>
+        </div>
     </div>
 
     <!-- WebGL fallback (shown when WebGL unavailable) -->
@@ -139,6 +142,14 @@
                             <input type="checkbox" id="setting-autohide-right">
                             <span class="toggle-slider"></span>
                         </label>
+                    </div>
+                    <div class="settings-row">
+                        <span>Качество 3D</span>
+                        <select id="setting-3d-quality" class="filter-select" style="width:auto;">
+                            <option value="auto">Авто</option>
+                            <option value="low">Низкое</option>
+                            <option value="high">Высокое</option>
+                        </select>
                     </div>
                 </div>
             </div>
