@@ -30,11 +30,9 @@ if (window.__garageNeedsWebGLFallback) {
     const v0 = CAR_VARIANTS[0];
     document.getElementById('car-title').textContent = 'Riley-X1 \u00b7 ' + v0.name;
 } else {
-    initScene().catch(() => {
-        const fb = document.getElementById('webgl-fallback');
-        const sl = document.getElementById('scene-loading');
-        if (fb) fb.classList.add('active');
-        if (sl) sl.classList.add('hidden');
+    initScene().catch((err) => {
+        console.error('[garage-3d] 3D scene initialization failed:', err);
+        window.__showGarageFallback('init_failed');
         renderCarousel();
         const v0 = CAR_VARIANTS[0];
         const titleEl = document.getElementById('car-title');
