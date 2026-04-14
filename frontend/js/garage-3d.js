@@ -1,5 +1,7 @@
-import * as THREE from 'three';
-import { OrbitControls } from '/vendor/controls/OrbitControls.js';
+// three.js and OrbitControls are loaded lazily via dynamic import() inside
+// initScene() so the 700 KB bundle is never fetched when WebGL is unavailable.
+let THREE;
+let OrbitControls;
 
 // Car color variants (class/type used for carousel filters)
 const CAR_VARIANTS = [
@@ -28,10 +30,24 @@ if (window.__garageNeedsWebGLFallback) {
     const v0 = CAR_VARIANTS[0];
     document.getElementById('car-title').textContent = 'Riley-X1 \u00b7 ' + v0.name;
 } else {
-    initScene();
+    initScene().catch(() => {
+        const fb = document.getElementById('webgl-fallback');
+        const sl = document.getElementById('scene-loading');
+        if (fb) fb.classList.add('active');
+        if (sl) sl.classList.add('hidden');
+        renderCarousel();
+        const v0 = CAR_VARIANTS[0];
+        const titleEl = document.getElementById('car-title');
+        if (titleEl) titleEl.textContent = 'Riley-X1 \u00b7 ' + v0.name;
+    });
 }
 
-function initScene() {
+async function initScene() {
+    [THREE, { OrbitControls }] = await Promise.all([
+        import('three'),
+        import('/vendor/controls/OrbitControls.js'),
+    ]);
+
     const canvas = document.getElementById('garage-canvas');
     renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
