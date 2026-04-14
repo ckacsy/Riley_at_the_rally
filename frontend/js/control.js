@@ -258,6 +258,11 @@
 
         const socket = io(window.location.origin);
 
+        // Hook global reliability layer for reconnect UX
+        if (window.Reliability) {
+            window.Reliability.installSocketReliability(socket);
+        }
+
         const statusDot = document.getElementById('status-dot');
         const statusText = document.getElementById('status-text');
         const speedSlider = document.getElementById('speed-slider');

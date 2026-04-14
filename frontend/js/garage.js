@@ -1,4 +1,10 @@
         var socket = io(window.location.origin);
+
+        // Hook global reliability layer for reconnect UX
+        if (window.Reliability) {
+            window.Reliability.installSocketReliability(socket);
+        }
+
         var currentUser = null;
         var ratePerMinute = 0.50;
         var availableCars = [];

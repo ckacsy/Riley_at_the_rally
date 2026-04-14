@@ -1,0 +1,106 @@
+/* =============================================================
+   reliability.css — Global error & reconnect UI (Task 9.6)
+   ============================================================= */
+
+/* ── Toast notification container ─────────────────────────── */
+#global-notice-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+    max-width: min(340px, calc(100vw - 32px));
+}
+
+/* ── Individual toast ──────────────────────────────────────── */
+.global-notice {
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: Arial, sans-serif;
+    line-height: 1.4;
+    opacity: 1;
+    pointer-events: auto;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+    transition: opacity 0.4s ease;
+    word-break: break-word;
+}
+
+.global-notice-info {
+    background: rgba(30, 40, 70, 0.95);
+    color: #e0e8ff;
+    border-left: 4px solid #64b5f6;
+}
+
+.global-notice-warn {
+    background: rgba(50, 35, 10, 0.97);
+    color: #ffe082;
+    border-left: 4px solid #ff9800;
+}
+
+.global-notice-error {
+    background: rgba(50, 10, 10, 0.97);
+    color: #ef9a9a;
+    border-left: 4px solid #f44336;
+}
+
+/* Fade-out transition (class added by JS before removal) */
+.global-notice-fade {
+    opacity: 0;
+}
+
+/* ── Reconnect / connection-state banner ───────────────────── */
+.global-reconnect-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 9998;
+    text-align: center;
+    font-size: 13px;
+    font-family: Arial, sans-serif;
+    font-weight: 600;
+    padding: 6px 16px;
+    letter-spacing: 0.3px;
+    /* Hidden by default — no height / display when no class is set */
+    display: none;
+}
+
+/* Reconnecting state */
+.global-reconnect-connecting {
+    display: block;
+    background: #e65100;
+    color: #fff;
+}
+
+/* Stale / failed state */
+.global-reconnect-stale {
+    display: block;
+    background: #b71c1c;
+    color: #fff;
+}
+
+/* Restored state */
+.global-reconnect-ok {
+    display: block;
+    background: #1b5e20;
+    color: #fff;
+}
+
+/* ── Responsive adjustments ──────────────────────────────── */
+@media (max-width: 480px) {
+    #global-notice-container {
+        bottom: 12px;
+        right: 12px;
+        left: 12px;
+        max-width: none;
+    }
+
+    .global-notice {
+        font-size: 12px;
+        padding: 9px 13px;
+    }
+}
