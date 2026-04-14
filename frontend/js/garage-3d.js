@@ -83,6 +83,12 @@ async function initScene() {
         garageGroup = await garageLoader.loadGarageModel();
     } catch (_) {}
     if (garageGroup) {
+        garageGroup.traverse((child) => {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+            }
+        });
         scene.add(garageGroup);
     }
 
