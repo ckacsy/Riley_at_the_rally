@@ -43,11 +43,11 @@
     if (window.__garageNeedsWebGLFallback) {
         window.__showGarageFallback('webgl_unsupported');
     }
-    // Safety net: if module script hasn't hidden the loader within 8s, show timeout fallback
+    // Safety net: if module script hasn't hidden the loader within 15s, show timeout fallback
     setTimeout(function() {
         var loader = document.getElementById('scene-loading');
         if (loader && !loader.classList.contains('hidden')) {
             window.__showGarageFallback('load_timeout');
         }
-    }, 8000);
+    }, 15000);
 })();

@@ -367,7 +367,7 @@
     <!-- Fallback detection — runs immediately, before module scripts -->
     <script src="js/garage-webgl-check.js"></script>
 
-    <!-- Three.js importmap (local vendor, no CDN) -->
+    <!-- Three.js importmap — kept as fallback; primary resolution uses explicit paths in garage-3d.js and vendor modules -->
     <script type="importmap">
     {
         "imports": {
