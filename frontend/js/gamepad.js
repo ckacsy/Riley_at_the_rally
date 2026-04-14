@@ -112,7 +112,7 @@
             cmd.direction = direction;
             cmd.speed = speed;
         }
-        if (steering !== 0 || steeringChanged) {
+        if (steeringChanged) {
             cmd.steering_angle = steering;
         }
 
