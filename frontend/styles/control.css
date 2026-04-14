@@ -1001,3 +1001,38 @@
             50%  { transform: scale(1);    opacity: 1; }
             100% { transform: scale(0.95); opacity: 1; }
         }
+        .telemetry-bar {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin: 12px auto;
+            max-width: 680px;
+            padding: 8px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+        }
+        .telemetry-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        .telemetry-icon {
+            font-size: 16px;
+        }
+        .telemetry-label {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        .telemetry-value {
+            color: var(--text-primary);
+            font-weight: bold;
+            font-variant-numeric: tabular-nums;
+            min-width: 32px;
+        }
+        .telemetry-value.good { color: var(--accent-success); }
+        .telemetry-value.warn { color: var(--accent-warning); }
+        .telemetry-value.bad { color: var(--accent-danger); }
