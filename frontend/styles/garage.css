@@ -327,6 +327,7 @@
         }
         .filter-select:focus { border-color: rgba(229,57,53,0.5); }
         .filter-select option { background: #0a0e1a; color: #fff; }
+        .select-auto-width { width: auto; }
         .search-input {
             background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14);
             color: #fff; padding: 4px 10px; border-radius: 6px; font-size: 12px; outline: none; width: 120px;

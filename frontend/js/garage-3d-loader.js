@@ -52,6 +52,9 @@ export async function loadCarModel(quality, onProgress) {
     const preset = QUALITY_PRESETS[quality] || QUALITY_PRESETS.low;
     if (!preset.car) return null;
     try {
+        // Check if the model file exists before attempting full load
+        const headResp = await fetch(preset.car, { method: 'HEAD' });
+        if (!headResp.ok) return null;
         return await loadModel(preset.car, onProgress);
     } catch (e) {
         console.warn('[garage-3d-loader] Car model not available, using procedural fallback:', e.message);
