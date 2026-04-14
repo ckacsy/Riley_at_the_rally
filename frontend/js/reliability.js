@@ -31,7 +31,6 @@
         _noticeContainer = document.createElement('div');
         _noticeContainer.id = 'global-notice-container';
         _noticeContainer.setAttribute('aria-live', 'polite');
-        _noticeContainer.setAttribute('aria-atomic', 'false');
         document.body.appendChild(_noticeContainer);
         return _noticeContainer;
     }
@@ -154,7 +153,7 @@
                 '\n  at', source, lineno + ':' + colno,
                 '\n ', error);
             showGlobalNotice('Произошла непредвиденная ошибка.', 'error');
-            return false; // let browser default handler also run
+            return false; // false allows the browser's default error handling to proceed
         };
 
         window.addEventListener('unhandledrejection', function (event) {
