@@ -8,7 +8,7 @@ export const CAR_MODEL_MAP = {
 };
 
 // Shared garage environment model path
-export const GARAGE_MODEL_PATH = '/assets/3d/garage/garage.glb';
+export const GARAGE_MODEL_PATH = '/assets/3d/garage/garage01.glb';
 
 // Cached manifest promise (fetched once per page load)
 let _manifestPromise = null;
