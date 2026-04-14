@@ -189,6 +189,38 @@ Copy `backend/.env.example` to `backend/.env` and fill in your values.  The most
 
 See [INSTALL.md](./INSTALL.md#email-configuration) for a complete step-by-step guide to Gmail SMTP setup and switching between dev and production email modes.
 
+## Asset versioning (cache busting)
+
+All `<script src>`, `<link href>`, and `<script type="module" src>` references to local assets in `frontend/` HTML files are stamped with a `?v=<BUILD_HASH>` query parameter at deploy time.  This forces browsers to reload assets after every new deployment, while letting Nginx serve them with a 1-year immutable `Cache-Control` header in between.
+
+### How it works
+
+The script `scripts/inject-asset-version.js` rewrites every HTML file in `frontend/` in place.  Only local paths (`js/`, `styles/`, `vendor/`) are touched; CDN URLs, the Socket.IO client, and inline scripts are left unchanged.  Running the script again with a different hash is safe — it replaces the existing `?v=` parameter.
+
+The CI workflow (`ci.yml`) runs the script automatically before the test and deploy steps, using the full git commit SHA as the hash:
+
+```yaml
+- name: Inject asset versions (cache busting)
+  run: node scripts/inject-asset-version.js
+  env:
+    BUILD_HASH: ${{ github.sha }}
+```
+
+### Manual / local usage
+
+```bash
+# Use the current git commit hash automatically
+node scripts/inject-asset-version.js
+
+# Supply an explicit hash
+node scripts/inject-asset-version.js my-custom-hash
+
+# Or export BUILD_HASH first
+BUILD_HASH=5a7d2e4 node scripts/inject-asset-version.js
+```
+
+> **Note:** The HTML files in the repository are stored *without* the version query parameter.  The script is intended to be run as a predeploy step only.  If you accidentally commit versioned HTML, run `git checkout -- frontend/` to restore clean sources.
+
 ## Testing
 
 The project includes a comprehensive E2E test suite built with [Playwright](https://playwright.dev/). The suite contains **23 spec files** covering all API endpoints and key UI flows.
