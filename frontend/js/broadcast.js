@@ -220,6 +220,11 @@
   var socket = io(window.location.origin);
   window.__testSocket = socket;
 
+  // Hook global reliability layer for reconnect UX
+  if (window.Reliability) {
+    window.Reliability.installSocketReliability(socket);
+  }
+
   socket.on('connect', function () {
     socket.emit('presence:hello', { page: 'broadcast' });
   });

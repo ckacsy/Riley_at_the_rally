@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="styles/garage.css">
     <link rel="stylesheet" href="styles/daily-bonus.css">
     <link rel="stylesheet" href="styles/rank.css">
+    <link rel="stylesheet" href="styles/reliability.css">
 </head>
 <body>
     <div id="main-nav"></div>
@@ -359,6 +360,9 @@
 
     <!-- Socket.io (served by backend) -->
     <script src="/socket.io/socket.io.js"></script>
+
+    <!-- Reliability layer — must load before page scripts -->
+    <script src="js/reliability.js"></script>
 
     <!-- Fallback detection — runs immediately, before module scripts -->
     <script src="js/garage-webgl-check.js"></script>
