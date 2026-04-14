@@ -42,7 +42,7 @@ if (window.__garageNeedsWebGLFallback) {
 
 async function initScene() {
     [THREE, { OrbitControls }] = await Promise.all([
-        import('three'),
+        import('/vendor/three.module.min.js'),
         import('/vendor/controls/OrbitControls.js'),
     ]);
 
