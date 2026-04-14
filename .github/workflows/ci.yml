@@ -31,6 +31,11 @@ jobs:
       - name: Install dependencies
         run: cd backend && npm ci
 
+      - name: Inject asset versions (cache busting)
+        run: node scripts/inject-asset-version.js
+        env:
+          BUILD_HASH: ${{ github.sha }}
+
       - name: Lint
         run: cd backend && npm run lint
 
@@ -61,6 +66,11 @@ jobs:
 
       - name: Install dependencies
         run: cd backend && npm ci
+
+      - name: Inject asset versions (cache busting)
+        run: node scripts/inject-asset-version.js
+        env:
+          BUILD_HASH: ${{ github.sha }}
 
       - name: Install Playwright browsers
         run: cd backend && npx playwright install --with-deps chromium
