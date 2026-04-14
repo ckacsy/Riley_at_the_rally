@@ -1,0 +1,2 @@
+# Track large binary 3D assets with Git LFS
+*.glb filter=lfs diff=lfs merge=lfs -text

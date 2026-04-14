@@ -6,11 +6,11 @@ let garageLoader = null; // lazy-loaded garage-3d-loader module
 
 // Car color variants (class/type used for carousel filters)
 const CAR_VARIANTS = [
-    { id: 1, name: 'Алый',    bodyHex: '#e53935', trimHex: '#ffffff', body: 0xe53935, trim: 0xffffff, cls: 'sport', type: 'drift' },
-    { id: 2, name: 'Синий',   bodyHex: '#1e88e5', trimHex: '#ffffff', body: 0x1e88e5, trim: 0xffffff, cls: 'sport', type: 'drift' },
-    { id: 3, name: 'Зелёный', bodyHex: '#43a047', trimHex: '#ffffff', body: 0x43a047, trim: 0xffffff, cls: 'sport', type: 'drift' },
-    { id: 4, name: 'Золотой', bodyHex: '#fdd835', trimHex: '#212121', body: 0xfdd835, trim: 0x212121, cls: 'sport', type: 'drift' },
-    { id: 5, name: 'Чёрный',  bodyHex: '#1c1c1c', trimHex: '#e53935', body: 0x1c1c1c, trim: 0xe53935, cls: 'sport', type: 'drift' },
+    { id: 1, name: 'Алый',    bodyHex: '#e53935', trimHex: '#ffffff', body: 0xe53935, trim: 0xffffff, cls: 'sport', type: 'drift', modelFile: '/assets/3d/cars/model01.glb' },
+    { id: 2, name: 'Синий',   bodyHex: '#1e88e5', trimHex: '#ffffff', body: 0x1e88e5, trim: 0xffffff, cls: 'sport', type: 'drift', modelFile: '/assets/3d/cars/model02.glb' },
+    { id: 3, name: 'Зелёный', bodyHex: '#43a047', trimHex: '#ffffff', body: 0x43a047, trim: 0xffffff, cls: 'sport', type: 'drift', modelFile: '/assets/3d/cars/model03.glb' },
+    { id: 4, name: 'Золотой', bodyHex: '#fdd835', trimHex: '#212121', body: 0xfdd835, trim: 0x212121, cls: 'sport', type: 'drift', modelFile: '/assets/3d/cars/model04.glb' },
+    { id: 5, name: 'Чёрный',  bodyHex: '#1c1c1c', trimHex: '#e53935', body: 0x1c1c1c, trim: 0xe53935, cls: 'sport', type: 'drift', modelFile: '/assets/3d/cars/model05.glb' },
 ];
 
 let activeVariant = 0;
@@ -18,6 +18,7 @@ let carGroup = null;
 let scene, camera, renderer, controls;
 let autoRotate = true;
 let fpsCounter = 0, lastFpsTime = performance.now(), currentFps = 0;
+const modelCache = new Map(); // variantId → THREE.Group (loaded, ready to clone)
 
 window._garageScene = {
     setAutoRotate: (v) => { autoRotate = v; },
@@ -75,14 +76,23 @@ async function initScene() {
     addLighting();
     addEnvironment();
 
-    // Try loading real 3D model, fall back to procedural car
-    let carModel = null;
+    // Try loading garage environment model (stays in scene permanently)
+    let garageGroup = null;
     try {
         garageLoader = await import('/js/garage-3d-loader.js');
-        const quality = garageLoader.detectQuality();
+        garageGroup = await garageLoader.loadGarageModel();
+    } catch (_) {}
+    if (garageGroup) {
+        scene.add(garageGroup);
+    }
+
+    // Try loading real 3D model for initial variant, fall back to procedural car
+    let carModel = null;
+    try {
+        if (!garageLoader) garageLoader = await import('/js/garage-3d-loader.js');
         const loadingText = document.querySelector('.loading-text');
         const progressFill = document.getElementById('loading-progress-fill');
-        carModel = await garageLoader.loadCarModel(quality, (progress) => {
+        carModel = await garageLoader.loadCarModel(CAR_VARIANTS[0].id, (progress) => {
             if (progress.total > 0) {
                 const pct = Math.round((progress.loaded / progress.total) * 100);
                 if (loadingText) loadingText.textContent = 'Загрузка модели… ' + pct + '%';
@@ -94,7 +104,9 @@ async function initScene() {
     }
 
     if (carModel) {
-        carGroup = carModel;
+        enableShadows(carModel);
+        modelCache.set(CAR_VARIANTS[0].id, carModel);
+        carGroup = carModel.clone();
         carGroup.rotation.y = Math.PI;
     } else {
         carGroup = buildCar(CAR_VARIANTS[0].body, CAR_VARIANTS[0].trim);
@@ -157,6 +169,13 @@ function addEnvironment() {
     [-0.9, 0.9].forEach(x => {
         const line = new THREE.Mesh(new THREE.PlaneGeometry(0.04, 8), lineMat);
         line.rotation.x = -Math.PI / 2; line.position.set(x, 0.001, 0); scene.add(line);
+    });
+}
+
+// Traverse a loaded gltf.scene and enable shadow casting on all meshes
+function enableShadows(group) {
+    group.traverse((child) => {
+        if (child.isMesh) child.castShadow = true;
     });
 }
 
@@ -226,12 +245,25 @@ async function swapVariant(index) {
     if (typeof renderAvailabilityBadge === 'function') renderAvailabilityBadge();
     if (!scene || !renderer) return;
     scene.remove(carGroup);
-    // Try loading real model for the variant
+    // Try loading real model for the variant (with cache)
     let newModel = null;
     if (garageLoader) {
         try {
-            const quality = garageLoader.detectQuality();
-            newModel = await garageLoader.loadCarModel(quality);
+            if (modelCache.has(v.id)) {
+                // Instant swap from cache
+                newModel = modelCache.get(v.id).clone();
+            } else {
+                // Show brief loading indicator while fetching
+                const loadingEl = document.getElementById('scene-loading');
+                if (loadingEl) loadingEl.classList.remove('hidden');
+                const loaded = await garageLoader.loadCarModel(v.id);
+                if (loaded) {
+                    enableShadows(loaded);
+                    modelCache.set(v.id, loaded);
+                    newModel = loaded.clone();
+                }
+                if (loadingEl) loadingEl.classList.add('hidden');
+            }
         } catch (_) {}
     }
     if (newModel) {

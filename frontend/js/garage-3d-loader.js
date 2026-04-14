@@ -1,14 +1,14 @@
-// Quality presets — paths to .glb files (files don't need to exist yet)
-export const QUALITY_PRESETS = {
-    low: {
-        car: '/assets/3d/cars/riley-x1-low.glb',
-        garage: null,
-    },
-    high: {
-        car: '/assets/3d/cars/riley-x1.glb',
-        garage: '/assets/3d/garage/garage.glb',
-    },
+// Per-variant car model map: variant id → .glb file path
+export const CAR_MODEL_MAP = {
+    1: '/assets/3d/cars/model01.glb',
+    2: '/assets/3d/cars/model02.glb',
+    3: '/assets/3d/cars/model03.glb',
+    4: '/assets/3d/cars/model04.glb',
+    5: '/assets/3d/cars/model05.glb',
 };
+
+// Shared garage environment model path
+export const GARAGE_MODEL_PATH = '/assets/3d/garage/garage.glb';
 
 // Cached manifest promise (fetched once per page load)
 let _manifestPromise = null;
@@ -59,16 +59,28 @@ export async function loadModel(url, onProgress) {
     });
 }
 
-// Try to load a car model; returns null gracefully if not available
-export async function loadCarModel(quality, onProgress) {
-    const preset = QUALITY_PRESETS[quality] || QUALITY_PRESETS.low;
-    if (!preset.car) return null;
+// Try to load a car model by variant id; returns null gracefully if not available
+export async function loadCarModel(variantId, onProgress) {
+    const path = CAR_MODEL_MAP[variantId];
+    if (!path) return null;
     try {
         const manifest = await getManifest();
-        if (!manifest.models || !manifest.models.includes(preset.car)) return null;
-        return await loadModel(preset.car, onProgress);
+        if (!manifest.models || !manifest.models.includes(path)) return null;
+        return await loadModel(path, onProgress);
     } catch (e) {
         console.warn('[garage-3d-loader] Car model not available, using procedural fallback:', e.message);
+        return null;
+    }
+}
+
+// Try to load the shared garage environment model; returns null gracefully if not available
+export async function loadGarageModel(onProgress) {
+    try {
+        const manifest = await getManifest();
+        if (!manifest.models || !manifest.models.includes(GARAGE_MODEL_PATH)) return null;
+        return await loadModel(GARAGE_MODEL_PATH, onProgress);
+    } catch (e) {
+        console.warn('[garage-3d-loader] Garage model not available, using procedural environment:', e.message);
         return null;
     }
 }
