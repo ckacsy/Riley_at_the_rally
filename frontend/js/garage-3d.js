@@ -81,10 +81,12 @@ async function initScene() {
         garageLoader = await import('/js/garage-3d-loader.js');
         const quality = garageLoader.detectQuality();
         const loadingText = document.querySelector('.loading-text');
+        const progressFill = document.getElementById('loading-progress-fill');
         carModel = await garageLoader.loadCarModel(quality, (progress) => {
-            if (loadingText && progress.total > 0) {
+            if (progress.total > 0) {
                 const pct = Math.round((progress.loaded / progress.total) * 100);
-                loadingText.textContent = 'Загрузка модели… ' + pct + '%';
+                if (loadingText) loadingText.textContent = 'Загрузка модели… ' + pct + '%';
+                if (progressFill) progressFill.style.width = pct + '%';
             }
         });
     } catch (e) {
