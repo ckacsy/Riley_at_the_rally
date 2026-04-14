@@ -150,16 +150,16 @@
             _searchBtn.style.display = (isMatched || isSearching || isResult) ? 'none' : '';
         }
         if (_cancelBtn) {
-            _cancelBtn.style.display = isSearching ? '' : 'none';
+            _cancelBtn.style.display = isSearching ? 'block' : 'none';
         }
         if (_statusEl) {
             _statusEl.style.display = '';
         }
         if (_matchCard) {
-            _matchCard.style.display = isMatched ? '' : 'none';
+            _matchCard.style.display = isMatched ? 'block' : 'none';
         }
         if (_resultCard) {
-            _resultCard.style.display = isResult ? '' : 'none';
+            _resultCard.style.display = isResult ? 'block' : 'none';
         }
 
         syncRaceActionAvailability();
@@ -446,7 +446,7 @@
 
         if (_resultCard) {
             _resultCard.className = 'duel-result-card ' + resultClass;
-            _resultCard.removeAttribute('style');
+            _resultCard.style.display = 'block';
             _resultCard.innerHTML =
                 '<div class="duel-result-label">' + SharedUtils.escapeHtml(title) + '</div>' +
                 timesHtml +
@@ -538,7 +538,7 @@
                     _setState('ready_pending');
                     _setStatusText('✅ Соперник найден — нажмите «Готов»');
                     if (_matchCard) {
-                        _matchCard.style.display = '';
+                        _matchCard.style.display = 'block';
                         if (!document.getElementById('duel-ready-btn')) {
                             _matchCard.innerHTML =
                                 '<div class="duel-match-title">⚔️ Подтвердите готовность</div>' +

@@ -89,3 +89,8 @@ body { background: #0a0e1a; color: #fff; font-family: Arial, sans-serif; min-hei
     display: flex; align-items: center; justify-content: center;
     font-size: 18px; color: rgba(255,255,255,0.7);
 }
+
+/* Modal text styles (replace inline styles) */
+.modal-car-name { font-weight: bold; color: #fff; }
+.modal-required-mark { color: #e53935; }
+.modal-warning-text { color: rgba(255,152,0,0.9); }

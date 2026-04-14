@@ -281,7 +281,7 @@ function loadRankBlock() {
                 html += '<div class="rank-main-badge">' +
                         '<div class="rank-main-emoji">🏆</div>' +
                         '<div class="rank-main-info">' +
-                        '<div class="rank-main-label rank-zone-legend" style="color:var(--rz-color)">' +
+                        '<div class="rank-main-label rank-zone-legend">' +
                         'Legend' + (data.legendPosition != null ? ' #' + data.legendPosition : '') +
                         '</div>' +
                         '</div>' +
@@ -324,7 +324,7 @@ function loadRankBlock() {
             }
 
             content.innerHTML = html;
-            section.style.display = '';
+            section.style.display = 'block';
         })
         .catch(function () {
             // Silently fail — rank block just stays hidden
@@ -346,7 +346,7 @@ fetch('/api/balance', { credentials: 'same-origin' })
 var txLoaded = false;
 document.getElementById('transactions-toggle').addEventListener('click', function () {
     var content = document.getElementById('transactions-content');
-    var isVisible = content.style.display !== 'none';
+    var isVisible = window.getComputedStyle(content).display !== 'none';
     content.style.display = isVisible ? 'none' : 'block';
     this.textContent = (isVisible ? '💳 Информация о транзакциях ▶' : '💳 Информация о транзакциях ▼');
     if (!isVisible && !txLoaded) {
@@ -357,12 +357,12 @@ document.getElementById('transactions-toggle').addEventListener('click', functio
 
 function loadTransactions() {
     var container = document.getElementById('transactions-container');
-    container.innerHTML = '<p style="text-align:center;color:var(--text-secondary);">Загрузка...</p>';
+    container.innerHTML = '<p class="tx-loading-msg">Загрузка...</p>';
     fetch('/api/transactions', { credentials: 'same-origin' })
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (data) {
             if (!data || !data.transactions) {
-                container.innerHTML = '<p style="text-align:center;color:var(--text-secondary);">Нет данных</p>';
+                container.innerHTML = '<p class="tx-loading-msg">Нет данных</p>';
                 return;
             }
             var txs = data.transactions;
@@ -371,7 +371,7 @@ function loadTransactions() {
                 return tx.type !== 'hold' && tx.type !== 'release';
             });
             if (!txs.length) {
-                container.innerHTML = '<p style="text-align:center;color:var(--text-secondary);">Транзакций пока нет</p>';
+                container.innerHTML = '<p class="tx-loading-msg">Транзакций пока нет</p>';
                 return;
             }
             var typeLabels = {
@@ -404,6 +404,6 @@ function loadTransactions() {
                 '<tbody>' + rows + '</tbody></table>';
         })
         .catch(function () {
-            container.innerHTML = '<p style="text-align:center;color:#ef5350;">Ошибка загрузки транзакций</p>';
+            container.innerHTML = '<p class="tx-error-msg">Ошибка загрузки транзакций</p>';
         });
 }

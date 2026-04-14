@@ -2,6 +2,18 @@ body {
     margin: 0;
     padding: calc(var(--nav-height, 44px) + 20px) 20px 20px;
 }
+
+/* Initially-hidden elements (shown by JS) */
+#error { display: none; }
+#pending-banner { display: none; }
+#profile-content { display: none; }
+#username-msg { display: none; }
+#rank-section { display: none; }
+#transactions-content { display: none; }
+
+/* Loading placeholder text */
+.tx-loading-msg { text-align: center; color: var(--text-secondary); }
+.tx-error-msg { text-align: center; color: #ef5350; }
 .logout-btn {
     background: rgba(244, 67, 54, 0.15);
     border: 1px solid rgba(244, 67, 54, 0.35);
@@ -11,6 +23,7 @@ body {
     cursor: pointer;
     font-size: 13px;
     transition: background 0.2s, color 0.2s, border-color 0.2s;
+    margin-top: 12px;
 }
 .logout-btn:hover {
     background: rgba(244, 67, 54, 0.28);
@@ -321,7 +334,7 @@ body {
     margin: 4px 0 8px;
 }
 /* Transaction history */
-.transactions-section { padding: 0 16px; }
+.transactions-section { padding: 0 16px; max-width: 860px; margin: 0 auto 40px; }
 .transactions-toggle {
     width: 100%; text-align: left; padding: 14px 18px;
     background: var(--bg-card); border: 1px solid var(--border-color);

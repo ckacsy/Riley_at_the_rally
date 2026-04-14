@@ -93,8 +93,8 @@ app.use(express.json({
 app.use(helmet({
   contentSecurityPolicy: { directives: {
     defaultSrc: ["'self'"],
-    scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
-    styleSrc: ["'self'", "'unsafe-inline'"],
+    scriptSrc: ["'self'", "https://cdn.jsdelivr.net"],
+    styleSrc: ["'self'"],
     imgSrc: ["'self'", "data:", "blob:", "*"],
     mediaSrc: ["'self'", "*"],
     connectSrc: ["'self'", "ws:", "wss:"],

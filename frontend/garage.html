@@ -24,7 +24,7 @@
         <div class="fallback-car">&#x1F697;</div>
         <h2>3D-гараж недоступен</h2>
         <p>Ваш браузер не поддерживает WebGL.<br>Обновите браузер для полного 3D-опыта.</p>
-        <div class="car-availability-badge" id="fallback-availability-badge" style="margin-top:16px;">
+        <div class="car-availability-badge" id="fallback-availability-badge">
             <span class="badge-dot"></span>
             <span id="fallback-availability-text">&#8230;</span>
         </div>
@@ -59,7 +59,7 @@
         <button class="panel-toggle" id="panel-toggle" title="Свернуть / развернуть панель" aria-label="Свернуть панель">&#9664;</button>
 
         <!-- Profile card -->
-        <a href="/profile" id="profile-card" class="profile-card" style="text-decoration:none;color:inherit;display:flex;align-items:center;gap:10px;">
+        <a href="/profile" id="profile-card" class="profile-card">
             <div class="profile-avatar" aria-hidden="true">&#x1F464;</div>
             <div class="profile-info">
                 <div class="profile-username" id="profile-username">Гость</div>
@@ -145,8 +145,8 @@
             <!-- Апгрейды -->
             <div class="tab-content" id="tab-upgrades">
                 <div class="upgrades-tab-content">
-                    <div style="margin-bottom:4px;">
-                        <h3 style="margin:0 0 4px;font-size:13px;color:#fff;">Апгрейды машины</h3>
+                    <div class="upgrades-header">
+                        <h3 class="upgrades-title">Апгрейды машины</h3>
                         <div class="upgrades-wip-badge">&#x1F6A7; В разработке — улучшения будут доступны в следующем обновлении</div>
                     </div>
                     <!-- Upgrade cards are rendered by JS below -->
@@ -258,7 +258,7 @@
         <div class="center-car-title" id="car-title">Riley-X1</div>
         <button class="cta-btn" id="center-cta-btn" aria-label="НА ТРЕК — управление машиной" disabled>Загрузка…</button>
         <!-- Hidden CTA for programmatic state tracking -->
-        <button class="cta-btn" id="cta-btn" style="display:none" disabled aria-hidden="true">Загрузка…</button>
+        <button class="cta-btn" id="cta-btn" disabled aria-hidden="true">Загрузка…</button>
     </div>
 
     <!-- RIGHT PANEL -->
@@ -292,21 +292,21 @@
                 <span class="char-icon" aria-label="Заряд батареи">&#x1F50B;</span>
                 <span class="char-label">Батарея</span>
                 <div class="char-bar" role="progressbar" aria-valuenow="85" aria-valuemin="0" aria-valuemax="100" aria-label="Заряд батареи 85%">
-                    <div class="char-fill" style="width:85%"></div>
+                    <div class="char-fill char-fill-85"></div>
                 </div>
             </div>
             <div class="char-row">
                 <span class="char-icon" aria-hidden="true">&#x26A1;</span>
                 <span class="char-label">Скорость</span>
                 <div class="char-bar" role="progressbar" aria-valuenow="72" aria-valuemin="0" aria-valuemax="100" aria-label="Скорость 72%">
-                    <div class="char-fill speed" style="width:72%"></div>
+                    <div class="char-fill speed char-fill-72"></div>
                 </div>
             </div>
             <div class="char-row">
                 <span class="char-icon" aria-hidden="true">&#x1F3AF;</span>
                 <span class="char-label">Управление</span>
                 <div class="char-bar" role="progressbar" aria-valuenow="65" aria-valuemin="0" aria-valuemax="100" aria-label="Управляемость 65%">
-                    <div class="char-fill handling" style="width:65%"></div>
+                    <div class="char-fill handling char-fill-65"></div>
                 </div>
             </div>
             <div class="char-type">&#x1F30D;&nbsp;Тип: Ралли</div>
@@ -387,7 +387,7 @@
                 <button class="topup-amount-btn" data-amount="200">200 ₽</button>
                 <button class="topup-amount-btn" data-amount="500">500 ₽</button>
             </div>
-            <p class="topup-status" id="topup-status" style="display:none;"></p>
+            <p class="topup-status" id="topup-status"></p>
             <button class="topup-close-btn" id="topup-close">Закрыть</button>
         </div>
     </div>

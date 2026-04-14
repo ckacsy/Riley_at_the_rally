@@ -284,5 +284,6 @@
     }
 
     window.LeaderboardPage = { init: init };
+    init();
 
 }(window));

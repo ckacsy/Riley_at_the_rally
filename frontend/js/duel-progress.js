@@ -310,7 +310,7 @@
             }
 
             var panel = _getPanel();
-            if (panel) panel.style.display = '';
+            if (panel) panel.style.display = 'block';
 
             // Reset elapsed display
             var elapsedEl = _getElapsedEl();

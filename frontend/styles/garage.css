@@ -471,6 +471,7 @@
             padding: 10px 12px; flex-shrink: 0;
             background: rgba(0, 212, 255, 0.07);
             border-bottom: 1px solid rgba(0, 212, 255, 0.14);
+            text-decoration: none; color: inherit;
         }
         .left-panel.collapsed .profile-card { justify-content: center; padding: 10px 6px; }
         .left-panel.collapsed .profile-info { display: none; }
@@ -918,3 +919,20 @@
         .phone-wip-block {
             margin-top: 8px;
         }
+
+        /* Char-fill width classes (replace inline style="width:XX%") */
+        .char-fill-85 { width: 85%; }
+        .char-fill-72 { width: 72%; }
+        .char-fill-65 { width: 65%; }
+
+        /* Upgrades tab header / title (replace inline styles) */
+        .upgrades-header { margin-bottom: 4px; }
+        .upgrades-title { margin: 0 0 4px; font-size: 13px; color: #fff; }
+
+        /* Initially-hidden elements (shown/hidden by JS) */
+        #cta-btn { display: none; }
+        #topup-status { display: none; }
+        #fallback-availability-badge { margin-top: 16px; }
+
+        /* Leaderboard preview empty/error states */
+        .lb-row--empty { color: rgba(255,255,255,0.38); font-size: 12px; }
