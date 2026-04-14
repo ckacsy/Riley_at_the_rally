@@ -2,13 +2,25 @@
 export const QUALITY_PRESETS = {
     low: {
         car: '/assets/3d/cars/riley-x1-low.glb',
-        garage: null, // no garage model yet — use procedural environment
+        garage: null,
     },
     high: {
         car: '/assets/3d/cars/riley-x1.glb',
         garage: '/assets/3d/garage/garage.glb',
     },
 };
+
+// Cached manifest promise (fetched once per page load)
+let _manifestPromise = null;
+
+async function getManifest() {
+    if (!_manifestPromise) {
+        _manifestPromise = fetch('/assets/3d/manifest.json')
+            .then(r => r.ok ? r.json() : { models: [] })
+            .catch(() => ({ models: [] }));
+    }
+    return _manifestPromise;
+}
 
 // Detect best quality level based on hardware
 export function detectQuality() {
@@ -47,14 +59,13 @@ export async function loadModel(url, onProgress) {
     });
 }
 
-// Try to load a car model; returns null gracefully if not found (404)
+// Try to load a car model; returns null gracefully if not available
 export async function loadCarModel(quality, onProgress) {
     const preset = QUALITY_PRESETS[quality] || QUALITY_PRESETS.low;
     if (!preset.car) return null;
     try {
-        // Check if the model file exists before attempting full load
-        const headResp = await fetch(preset.car, { method: 'HEAD' });
-        if (!headResp.ok) return null;
+        const manifest = await getManifest();
+        if (!manifest.models || !manifest.models.includes(preset.car)) return null;
         return await loadModel(preset.car, onProgress);
     } catch (e) {
         console.warn('[garage-3d-loader] Car model not available, using procedural fallback:', e.message);
