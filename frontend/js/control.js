@@ -205,6 +205,7 @@
                 hideWarningBanner();
             }
         }
+        window._resetInactivityCountdown = resetInactivityCountdown;
 
         // Holds the inactivityTimeoutMs received from server (for resets)
         let inactivityTimeoutMsFromServer = 0;
@@ -257,6 +258,7 @@
         window.addEventListener('pagehide', endSessionOnLeave);
 
         const socket = io(window.location.origin);
+        window._controlSocket = socket;
 
         // Hook global reliability layer for reconnect UX
         if (window.Reliability) {
@@ -290,6 +292,7 @@
                 else e.el.classList.remove('fading');
             });
         }
+        window._addCmdLogEntry = addCmdLogEntry;
 
         let speedToastTimeout = null;
         function showSpeedToast(value) {
@@ -314,7 +317,12 @@
             resetInactivityCountdown();
             speedValue.textContent = speedSlider.value;
             showSpeedToast(speedSlider.value);
+            const teleSpeed = document.getElementById('tele-speed');
+            if (teleSpeed) teleSpeed.textContent = speedSlider.value + '%';
         });
+
+        // Ping measurement
+        let pingInterval = null;
 
         socket.on('connect', function () {
             statusDot.classList.remove('disconnected');
@@ -336,6 +344,31 @@
                     username: sessionData.userId,
                 });
             }
+            if (pingInterval) clearInterval(pingInterval);
+            pingInterval = setInterval(function () {
+                const start = Date.now();
+                socket.volatile.emit('ping_check', function () {
+                    const latency = Date.now() - start;
+                    const pingEl = document.getElementById('tele-ping');
+                    const qualityEl = document.getElementById('tele-quality');
+                    if (pingEl) {
+                        pingEl.textContent = latency + ' мс';
+                        pingEl.className = 'telemetry-value ' + (latency < 50 ? 'good' : latency < 150 ? 'warn' : 'bad');
+                    }
+                    if (qualityEl) {
+                        if (latency < 50) {
+                            qualityEl.textContent = 'Отлично';
+                            qualityEl.className = 'telemetry-value good';
+                        } else if (latency < 150) {
+                            qualityEl.textContent = 'Хорошо';
+                            qualityEl.className = 'telemetry-value warn';
+                        } else {
+                            qualityEl.textContent = 'Плохо';
+                            qualityEl.className = 'telemetry-value bad';
+                        }
+                    }
+                });
+            }, 3000);
         });
 
         // Heartbeat to keep presence alive (every 15 seconds)
@@ -362,6 +395,12 @@
             statusDot.classList.remove('connected');
             statusDot.classList.add('disconnected');
             statusText.textContent = 'Отключено';
+            clearInterval(pingInterval);
+            pingInterval = null;
+            const pingEl = document.getElementById('tele-ping');
+            const qualityEl = document.getElementById('tele-quality');
+            if (pingEl) { pingEl.textContent = '—'; pingEl.className = 'telemetry-value'; }
+            if (qualityEl) { qualityEl.textContent = '—'; qualityEl.className = 'telemetry-value'; }
         });
 
         socket.on('session_ended', function (data) {
@@ -409,6 +448,16 @@
                         el.textContent = '';
                         el.style.color = '';
                     }, 2000);
+                }
+            }
+        });
+
+        socket.on('car_telemetry', function (data) {
+            if (data.battery != null) {
+                const el = document.getElementById('tele-battery');
+                if (el) {
+                    el.textContent = Math.round(data.battery) + '%';
+                    el.className = 'telemetry-value ' + (data.battery > 50 ? 'good' : data.battery > 20 ? 'warn' : 'bad');
                 }
             }
         });

@@ -115,6 +115,11 @@ function setupSocketIo(io, deps) {
     racingModule.setup(io, socket, state, fullDeps);
     sessionsModule.setup(io, socket, state, fullDeps, sessionHelpers);
 
+    // Ping round-trip handler for client-side latency measurement
+    socket.on('ping_check', function (callback) {
+      if (typeof callback === 'function') callback();
+    });
+
     socket.on('disconnect', () => {
       const hadSession = sessionsModule.handleDisconnect(socket, state, fullDeps, sessionHelpers);
       racingModule.handleDisconnect(socket, io, state, duelManager);

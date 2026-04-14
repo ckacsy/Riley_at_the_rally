@@ -61,6 +61,35 @@
     <!-- Warning banner (non-blocking toast) -->
     <div class="session-warning-banner" id="session-warning-banner" role="alert" aria-live="polite"></div>
 
+    <!-- Telemetry bar -->
+    <div class="telemetry-bar" id="telemetry-bar">
+        <div class="telemetry-item">
+            <span class="telemetry-icon">📡</span>
+            <span class="telemetry-label">Пинг</span>
+            <span class="telemetry-value" id="tele-ping">—</span>
+        </div>
+        <div class="telemetry-item">
+            <span class="telemetry-icon">📶</span>
+            <span class="telemetry-label">Качество</span>
+            <span class="telemetry-value" id="tele-quality">—</span>
+        </div>
+        <div class="telemetry-item">
+            <span class="telemetry-icon">🔋</span>
+            <span class="telemetry-label">Батарея</span>
+            <span class="telemetry-value" id="tele-battery">—</span>
+        </div>
+        <div class="telemetry-item">
+            <span class="telemetry-icon">⚡</span>
+            <span class="telemetry-label">Скорость</span>
+            <span class="telemetry-value" id="tele-speed">0%</span>
+        </div>
+        <div class="telemetry-item">
+            <span class="telemetry-icon">🎮</span>
+            <span class="telemetry-label">Геймпад</span>
+            <span class="telemetry-value" id="tele-gamepad">—</span>
+        </div>
+    </div>
+
     <div class="camera-section">
         <h2>Прямая трансляция камеры (требуется Raspberry Pi)</h2>
         <img id="camera-feed" class="camera-feed" src="" alt="Прямая трансляция камеры — нет подключения" />
@@ -80,7 +109,7 @@
         <input type="range" id="speed-slider" min="0" max="100" value="50" />
         <span id="speed-value">50</span>
     </div>
-    <p class="keyboard-hint">Клавиатура: ↑↓ — движение, ←→ — поворот</p>
+    <p class="keyboard-hint">Клавиатура: ↑↓ — движение, ←→ — поворот &nbsp;|&nbsp; 🎮 Геймпад: стик — руление, RT/LT — газ/тормоз</p>
     <div class="cmd-log" id="cmd-log"></div>
     <div class="speed-toast" id="speed-toast"></div>
     <div class="status">
@@ -193,6 +222,7 @@
     <script src="js/duel-progress.js"></script>
     <script src="js/duel-ui.js"></script>
     <script src="js/chat-drawer.js"></script>
+    <script src="js/gamepad.js"></script>
     <script src="js/control.js"></script>
     <script src="js/nav.js"></script>
 </body>
