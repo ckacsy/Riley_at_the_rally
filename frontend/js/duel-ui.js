@@ -192,9 +192,9 @@
             } else if (state === 'ready_pending') {
                 window._setHudDuelWidget(_opponentName || '⚔️', 'Готовность');
             } else if (state === 'countdown') {
-                window._setHudDuelWidget(_opponentName || '⚔️', 'СТАРТ', true);
+                window._setHudDuelWidget(_opponentName || '⚔️', 'СТАРТ', /*liveDuel=*/true);
             } else if (state === 'in_progress') {
-                window._setHudDuelWidget(_opponentName || '⚔️', 'ДУЭЛЬ', true);
+                window._setHudDuelWidget(_opponentName || '⚔️', 'ДУЭЛЬ', /*liveDuel=*/true);
             } else if (isIdle || isResult) {
                 window._setHudDuelWidget(null);
             }

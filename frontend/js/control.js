@@ -1108,8 +1108,8 @@
             }, 50);
             // Reflect lap-running state in HUD widget and drawer summary
             if (currentRaceName) {
-                updateHudRaceWidget(currentRaceName, currentRacePos, true);
-                updateDrawerActiveRace(currentRaceName, currentRacePos, true);
+                updateHudRaceWidget(currentRaceName, currentRacePos, /*lapActive=*/true);
+                updateDrawerActiveRace(currentRaceName, currentRacePos, /*lapActive=*/true);
             }
         });
 
@@ -1124,8 +1124,8 @@
                 document.getElementById('lap-time-display').textContent = SharedUtils.formatLapTime(data.lapTimeMs);
                 // Clear lap-active state in HUD widget and drawer summary
                 if (currentRaceName) {
-                    updateHudRaceWidget(currentRaceName, currentRacePos, false);
-                    updateDrawerActiveRace(currentRaceName, currentRacePos, false);
+                    updateHudRaceWidget(currentRaceName, currentRacePos, /*lapActive=*/false);
+                    updateDrawerActiveRace(currentRaceName, currentRacePos, /*lapActive=*/false);
                 }
                 if (data.isGlobalRecord) {
                     flashMessage('🏆 Новый рекорд трассы: ' + SharedUtils.formatLapTime(data.lapTimeMs) + '!', true);
