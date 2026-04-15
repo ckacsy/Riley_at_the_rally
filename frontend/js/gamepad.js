@@ -131,5 +131,15 @@
 
     window.GamepadController = {
         isConnected: function () { return gamepadIndex !== null; },
+        /**
+         * Reset internal dedup state so the next poll re-sends the current
+         * analog values even if nothing "changed" from the gamepad's perspective.
+         * Called by control.js emitSafetyStop() after overwriting ctrl state.
+         */
+        resetState: function () {
+            lastSteering = 0;
+            lastSpeed    = 0;
+            lastDirection = 'stop';
+        },
     };
 }());
