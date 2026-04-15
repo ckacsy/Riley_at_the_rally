@@ -329,13 +329,6 @@
             }, 1200);
         }
 
-        function flashButton(id) {
-            const btn = document.getElementById(id);
-            if (!btn) return;
-            btn.classList.add('button-active');
-            setTimeout(function () { btn.classList.remove('button-active'); }, 150);
-        }
-
         // ── HUD speed display update ──
         function updateHudSpeed(value) {
             const el = document.getElementById('hud-speed-value');
@@ -348,27 +341,22 @@
             }
         }
 
-        // ── Input visualisation (keyboard arrows in the HUD grid) ──
-        function updateInputViz() {
-            var map = {
-                'ArrowUp':    'hud-key-up',
-                'ArrowDown':  'hud-key-down',
-                'ArrowLeft':  'hud-key-left',
-                'ArrowRight': 'hud-key-right',
-            };
-            Object.keys(map).forEach(function (key) {
-                var el = document.getElementById(map[key]);
-                if (el) el.classList.toggle('active', pressedKeys.has(key));
-            });
-        }
-
         speedSlider.addEventListener('input', function () {
-            resetInactivityCountdown();
             speedValue.textContent = speedSlider.value;
             showSpeedToast(speedSlider.value);
-            const teleSpeed = document.getElementById('tele-speed');
-            if (teleSpeed) teleSpeed.textContent = speedSlider.value + '%';
-            updateHudSpeed(parseInt(speedSlider.value, 10));
+            resetInactivityCountdown();
+            var sliderSpeed = parseInt(speedSlider.value, 10);
+            // If keyboard or debug is actively driving, immediately apply new speed.
+            var isActiveDrive = (ctrl.source === 'keyboard' || ctrl.source === 'debug') &&
+                                ctrl.direction !== 'stop';
+            if (isActiveDrive) {
+                ctrl.speed = sliderSpeed;
+                dispatchCommand();
+            } else {
+                updateHudSpeed(sliderSpeed);
+                var teleSpeed = document.getElementById('tele-speed');
+                if (teleSpeed) teleSpeed.textContent = sliderSpeed + '%';
+            }
         });
 
         // Ping measurement
@@ -419,6 +407,13 @@
                     }
                 });
             }, 3000);
+            // Reset dedup fingerprint so the first command after reconnect is always
+            // delivered — the server-side state may have been reset during the outage.
+            lastEmittedSig = '';
+            // Re-arm hold-refresh if an input is still held (brief reconnect scenario).
+            if (ctrl.direction !== 'stop' || ctrl.steering !== 0) {
+                startHoldRefresh();
+            }
         });
 
         // Heartbeat to keep presence alive (every 15 seconds)
@@ -451,6 +446,8 @@
             const qualityEl = document.getElementById('tele-quality');
             if (pingEl) { pingEl.textContent = '—'; pingEl.className = 'telemetry-value'; }
             if (qualityEl) { qualityEl.textContent = '—'; qualityEl.className = 'telemetry-value'; }
+            // Pause keepalive while offline — commands would be silently dropped otherwise.
+            stopHoldRefresh();
         });
 
         socket.on('session_ended', function (data) {
@@ -542,122 +539,315 @@
             window.location.href = '/garage';
         });
 
-        document.getElementById('forward').addEventListener('click', function () {
-            resetInactivityCountdown();
-            flashButton('forward');
-            const speed = parseInt(speedSlider.value, 10);
-            addCmdLogEntry('→ вперёд @ ' + speed + '%');
-            socket.emit('control_command', { direction: 'forward', speed: speed });
-        });
+        // ── Debug controls: pointer press-and-hold ──────────────────────────────
+        // Each button behaves like a held key: pointerdown starts the drive command,
+        // pointerup/pointercancel releases it.  Multiple buttons can be held at once
+        // (e.g. forward + left) and the state resolves exactly like keyboard input.
 
-        document.getElementById('backward').addEventListener('click', function () {
-            resetInactivityCountdown();
-            flashButton('backward');
-            const speed = parseInt(speedSlider.value, 10);
-            addCmdLogEntry('→ назад @ ' + speed + '%');
-            socket.emit('control_command', { direction: 'backward', speed: -speed });
-        });
+        /** Which debug buttons are currently held (via pointer). */
+        var debugHeld = { up: false, down: false, left: false, right: false };
 
-        document.getElementById('left').addEventListener('click', function () {
-            resetInactivityCountdown();
-            flashButton('left');
-            addCmdLogEntry('→ поворот влево');
-            socket.emit('control_command', { steering_angle: -30 });
-        });
+        /** Recompute ctrl from current debugHeld state (mirrors applyKeyboardState). */
+        function applyDebugState() {
+            var up    = debugHeld.up;
+            var down  = debugHeld.down;
+            var left  = debugHeld.left;
+            var right = debugHeld.right;
+            if (up) {
+                ctrl.direction = 'forward';
+                ctrl.speed     = parseInt(speedSlider.value, 10);
+            } else if (down) {
+                ctrl.direction = 'backward';
+                ctrl.speed     = parseInt(speedSlider.value, 10);
+            } else {
+                ctrl.direction = 'stop';
+                ctrl.speed     = 0;
+            }
+            ctrl.steering = (left && !right) ? -30 : (right && !left ? 30 : 0);
+            ctrl.source   = 'debug';
+        }
 
-        document.getElementById('right').addEventListener('click', function () {
-            resetInactivityCountdown();
-            flashButton('right');
-            addCmdLogEntry('→ поворот вправо');
-            socket.emit('control_command', { steering_angle: 30 });
-        });
+        /**
+         * Bind press-and-hold pointer events to a single debug button.
+         * @param {string} id   - DOM element id of the button
+         * @param {string} axis - key in debugHeld ('up' | 'down' | 'left' | 'right')
+         */
+        function bindDebugButton(id, axis) {
+            var btn = document.getElementById(id);
+            if (!btn) return;
 
-        // Keyboard controls: arrow keys for continuous movement
-        const pressedKeys = new Set();
-        let keyControlInterval = null;
-        let lastCommandSignature = '';
-
-        function updateKeyButtonHighlights() {
-            ['forward', 'backward', 'left', 'right'].forEach(function (id) {
-                const btn = document.getElementById(id);
-                if (!btn) return;
-                const isActive = (id === 'forward' && pressedKeys.has('ArrowUp')) ||
-                                 (id === 'backward' && pressedKeys.has('ArrowDown')) ||
-                                 (id === 'left' && pressedKeys.has('ArrowLeft')) ||
-                                 (id === 'right' && pressedKeys.has('ArrowRight'));
-                btn.classList.toggle('button-active', isActive);
+            btn.addEventListener('pointerdown', function (e) {
+                e.preventDefault(); // prevent ghost mouse events on touch screens
+                btn.setPointerCapture(e.pointerId); // track pointer even if it drifts off
+                debugHeld[axis] = true;
+                applyDebugState();
+                dispatchCommand(true);
+                if (ctrl.direction !== 'stop' || ctrl.steering !== 0) startHoldRefresh();
+                // Command log
+                var label = axis === 'up'   ? '→ вперёд @ ' + ctrl.speed + '%'
+                          : axis === 'down' ? '→ назад @ '  + ctrl.speed + '%'
+                          : axis === 'left' ? '→ влево'
+                          :                   '→ вправо';
+                addCmdLogEntry(label);
             });
+
+            function releaseDebug(e) {
+                if (!debugHeld[axis]) return;
+                debugHeld[axis] = false;
+                applyDebugState();
+                var isNeutral = ctrl.direction === 'stop' && ctrl.steering === 0;
+                // Force-dispatch when returning to neutral (same rationale as keyup).
+                dispatchCommand(isNeutral);
+                if (isNeutral) stopHoldRefresh();
+            }
+
+            btn.addEventListener('pointerup',     releaseDebug);
+            btn.addEventListener('pointercancel', releaseDebug);
+        }
+
+        bindDebugButton('forward',  'up');
+        bindDebugButton('backward', 'down');
+        bindDebugButton('left',     'left');
+        bindDebugButton('right',    'right');
+
+        // ═══════════════════════════════════════════════════════════════════
+        // Unified control state & dispatch pipeline
+        // ═══════════════════════════════════════════════════════════════════
+
+        /** Shared driving state — all input sources write here. */
+        var ctrl = {
+            direction: 'stop',   // 'forward' | 'backward' | 'stop'
+            speed:     0,        // 0–100 (always positive; direction carries the sign)
+            steering:  0,        // –90 to +90
+            source:    'none',   // 'keyboard' | 'gamepad' | 'debug' | 'none'
+        };
+
+        /** Build the canonical socket payload from ctrl state. */
+        function buildPayload() {
+            return {
+                direction:      ctrl.direction,
+                speed:          ctrl.direction === 'forward'  ?  ctrl.speed
+                              : ctrl.direction === 'backward' ? -ctrl.speed
+                              : 0,
+                steering_angle: ctrl.steering,
+            };
+        }
+
+        /** Short fingerprint for change-detection / dedup. */
+        function sigOf(p) {
+            return p.direction + ':' + p.speed + ':' + p.steering_angle;
+        }
+
+        var lastEmittedSig   = '';
+        var holdRefreshTimer = null;
+        /**
+         * Hold-refresh rate: 10 Hz (100 ms).
+         * Purpose: RC hardware may need a continuous stream of commands to keep
+         * moving rather than a one-shot command.  10 Hz is a safe keepalive cadence:
+         *   • Comfortably under the backend rate-limit (CONTROL_RATE_LIMIT_MAX = 20/s).
+         *   • Immediate-send-on-change is still the primary path for all transitions.
+         *   • Hold-refresh only fires while a non-neutral input is held steady.
+         */
+        var HOLD_REFRESH_MS  = 100;
+
+        /** Start periodic re-emit while an input is held (keeps car alive). */
+        function startHoldRefresh() {
+            if (holdRefreshTimer) return;
+            holdRefreshTimer = setInterval(function () {
+                if (ctrl.direction !== 'stop' || ctrl.steering !== 0) {
+                    dispatchCommand(true); // force-emit for keepalive
+                } else {
+                    stopHoldRefresh();
+                }
+            }, HOLD_REFRESH_MS);
+        }
+
+        function stopHoldRefresh() {
+            if (holdRefreshTimer) {
+                clearInterval(holdRefreshTimer);
+                holdRefreshTimer = null;
+            }
+        }
+
+        /** Sync HUD / telemetry to current ctrl state. */
+        function syncHud() {
+            var displaySpeed = ctrl.direction !== 'stop' ? ctrl.speed : 0;
+            updateHudSpeed(displaySpeed);
+            var teleSpeed = document.getElementById('tele-speed');
+            if (teleSpeed) teleSpeed.textContent = displaySpeed + '%';
+            updateButtonHighlights();
             updateInputViz();
         }
 
-        function sendKeyCommand() {
+        /**
+         * The ONE place socket.emit('control_command') is called.
+         * Deduplicates identical consecutive commands; emits immediately on change.
+         * @param {boolean} [force] — bypass dedup (e.g. safety stop, hold keepalive).
+         */
+        function dispatchCommand(force) {
+            if (!socket || !socket.connected) return;
+            var payload = buildPayload();
+            var sig = sigOf(payload);
+            if (!force && sig === lastEmittedSig) return;
+            lastEmittedSig = sig;
+            socket.emit('control_command', payload);
             resetInactivityCountdown();
-            var sig = '';
-            if (pressedKeys.has('ArrowUp')) sig += (sig ? ' + ' : '') + 'Вперёд';
-            if (pressedKeys.has('ArrowDown')) sig += (sig ? ' + ' : '') + 'Назад';
-            if (pressedKeys.has('ArrowLeft')) sig += (sig ? ' + ' : '') + 'Влево';
-            if (pressedKeys.has('ArrowRight')) sig += (sig ? ' + ' : '') + 'Вправо';
-            if (sig !== lastCommandSignature) {
-                lastCommandSignature = sig;
-                addCmdLogEntry('⌨️ ' + (sig || 'Стоп'));
+            syncHud();
+        }
+
+        /** Immediate safety stop — clears all input state and forces a stop command. */
+        function emitSafetyStop() {
+            pressedActions.clear();
+            ctrl.direction = 'stop';
+            ctrl.speed     = 0;
+            ctrl.steering  = 0;
+            ctrl.source    = 'none';
+            stopHoldRefresh();
+            // Reset gamepad's internal dedup tracking so the next poll re-sends
+            // whatever analog position the triggers are currently in.
+            if (window.GamepadController && typeof window.GamepadController.resetState === 'function') {
+                window.GamepadController.resetState();
             }
-            const speed = parseInt(speedSlider.value, 10);
-            const cmd = {};
-            if (pressedKeys.has('ArrowUp')) {
-                cmd.direction = 'forward';
-                cmd.speed = speed;
-            } else if (pressedKeys.has('ArrowDown')) {
-                cmd.direction = 'backward';
-                cmd.speed = -speed;
+            dispatchCommand(true);
+        }
+
+        // Expose for gamepad.js (which loads before control.js in the HTML).
+        // Accepts { direction, speed, steering, source } where:
+        //   speed    — always positive (0–100); direction carries the sign
+        //   steering — raw angle (–90 to +90); mapped to steering_angle in buildPayload()
+        window._controlDispatch = function (state) {
+            if (state.source    !== undefined) ctrl.source    = state.source;
+            if (state.direction !== undefined) ctrl.direction = state.direction;
+            if (state.speed     !== undefined) ctrl.speed     = state.speed;
+            if (state.steering  !== undefined) ctrl.steering  = state.steering;
+            dispatchCommand(false);
+        };
+
+        // ── Keyboard input ──────────────────────────────────────────────────────
+
+        /** Normalised set of logical actions for currently-held keys. */
+        var pressedActions = new Set();
+
+        /**
+         * Map raw key names → logical actions.
+         * Supports Arrow keys, WASD, and Space (brake/stop).
+         */
+        var KEY_ACTIONS = {
+            'ArrowUp':   'up',
+            'w': 'up',   'W': 'up',
+            'ArrowDown': 'down',
+            's': 'down', 'S': 'down',
+            'ArrowLeft': 'left',
+            'a': 'left', 'A': 'left',
+            'ArrowRight': 'right',
+            'd': 'right', 'D': 'right',
+            ' ': 'brake',
+        };
+
+        /** Recompute ctrl.direction / speed / steering from current pressedActions. */
+        function applyKeyboardState() {
+            var up    = pressedActions.has('up');
+            var down  = pressedActions.has('down');
+            var left  = pressedActions.has('left');
+            var right = pressedActions.has('right');
+            var brake = pressedActions.has('brake');
+
+            if (brake) {
+                ctrl.direction = 'stop';
+                ctrl.speed     = 0;
+            } else if (up) {
+                ctrl.direction = 'forward';
+                ctrl.speed     = parseInt(speedSlider.value, 10);
+            } else if (down) {
+                ctrl.direction = 'backward';
+                ctrl.speed     = parseInt(speedSlider.value, 10);
+            } else {
+                ctrl.direction = 'stop';
+                ctrl.speed     = 0;
             }
-            if (pressedKeys.has('ArrowLeft')) {
-                cmd.steering_angle = -30;
-            } else if (pressedKeys.has('ArrowRight')) {
-                cmd.steering_angle = 30;
-            }
-            if (Object.keys(cmd).length > 0) {
-                socket.emit('control_command', cmd);
-            }
-            // Sync speed to HUD and telemetry whenever a key command fires
-            const isMoving = pressedKeys.has('ArrowUp') || pressedKeys.has('ArrowDown');
-            updateHudSpeed(isMoving ? speed : 0);
-            const teleSpeed = document.getElementById('tele-speed');
-            if (teleSpeed) teleSpeed.textContent = (isMoving ? speed : 0) + '%';
+
+            ctrl.steering = (left && !right) ? -30 : (right && !left ? 30 : 0);
+            ctrl.source   = 'keyboard';
+        }
+
+        /** Highlight debug-panel buttons based on ctrl state. */
+        function updateButtonHighlights() {
+            var fwdBtn   = document.getElementById('forward');
+            var bwdBtn   = document.getElementById('backward');
+            var leftBtn  = document.getElementById('left');
+            var rightBtn = document.getElementById('right');
+            if (fwdBtn)  fwdBtn.classList.toggle('button-active',  ctrl.direction === 'forward');
+            if (bwdBtn)  bwdBtn.classList.toggle('button-active',  ctrl.direction === 'backward');
+            if (leftBtn) leftBtn.classList.toggle('button-active', ctrl.steering < -5);
+            if (rightBtn) rightBtn.classList.toggle('button-active', ctrl.steering > 5);
+        }
+
+        /** Update the HUD key-press visualisation (arrow grid). */
+        function updateInputViz() {
+            var hudUp    = document.getElementById('hud-key-up');
+            var hudDown  = document.getElementById('hud-key-down');
+            var hudLeft  = document.getElementById('hud-key-left');
+            var hudRight = document.getElementById('hud-key-right');
+            // Derive from canonical ctrl state so all input sources (keyboard,
+            // gamepad, debug buttons) are reflected in the HUD arrow grid.
+            if (hudUp)    hudUp.classList.toggle('active',    ctrl.direction === 'forward');
+            if (hudDown)  hudDown.classList.toggle('active',  ctrl.direction === 'backward');
+            if (hudLeft)  hudLeft.classList.toggle('active',  ctrl.steering < -5);
+            if (hudRight) hudRight.classList.toggle('active', ctrl.steering > 5);
         }
 
         document.addEventListener('keydown', function (e) {
-            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-                e.preventDefault();
-                if (!pressedKeys.has(e.key)) {
-                    pressedKeys.add(e.key);
-                    updateKeyButtonHighlights();
-                    sendKeyCommand();
-                    if (!keyControlInterval) {
-                        keyControlInterval = setInterval(sendKeyCommand, 100);
-                    }
-                }
+            var action = KEY_ACTIONS[e.key];
+            if (!action) return;
+            // Don't intercept keys when a text input is focused
+            var tag = document.activeElement && document.activeElement.tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+            e.preventDefault();
+            if (pressedActions.has(action)) return; // already held — ignore repeat
+            pressedActions.add(action);
+            applyKeyboardState();
+            dispatchCommand();
+            if (ctrl.direction !== 'stop' || ctrl.steering !== 0) startHoldRefresh();
+            // Log on first press of a new key combination
+            var label = '';
+            if (pressedActions.has('brake')) {
+                label = 'Стоп (пробел)';
+            } else {
+                if (pressedActions.has('up'))    label += (label ? ' + ' : '') + 'Вперёд';
+                if (pressedActions.has('down'))  label += (label ? ' + ' : '') + 'Назад';
+                if (pressedActions.has('left'))  label += (label ? ' + ' : '') + 'Влево';
+                if (pressedActions.has('right')) label += (label ? ' + ' : '') + 'Вправо';
+            }
+            if (label) {
+                var speedLabel = ctrl.speed ? ' @ ' + ctrl.speed + '%' : '';
+                addCmdLogEntry('⌨️ ' + label + speedLabel);
             }
         });
 
         document.addEventListener('keyup', function (e) {
-            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-                pressedKeys.delete(e.key);
-                updateKeyButtonHighlights();
-                if (pressedKeys.size === 0) {
-                    clearInterval(keyControlInterval);
-                    keyControlInterval = null;
-                    socket.emit('control_command', { direction: 'stop', speed: 0 });
-                    if (lastCommandSignature !== '') {
-                        lastCommandSignature = '';
-                        addCmdLogEntry('⌨️ Стоп');
-                    }
-                    updateHudSpeed(0);
-                    const teleSpeed = document.getElementById('tele-speed');
-                    if (teleSpeed) teleSpeed.textContent = '0%';
-                } else {
-                    sendKeyCommand();
-                }
+            var action = KEY_ACTIONS[e.key];
+            if (!action) return;
+            pressedActions.delete(action);
+            applyKeyboardState();
+            // Force-dispatch when returning to neutral so the stop always reaches
+            // the car, even if lastEmittedSig already holds 'stop:0:0' (e.g. after
+            // a safety stop or reconnect before this keyup fired).
+            var isNeutral = ctrl.direction === 'stop' && ctrl.steering === 0;
+            dispatchCommand(isNeutral);
+            if (isNeutral) {
+                stopHoldRefresh();
+                if (pressedActions.size === 0) addCmdLogEntry('⌨️ Стоп');
             }
+        });
+
+        // ── Safety stops ────────────────────────────────────────────────────────
+
+        // Stop on window blur (user alt-tabs or browser loses focus)
+        window.addEventListener('blur', emitSafetyStop);
+
+        // Stop when the tab is hidden (browser minimised, hidden, etc.)
+        document.addEventListener('visibilitychange', function () {
+            if (document.hidden) emitSafetyStop();
         });
 
         // --- Race / Multiplayer Logic ---

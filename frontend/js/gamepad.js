@@ -4,6 +4,7 @@
  * Self-contained: zero impact when no gamepad is connected.
  * Relies on globals exposed by control.js:
  *   window._controlSocket          — Socket.IO socket
+ *   window._controlDispatch(state) — unified control pipeline (preferred)
  *   window._addCmdLogEntry(text)   — append to command log
  *   window._resetInactivityCountdown() — reset inactivity timer
  */
@@ -13,7 +14,7 @@
     let gamepadIndex = null;
     let gamepadPollRAF = null;
     let lastCommandTime = 0;
-    const COMMAND_INTERVAL_MS = 66; // ~15 Hz
+    const COMMAND_INTERVAL_MS = 66; // ~15 Hz poll cadence
     const DEADZONE = 0.15;
     let lastSteering = 0;
     let lastSpeed = 0;
@@ -92,10 +93,10 @@
             speed = Math.round(rt * maxSpeed);
         } else if (lt > 0.05) {
             direction = 'backward';
-            speed = -Math.round(lt * maxSpeed);
+            speed = Math.round(lt * maxSpeed); // positive; direction carries the sign
         }
 
-        // Only send if something changed (with small threshold for analog)
+        // Only send if something meaningfully changed (suppresses analog jitter)
         const steeringChanged = Math.abs(steering - lastSteering) > 2;
         const speedChanged = Math.abs(speed - lastSpeed) > 2 || direction !== lastDirection;
 
@@ -106,48 +107,22 @@
         lastDirection = direction;
         lastCommandTime = now;
 
-        // Build command
-        const cmd = {};
-        if (direction !== 'stop' || speedChanged) {
-            cmd.direction = direction;
-            cmd.speed = speed;
-        }
-        if (steeringChanged) {
-            cmd.steering_angle = steering;
-        }
-
-        const socket = getSocket();
-        if (socket && Object.keys(cmd).length > 0) {
-            socket.emit('control_command', cmd);
+        // Route through unified pipeline (defined in control.js)
+        if (typeof window._controlDispatch === 'function') {
+            window._controlDispatch({ direction, speed, steering, source: 'gamepad' });
+        } else {
+            // Fallback: direct emit (e.g. if control.js loaded out of order)
+            const socket = getSocket();
+            if (socket) {
+                const cmd = { direction, speed: direction === 'backward' ? -speed : speed };
+                if (steeringChanged) cmd.steering_angle = steering;
+                socket.emit('control_command', cmd);
+            }
         }
 
-        // Reset inactivity
+        // Reset inactivity countdown
         if (typeof window._resetInactivityCountdown === 'function') {
             window._resetInactivityCountdown();
-        }
-
-        // Update button highlights
-        var fwdBtn = document.getElementById('forward');
-        var bwdBtn = document.getElementById('backward');
-        var leftBtn = document.getElementById('left');
-        var rightBtn = document.getElementById('right');
-        if (fwdBtn) fwdBtn.classList.toggle('button-active', direction === 'forward');
-        if (bwdBtn) bwdBtn.classList.toggle('button-active', direction === 'backward');
-        if (leftBtn) leftBtn.classList.toggle('button-active', steering < -10);
-        if (rightBtn) rightBtn.classList.toggle('button-active', steering > 10);
-
-        // Update speed telemetry
-        var teleSpeed = document.getElementById('tele-speed');
-        if (teleSpeed) teleSpeed.textContent = Math.abs(speed) + '%';
-        // Sync speed to immersive HUD display
-        var hudSpeedEl = document.getElementById('hud-speed-value');
-        if (hudSpeedEl) {
-            hudSpeedEl.textContent = Math.abs(speed);
-            if (speed !== 0) {
-                hudSpeedEl.classList.add('hud-speed-active');
-            } else {
-                hudSpeedEl.classList.remove('hud-speed-active');
-            }
         }
     }
 
@@ -156,5 +131,15 @@
 
     window.GamepadController = {
         isConnected: function () { return gamepadIndex !== null; },
+        /**
+         * Reset internal dedup state so the next poll re-sends the current
+         * analog values even if nothing "changed" from the gamepad's perspective.
+         * Called by control.js emitSafetyStop() after overwriting ctrl state.
+         */
+        resetState: function () {
+            lastSteering = 0;
+            lastSpeed    = 0;
+            lastDirection = 'stop';
+        },
     };
 }());
