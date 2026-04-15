@@ -1322,7 +1322,7 @@
                         toggleBtn.textContent = '🛠 Скрыть консоль';
                         toggleBtn.classList.add('panel-open');
                     } else {
-                        toggleBtn.textContent = '🛠 Operator Console';
+                        toggleBtn.textContent = '🛠 Консоль оператора';
                         toggleBtn.classList.remove('panel-open');
                     }
                 }
