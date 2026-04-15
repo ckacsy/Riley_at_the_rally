@@ -752,6 +752,9 @@
             source:    'none',   // 'keyboard' | 'gamepad' | 'debug' | 'none'
         };
 
+        // Seed the debug control-state readout immediately so it shows correct defaults.
+        if (_isDebugMode) updateDebugCtrlState();
+
         /** Build the canonical socket payload from ctrl state. */
         function buildPayload() {
             return {
@@ -1296,21 +1299,12 @@
             });
         }());
 
-        // ── Debug panel close button ──
-        (function () {
-            var closeBtn = document.getElementById('debug-panel-close');
-            if (!closeBtn) return;
-            closeBtn.addEventListener('click', function () {
-                var panel = document.getElementById('debug-panel');
-                if (panel) panel.hidden = true;
-            });
-        }());
-
-        // ── Debug panel toggle button + backtick hotkey (debug mode only) ──
+        // ── Debug panel toggle button, close button, and backtick hotkey (debug mode only) ──
         if (_isDebugMode) {
             (function () {
-                var panel      = document.getElementById('debug-panel');
-                var toggleBtn  = document.getElementById('debug-panel-toggle');
+                var panel     = document.getElementById('debug-panel');
+                var toggleBtn = document.getElementById('debug-panel-toggle');
+                var closeBtn  = document.getElementById('debug-panel-close');
 
                 function isPanelOpen() {
                     return panel && !panel.hidden;
@@ -1327,15 +1321,25 @@
                     }
                 }
 
-                function togglePanel() {
+                function openPanel() {
                     if (!panel) return;
-                    panel.hidden = !panel.hidden;
+                    panel.hidden = false;
                     syncToggleBtn();
                 }
 
-                if (toggleBtn) {
-                    toggleBtn.addEventListener('click', togglePanel);
+                function closePanel() {
+                    if (!panel) return;
+                    panel.hidden = true;
+                    syncToggleBtn();
                 }
+
+                function togglePanel() {
+                    if (isPanelOpen()) { closePanel(); } else { openPanel(); }
+                }
+
+                if (toggleBtn) toggleBtn.addEventListener('click', togglePanel);
+                // Close button: hide panel AND sync the toggle button label
+                if (closeBtn)  closeBtn.addEventListener('click', closePanel);
 
                 // Backtick (`) hotkey — toggle debug panel
                 document.addEventListener('keydown', function (e) {
