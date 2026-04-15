@@ -6,6 +6,21 @@
             if (_debugPanel) _debugPanel.hidden = false;
         }
 
+        // ── HUD mode status helper (used by race/duel to reflect current mode) ──
+        function setHudModeStatus(text) {
+            var el = document.getElementById('hud-mode-status');
+            if (!el) return;
+            el.textContent = text || '';
+        }
+
+        // Expose for duel-ui.js (loaded later)
+        window._setHudModeStatus = setHudModeStatus;
+
+        // Seed debug indicator immediately if debug mode is active
+        if (_isDebugMode) {
+            setHudModeStatus('🛠 DEBUG');
+        }
+
         // Read activeSession from sessionStorage, returning null if missing or invalid
         function getActiveSession() {
             try {
@@ -781,6 +796,7 @@
             showRaceUI(true);
             renderPositions(data.players);
             loadLeaderboard();
+            setHudModeStatus('🏁 ' + data.raceName);
         });
 
         socket.on('race_updated', function (data) {
@@ -800,6 +816,7 @@
             resetRaceUiState();
             showRaceUI(false);
             loadActiveRaces();
+            setHudModeStatus(_isDebugMode ? '🛠 DEBUG' : '');
         });
 
         socket.on('lap_started', function (data) {
@@ -939,3 +956,51 @@
                 if (panel) panel.hidden = true;
             });
         }());
+
+        // ── Debug panel toggle button + backtick hotkey (debug mode only) ──
+        if (_isDebugMode) {
+            (function () {
+                var panel      = document.getElementById('debug-panel');
+                var toggleBtn  = document.getElementById('debug-panel-toggle');
+
+                function isPanelOpen() {
+                    return panel && !panel.hidden;
+                }
+
+                function syncToggleBtn() {
+                    if (!toggleBtn) return;
+                    if (isPanelOpen()) {
+                        toggleBtn.textContent = '🛠 Скрыть отладку';
+                        toggleBtn.classList.add('panel-open');
+                    } else {
+                        toggleBtn.textContent = '🛠 Отладка';
+                        toggleBtn.classList.remove('panel-open');
+                    }
+                }
+
+                function togglePanel() {
+                    if (!panel) return;
+                    panel.hidden = !panel.hidden;
+                    syncToggleBtn();
+                }
+
+                if (toggleBtn) {
+                    toggleBtn.addEventListener('click', togglePanel);
+                }
+
+                // Backtick (`) hotkey — toggle debug panel
+                document.addEventListener('keydown', function (e) {
+                    if (e.key === '`' || e.key === 'Backquote') {
+                        // Don't trigger if focus is on a text input
+                        var tag = document.activeElement && document.activeElement.tagName;
+                        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+                        e.preventDefault();
+                        togglePanel();
+                    }
+                });
+
+                // Initial sync
+                syncToggleBtn();
+            }());
+        }
+
