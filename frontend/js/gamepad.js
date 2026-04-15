@@ -139,6 +139,16 @@
         // Update speed telemetry
         var teleSpeed = document.getElementById('tele-speed');
         if (teleSpeed) teleSpeed.textContent = Math.abs(speed) + '%';
+        // Sync speed to immersive HUD display
+        var hudSpeedEl = document.getElementById('hud-speed-value');
+        if (hudSpeedEl) {
+            hudSpeedEl.textContent = Math.abs(speed);
+            if (speed !== 0) {
+                hudSpeedEl.classList.add('hud-speed-active');
+            } else {
+                hudSpeedEl.classList.remove('hud-speed-active');
+            }
+        }
     }
 
     window.addEventListener('gamepadconnected', onGamepadConnected);
