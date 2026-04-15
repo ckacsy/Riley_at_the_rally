@@ -19,6 +19,7 @@
 
         var _controlChatUser = null;
         var _chatInputPlaceholder = chatInputEl.placeholder;
+        var _rateLimitTimer = null;
         fetch('/api/auth/me').then(function (r) {
             return r.ok ? r.json() : null;
         }).then(function (data) {
@@ -35,6 +36,7 @@
         function closeDrawer() {
             document.body.setAttribute('data-chat-open', 'false');
             drawer.setAttribute('aria-hidden', 'true');
+            toggleBtn.focus();
         }
 
         toggleBtn.addEventListener('click', function () {
@@ -176,13 +178,15 @@
 
         socket.on('chat:error', function (err) {
             if (err && err.code === 'rate_limited') {
+                if (_rateLimitTimer) clearTimeout(_rateLimitTimer);
                 chatInputEl.disabled = true;
                 chatSendBtnEl.disabled = true;
                 chatInputEl.placeholder = 'Подождите…';
-                setTimeout(function () {
+                _rateLimitTimer = setTimeout(function () {
                     chatInputEl.disabled = false;
                     chatSendBtnEl.disabled = false;
                     chatInputEl.placeholder = _chatInputPlaceholder;
+                    _rateLimitTimer = null;
                 }, 1500);
             }
         });

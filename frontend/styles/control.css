@@ -584,7 +584,7 @@ body[data-chat-open="true"] #chat-drawer {
 .chat-drawer-title {
     font-size: 11px;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.45);
+    color: rgba(255, 255, 255, 0.55);
     letter-spacing: 0.1em;
     text-transform: uppercase;
 }
@@ -592,7 +592,7 @@ body[data-chat-open="true"] #chat-drawer {
 .chat-drawer-close {
     background: none;
     border: none;
-    color: rgba(255, 255, 255, 0.28);
+    color: rgba(255, 255, 255, 0.38);
     font-size: 18px;
     cursor: pointer;
     line-height: 1;
@@ -612,14 +612,14 @@ body[data-chat-open="true"] #chat-drawer {
     padding: 10px 12px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 5px;
     scroll-behavior: smooth;
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
 }
 
 .chat-msg {
-    font-size: 12.5px;
+    font-size: 13px;
     line-height: 1.45;
     word-break: break-word;
     padding: 2px 0;
@@ -644,10 +644,9 @@ body[data-chat-open="true"] #chat-drawer {
 }
 
 .chat-msg .chat-msg-time {
-    color: var(--text-secondary);
+    color: rgba(255, 255, 255, 0.32);
     font-size: 10px;
     margin-left: 4px;
-    opacity: 0.38;
     font-variant-numeric: tabular-nums;
 }
 
@@ -656,7 +655,7 @@ body[data-chat-open="true"] #chat-drawer {
     border: none;
     cursor: pointer;
     font-size: 11px;
-    opacity: 0.3;
+    opacity: 0.35;
     padding: 0 2px;
     margin-left: 3px;
     vertical-align: middle;
@@ -669,8 +668,8 @@ body[data-chat-open="true"] #chat-drawer {
 }
 
 .chat-empty {
-    color: rgba(255, 255, 255, 0.22);
-    font-size: 11.5px;
+    color: rgba(255, 255, 255, 0.3);
+    font-size: 12px;
     font-style: italic;
     text-align: center;
     padding: 24px 0 8px;
@@ -678,7 +677,6 @@ body[data-chat-open="true"] #chat-drawer {
 }
 
 .chat-jump-btn {
-    display: none;
     position: absolute;
     bottom: 60px;
     right: 12px;
@@ -692,7 +690,9 @@ body[data-chat-open="true"] #chat-drawer {
     z-index: 5;
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
-    transition: background 0.15s, color 0.15s;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease, background 0.15s, color 0.15s;
     letter-spacing: 0.03em;
 }
 
@@ -701,7 +701,10 @@ body[data-chat-open="true"] #chat-drawer {
     color: rgba(255, 255, 255, 0.9);
 }
 
-.chat-jump-btn.visible { display: block; }
+.chat-jump-btn.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
 
 .chat-input-row {
     display: flex;
@@ -717,7 +720,7 @@ body[data-chat-open="true"] #chat-drawer {
     border: 1px solid rgba(255, 255, 255, 0.09);
     border-radius: 6px;
     color: rgba(255, 255, 255, 0.85);
-    font-size: 12.5px;
+    font-size: 13px;
     padding: 6px 9px;
     outline: none;
     transition: border-color 0.15s;
