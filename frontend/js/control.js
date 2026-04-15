@@ -110,7 +110,7 @@
                 document.getElementById(id).disabled = true;
             });
             document.getElementById('end-rental').disabled = true;
-            document.getElementById('session-inactive-msg').style.display = 'block';
+            document.getElementById('session-inactive-msg').style.display = 'flex';
         }
 
         // If no active session, redirect to garage
@@ -1255,7 +1255,6 @@
         // Load races for the join dropdown initially
         loadActiveRaces();
         loadLeaderboard();
-        // Bug 4: Update race list instantly via socket instead of polling
         socket.on('races_updated', function () {
             if (!currentRaceId) loadActiveRaces();
         });

@@ -1,5 +1,5 @@
 /* =============================================================
-   Control Page — Immersive Racing HUD Layout (PR 1 Foundation)
+   Control Page — Immersive Racing HUD
    ============================================================= */
 
 /* ── 1. Base: fullscreen body ── */
@@ -1237,10 +1237,6 @@ body.debug-mode .debug-panel-toggle.panel-open {
     justify-content: center;
     flex-direction: column;
     gap: 12px;
-}
-
-.session-inactive-msg[style*="display: block"] {
-    display: flex !important;
 }
 
 .session-inactive-msg a {

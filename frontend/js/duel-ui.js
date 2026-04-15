@@ -606,12 +606,12 @@
             .then(function (data) {
                 if (!data) return;
                 var s = data.status;
+                var opp = data.opponent || null;
                 if (s === 'searching') {
                     _setState('searching');
                     _setStatusText('🔍 Поиск соперника…');
                 } else if (s === 'ready_pending') {
                     // Restore opponent context if the API returned it
-                    var opp = data.opponent || null;
                     if (opp) {
                         _opponentName     = opp.username || '—';
                         _opponentRankHtml = renderOpponentBadge(opp);
@@ -638,7 +638,6 @@
                 } else if (s === 'in_progress' || s === 'countdown') {
                     // Treat countdown as in_progress on restore: the 3s window is too short
                     // to reconstruct the countdown UI, so go straight to active racing state.
-                    var opp = data.opponent || null;
                     if (opp) {
                         _opponentName     = opp.username || '—';
                         _opponentRankHtml = renderOpponentBadge(opp);
