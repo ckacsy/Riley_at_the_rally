@@ -1589,7 +1589,7 @@ body.session-active {
    DUEL COUNTDOWN OVERLAY (3-2-1-СТАРТ! fullscreen sequence)
 ───────────────────────────────────────────────────────────── */
 .duel-countdown-overlay {
-    position: absolute;
+    position: fixed;
     inset: 0;
     z-index: 9999;
     display: flex;
