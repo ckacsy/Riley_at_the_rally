@@ -24,10 +24,13 @@
             if (!widget) return;
             if (raceName) {
                 if (nameEl) nameEl.textContent = raceName;
-                if (posEl)  posEl.textContent  = posText || '';
+                var pos = posText || '';
+                if (posEl)  posEl.textContent = pos;
+                widget.classList.toggle('has-sub', !!pos);
                 widget.hidden = false;
             } else {
                 widget.hidden = true;
+                widget.classList.remove('has-sub');
             }
         }
 
@@ -39,10 +42,16 @@
             if (!widget) return;
             if (oppName) {
                 if (oppEl) oppEl.textContent = oppName;
-                if (subEl) subEl.textContent = statusText || '';
+                var sub = statusText || '';
+                if (subEl) subEl.textContent = sub;
+                widget.classList.toggle('has-sub', !!sub);
                 widget.hidden = false;
             } else {
                 widget.hidden = true;
+                widget.classList.remove('has-sub');
+                // Reset to default placeholder so stale text can't reappear
+                if (oppEl) oppEl.textContent = '—';
+                if (subEl) subEl.textContent = '';
             }
         }
 
@@ -431,22 +440,9 @@
                 socket.volatile.emit('ping_check', function () {
                     const latency = Date.now() - start;
                     const pingEl = document.getElementById('tele-ping');
-                    const qualityEl = document.getElementById('tele-quality');
                     if (pingEl) {
                         pingEl.textContent = latency + ' мс';
                         pingEl.className = 'telemetry-value ' + (latency < 50 ? 'good' : latency < 150 ? 'warn' : 'bad');
-                    }
-                    if (qualityEl) {
-                        if (latency < 50) {
-                            qualityEl.textContent = 'Отлично';
-                            qualityEl.className = 'telemetry-value good';
-                        } else if (latency < 150) {
-                            qualityEl.textContent = 'Хорошо';
-                            qualityEl.className = 'telemetry-value warn';
-                        } else {
-                            qualityEl.textContent = 'Плохо';
-                            qualityEl.className = 'telemetry-value bad';
-                        }
                     }
                 });
             }, 3000);
@@ -486,9 +482,7 @@
             clearInterval(pingInterval);
             pingInterval = null;
             const pingEl = document.getElementById('tele-ping');
-            const qualityEl = document.getElementById('tele-quality');
             if (pingEl) { pingEl.textContent = '—'; pingEl.className = 'telemetry-value'; }
-            if (qualityEl) { qualityEl.textContent = '—'; qualityEl.className = 'telemetry-value'; }
             // Pause keepalive while offline — commands would be silently dropped otherwise.
             stopHoldRefresh();
         });
@@ -716,7 +710,7 @@
         function syncHud() {
             var displaySpeed = ctrl.direction === 'forward'  ?  ctrl.speed
                              : ctrl.direction === 'backward' ? -ctrl.speed
-                             : 0;
+                             :                                  0;
             updateHudSpeed(displaySpeed);
             var teleSpeed = document.getElementById('tele-speed');
             if (teleSpeed) teleSpeed.textContent = Math.abs(displaySpeed) + '%';
@@ -924,16 +918,23 @@
             lapDisplayInterval = null;
             var flashEl = document.getElementById('lap-flash');
             if (flashEl) { clearTimeout(flashEl._timeout); flashEl.textContent = ''; }
+            // Hide the compact race HUD widget so it never lingers after reset
+            updateHudRaceWidget(null);
         }
 
-        function renderPositions(players) {
-            // Sort by lapCount desc, then bestLapTime asc
-            const sorted = players.slice().sort(function (a, b) {
+        /** Sort race players by position: lapCount desc, then bestLapTime asc. */
+        function sortPlayersByPosition(players) {
+            return players.slice().sort(function (a, b) {
                 if (b.lapCount !== a.lapCount) return b.lapCount - a.lapCount;
                 if (!a.bestLapTime) return 1;
                 if (!b.bestLapTime) return -1;
                 return a.bestLapTime - b.bestLapTime;
             });
+        }
+
+        function renderPositions(players) {
+            // Sort by lapCount desc, then bestLapTime asc
+            const sorted = sortPlayersByPosition(players);
             const tbody = document.getElementById('positions-body');
             tbody.innerHTML = sorted.map(function (p, i) {
                 const isMe = p.socketId === socket.id;
@@ -1047,12 +1048,7 @@
             renderPositions(data.players);
             // Update compact race widget with current position
             var myPos = 0;
-            var sorted = data.players.slice().sort(function (a, b) {
-                if (b.lapCount !== a.lapCount) return b.lapCount - a.lapCount;
-                if (!a.bestLapTime) return 1;
-                if (!b.bestLapTime) return -1;
-                return a.bestLapTime - b.bestLapTime;
-            });
+            var sorted = sortPlayersByPosition(data.players);
             for (var i = 0; i < sorted.length; i++) {
                 if (sorted[i].socketId === socket.id) { myPos = i + 1; break; }
             }

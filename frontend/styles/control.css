@@ -152,26 +152,26 @@ html, body {
 .hud-bottom-left {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 6px;
     min-width: 120px;
-    max-width: 180px;
+    max-width: 190px;
     align-items: flex-start;
 }
 
 .hud-session-timer {
-    font-size: 12px;
-    font-weight: 600;
-    color: rgba(255, 255, 255, 0.38);
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.28);
     font-variant-numeric: tabular-nums;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
 }
 
+/* Mode/debug status — lowest visual weight in the cluster */
 .hud-mode-status {
-    font-size: 11px;
-    color: rgba(255, 255, 255, 0.5);
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.3);
     letter-spacing: 0.04em;
-    min-height: 14px;
 }
 
 /* ── Compact contextual HUD status widgets (race / duel) ── */
@@ -180,42 +180,50 @@ html, body {
     align-items: center;
     gap: 5px;
     font-size: 11px;
-    color: rgba(255, 255, 255, 0.88);
-    background: rgba(0, 0, 0, 0.42);
-    border: 1px solid rgba(255, 255, 255, 0.13);
+    color: rgba(255, 255, 255, 0.9);
+    background: rgba(0, 0, 0, 0.48);
+    border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 8px;
-    padding: 4px 9px;
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    transition: opacity 0.3s;
+    padding: 4px 10px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     pointer-events: none;
     user-select: none;
     white-space: nowrap;
-    max-width: 172px;
+    max-width: 190px;
 }
 
 .hud-ctx-widget[hidden] { display: none; }
 
-.hud-ctx-icon { font-size: 12px; flex-shrink: 0; }
+.hud-ctx-icon { font-size: 11px; flex-shrink: 0; }
 
 .hud-ctx-label {
     font-weight: 700;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.03em;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    max-width: 90px;
+    max-width: 108px;
 }
 
+/* Separator is hidden by default; shown only when there is a sub-status */
 .hud-ctx-sep {
-    opacity: 0.35;
+    opacity: 0;
     flex-shrink: 0;
+    font-size: 10px;
+    transition: opacity 0.2s;
+}
+
+.hud-ctx-widget.has-sub .hud-ctx-sep {
+    opacity: 0.3;
 }
 
 .hud-ctx-sub {
-    color: rgba(255, 255, 255, 0.58);
+    color: rgba(255, 255, 255, 0.55);
     font-size: 10px;
+    font-weight: 500;
     flex-shrink: 0;
+    letter-spacing: 0.04em;
 }
 
 /* Bottom-center: prominent SPEED display */
@@ -231,50 +239,53 @@ html, body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0;
+    gap: 4px;
 }
 
-.hud-speed-header {
+/* Number row: direction badge | big number | unit — all baseline-aligned */
+.hud-speed-num-row {
     display: flex;
-    align-items: center;
-    gap: 7px;
-    margin-bottom: -4px;
-    opacity: 0.5;
-    transition: opacity 0.3s;
+    align-items: baseline;
+    gap: 4px;
+    line-height: 1;
 }
 
-.hud-speed-frame.speed-active .hud-speed-header {
-    opacity: 0.9;
+/* Small footer label below the number — very subtle, centered */
+.hud-speed-footer {
+    display: flex;
+    justify-content: center;
+    opacity: 0.3;
+    transition: opacity 0.35s;
+}
+
+.hud-speed-frame.speed-active .hud-speed-footer {
+    opacity: 0.7;
 }
 
 .hud-speed-label {
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
-    letter-spacing: 0.22em;
-    color: rgba(255, 255, 255, 0.8);
+    letter-spacing: 0.28em;
+    color: #ffffff;
     text-transform: uppercase;
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
 }
 
+/* Direction badge: small inline accent to the LEFT of the number */
 .hud-speed-dir {
-    font-size: 11px;
-    color: rgba(255, 255, 255, 0.4);
-    transition: color 0.2s;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.25);
+    transition: color 0.22s ease;
     line-height: 1;
+    /* Sits at baseline — a small subscript-style accent beside the big number */
 }
 
 .hud-speed-frame.dir-forward .hud-speed-dir {
-    color: #64b5f6;
+    color: rgba(100, 181, 246, 0.9);
 }
 
 .hud-speed-frame.dir-backward .hud-speed-dir {
-    color: rgba(255, 152, 0, 0.9);
-}
-
-.hud-speed-num-row {
-    display: flex;
-    align-items: baseline;
-    gap: 5px;
+    color: rgba(255, 152, 0, 0.85);
 }
 
 .hud-speed-value {
@@ -285,25 +296,31 @@ html, body {
     line-height: 1;
     letter-spacing: -0.02em;
     text-shadow:
-        0 2px 24px rgba(0, 0, 0, 0.95),
-        0 0 50px rgba(100, 181, 246, 0.18);
-    transition: color 0.2s, text-shadow 0.25s;
+        0 2px 20px rgba(0, 0, 0, 0.98),
+        0 0 40px rgba(100, 181, 246, 0.12);
+    transition: color 0.22s ease, text-shadow 0.28s ease;
 }
 
 .hud-speed-value.hud-speed-active {
-    color: #e8f4fd;
+    color: #edf5fe;
     text-shadow:
-        0 2px 24px rgba(0, 0, 0, 0.95),
-        0 0 70px rgba(100, 181, 246, 0.6),
-        0 0 130px rgba(100, 181, 246, 0.22);
+        0 2px 20px rgba(0, 0, 0, 0.98),
+        0 0 55px rgba(100, 181, 246, 0.55),
+        0 0 100px rgba(100, 181, 246, 0.18);
+}
+
+.hud-speed-frame.dir-backward .hud-speed-value {
+    text-shadow:
+        0 2px 20px rgba(0, 0, 0, 0.98),
+        0 0 45px rgba(255, 152, 0, 0.35);
 }
 
 .hud-speed-unit {
-    font-size: 22px;
+    font-size: 20px;
     font-weight: 700;
-    color: rgba(255, 255, 255, 0.4);
-    margin-bottom: 10px;
+    color: rgba(255, 255, 255, 0.35);
     letter-spacing: 0.04em;
+    /* Stays at baseline — naturally aligned with the large number */
 }
 
 /* Bottom-right: input visualization + end-rental */
@@ -329,23 +346,23 @@ html, body {
 .hud-key {
     width: 34px;
     height: 34px;
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    border-radius: 8px;
-    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 9px;
+    background: rgba(0, 0, 0, 0.35);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 13px;
-    color: rgba(255, 255, 255, 0.22);
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.14);
     backdrop-filter: blur(4px);
-    transition: background 0.08s, color 0.08s, border-color 0.08s, box-shadow 0.08s;
+    transition: background 0.1s, color 0.1s, border-color 0.1s, box-shadow 0.1s;
 }
 
 .hud-key.active {
-    background: rgba(100, 181, 246, 0.38);
-    border-color: rgba(100, 181, 246, 0.75);
-    color: #ffffff;
-    box-shadow: 0 0 14px rgba(100, 181, 246, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    background: rgba(100, 181, 246, 0.28);
+    border-color: rgba(100, 181, 246, 0.65);
+    color: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 0 12px rgba(100, 181, 246, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 .hud-key-up    { grid-area: up; }
