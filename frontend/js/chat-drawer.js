@@ -18,6 +18,7 @@
         var chatJumpBtnEl = document.getElementById('chat-jump-btn');
 
         var _controlChatUser = null;
+        var _chatInputPlaceholder = chatInputEl.placeholder;
         fetch('/api/auth/me').then(function (r) {
             return r.ok ? r.json() : null;
         }).then(function (data) {
@@ -27,6 +28,7 @@
         function openDrawer() {
             document.body.setAttribute('data-chat-open', 'true');
             drawer.setAttribute('aria-hidden', 'false');
+            scrollToBottom();
             chatInputEl.focus();
         }
 
@@ -49,7 +51,7 @@
         });
 
         function isScrolledToBottom() {
-            return chatMessagesEl.scrollHeight - chatMessagesEl.scrollTop - chatMessagesEl.clientHeight < 40;
+            return chatMessagesEl.scrollHeight - chatMessagesEl.scrollTop - chatMessagesEl.clientHeight < 60;
         }
 
         function scrollToBottom() {
@@ -176,10 +178,11 @@
             if (err && err.code === 'rate_limited') {
                 chatInputEl.disabled = true;
                 chatSendBtnEl.disabled = true;
+                chatInputEl.placeholder = 'Подождите…';
                 setTimeout(function () {
                     chatInputEl.disabled = false;
                     chatSendBtnEl.disabled = false;
-                    chatInputEl.focus();
+                    chatInputEl.placeholder = _chatInputPlaceholder;
                 }, 1500);
             }
         });
