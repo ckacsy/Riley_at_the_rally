@@ -878,6 +878,21 @@ body.debug-mode .drawer-toggle-left::after {
     color: rgba(255, 204, 0, 0.38);
     letter-spacing: 0.04em;
     font-family: monospace;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.debug-kbd {
+    display: inline-block;
+    font-size: 9px;
+    font-family: monospace;
+    color: rgba(255, 204, 0, 0.7);
+    background: rgba(255, 204, 0, 0.08);
+    border: 1px solid rgba(255, 204, 0, 0.2);
+    border-radius: 3px;
+    padding: 1px 4px;
+    line-height: 1.4;
 }
 
 /* ── Debug two-column grid (Control State + Telemetry) ── */

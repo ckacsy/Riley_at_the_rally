@@ -367,6 +367,14 @@
         const MAX_CMD_LOG = 5;
         const cmdLogEntries = [];
 
+        // Source labels for debug control state readout — defined once, used in updateDebugCtrlState()
+        var DEBUG_SOURCE_LABELS = {
+            keyboard: '⌨️ клавиатура',
+            gamepad:  '🎮 геймпад',
+            debug:    '🖱 кнопки',
+            none:     '— нет',
+        };
+
         function addCmdLogEntry(text) {
             const logEl = document.getElementById('cmd-log');
             if (!logEl) return;
@@ -443,7 +451,7 @@
             var strEl  = document.getElementById('dcs-steering');
             if (!srcEl) return; // panel not in DOM
             // Source
-            var srcLabels = { keyboard: '⌨️ клавиатура', gamepad: '🎮 геймпад', debug: '🖱 кнопки', none: '— нет' };
+            var srcLabels = DEBUG_SOURCE_LABELS;
             srcEl.textContent = srcLabels[ctrl.source] || ctrl.source;
             // Direction
             if (ctrl.direction === 'forward') {
@@ -733,8 +741,7 @@
             if (!stopBtn) return;
             stopBtn.addEventListener('click', function () {
                 // Reset all held debug states so a subsequent hold re-registers cleanly
-                debugHeld.up = false; debugHeld.down = false;
-                debugHeld.left = false; debugHeld.right = false;
+                Object.keys(debugHeld).forEach(function (k) { debugHeld[k] = false; });
                 emitSafetyStop();
                 addCmdLogEntry('🛑 Стоп (кнопка)');
             });
