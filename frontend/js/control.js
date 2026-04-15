@@ -16,6 +16,39 @@
         // Expose for duel-ui.js (loaded later)
         window._setHudModeStatus = setHudModeStatus;
 
+        // ── Compact race HUD widget ──
+        function updateHudRaceWidget(raceName, posText) {
+            var widget  = document.getElementById('hud-race-widget');
+            var nameEl  = document.getElementById('hud-race-name');
+            var posEl   = document.getElementById('hud-race-pos');
+            if (!widget) return;
+            if (raceName) {
+                if (nameEl) nameEl.textContent = raceName;
+                if (posEl)  posEl.textContent  = posText || '';
+                widget.hidden = false;
+            } else {
+                widget.hidden = true;
+            }
+        }
+
+        // ── Compact duel HUD widget ──
+        function updateHudDuelWidget(oppName, statusText) {
+            var widget = document.getElementById('hud-duel-widget');
+            var oppEl  = document.getElementById('hud-duel-opp');
+            var subEl  = document.getElementById('hud-duel-sub');
+            if (!widget) return;
+            if (oppName) {
+                if (oppEl) oppEl.textContent = oppName;
+                if (subEl) subEl.textContent = statusText || '';
+                widget.hidden = false;
+            } else {
+                widget.hidden = true;
+            }
+        }
+
+        // Expose for duel-ui.js
+        window._setHudDuelWidget = updateHudDuelWidget;
+
         // Seed debug indicator immediately if debug mode is active
         if (_isDebugMode) {
             setHudModeStatus('🛠 DEBUG');
@@ -334,10 +367,20 @@
             const el = document.getElementById('hud-speed-value');
             if (!el) return;
             el.textContent = Math.abs(value);
+            const frameEl = document.getElementById('hud-speed-frame');
+            const dirEl   = document.getElementById('hud-speed-dir');
             if (value > 0) {
                 el.classList.add('hud-speed-active');
+                if (dirEl)   dirEl.textContent = '▲';
+                if (frameEl) { frameEl.classList.add('speed-active', 'dir-forward'); frameEl.classList.remove('dir-backward'); }
+            } else if (value < 0) {
+                el.classList.remove('hud-speed-active');
+                if (dirEl)   dirEl.textContent = '▼';
+                if (frameEl) { frameEl.classList.add('dir-backward'); frameEl.classList.remove('speed-active', 'dir-forward'); }
             } else {
                 el.classList.remove('hud-speed-active');
+                if (dirEl)   dirEl.textContent = '▶';
+                if (frameEl) { frameEl.classList.remove('speed-active', 'dir-forward', 'dir-backward'); }
             }
         }
 
@@ -671,10 +714,12 @@
 
         /** Sync HUD / telemetry to current ctrl state. */
         function syncHud() {
-            var displaySpeed = ctrl.direction !== 'stop' ? ctrl.speed : 0;
+            var displaySpeed = ctrl.direction === 'forward'  ?  ctrl.speed
+                             : ctrl.direction === 'backward' ? -ctrl.speed
+                             : 0;
             updateHudSpeed(displaySpeed);
             var teleSpeed = document.getElementById('tele-speed');
-            if (teleSpeed) teleSpeed.textContent = displaySpeed + '%';
+            if (teleSpeed) teleSpeed.textContent = Math.abs(displaySpeed) + '%';
             updateButtonHighlights();
             updateInputViz();
         }
@@ -986,7 +1031,8 @@
             showRaceUI(true);
             renderPositions(data.players);
             loadLeaderboard();
-            setHudModeStatus('🏁 ' + data.raceName);
+            setHudModeStatus('');
+            updateHudRaceWidget(data.raceName, '');
         });
 
         socket.on('race_updated', function (data) {
@@ -999,6 +1045,18 @@
             bar.appendChild(strong);
             bar.appendChild(document.createTextNode(' — ' + data.players.length + ' участник(ов)'));
             renderPositions(data.players);
+            // Update compact race widget with current position
+            var myPos = 0;
+            var sorted = data.players.slice().sort(function (a, b) {
+                if (b.lapCount !== a.lapCount) return b.lapCount - a.lapCount;
+                if (!a.bestLapTime) return 1;
+                if (!b.bestLapTime) return -1;
+                return a.bestLapTime - b.bestLapTime;
+            });
+            for (var i = 0; i < sorted.length; i++) {
+                if (sorted[i].socketId === socket.id) { myPos = i + 1; break; }
+            }
+            updateHudRaceWidget(data.raceName, myPos ? 'P' + myPos : '');
         });
 
         socket.on('race_left', function () {
@@ -1006,6 +1064,7 @@
             resetRaceUiState();
             showRaceUI(false);
             loadActiveRaces();
+            updateHudRaceWidget(null);
             setHudModeStatus(_isDebugMode ? '🛠 DEBUG' : '');
         });
 

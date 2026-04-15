@@ -75,10 +75,10 @@ html, body {
 }
 
 .hud-bottom {
-    background: linear-gradient(to top, rgba(0, 0, 0, 0.82) 0%, rgba(0, 0, 0, 0) 100%);
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.88) 0%, rgba(0, 0, 0, 0) 100%);
     justify-content: space-between;
     align-items: flex-end;
-    padding: 28px 20px 16px;
+    padding: 32px 20px 18px;
 }
 
 /* Top-left: car name + rank */
@@ -154,58 +154,154 @@ html, body {
     flex-direction: column;
     gap: 5px;
     min-width: 120px;
+    max-width: 180px;
     align-items: flex-start;
 }
 
 .hud-session-timer {
-    font-size: 14px;
-    font-weight: 700;
-    color: rgba(255, 255, 255, 0.45);
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.38);
     font-variant-numeric: tabular-nums;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
 }
 
 .hud-mode-status {
     font-size: 11px;
-    color: rgba(255, 255, 255, 0.6);
+    color: rgba(255, 255, 255, 0.5);
     letter-spacing: 0.04em;
     min-height: 14px;
+}
+
+/* ── Compact contextual HUD status widgets (race / duel) ── */
+.hud-ctx-widget {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.88);
+    background: rgba(0, 0, 0, 0.42);
+    border: 1px solid rgba(255, 255, 255, 0.13);
+    border-radius: 8px;
+    padding: 4px 9px;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    transition: opacity 0.3s;
+    pointer-events: none;
+    user-select: none;
+    white-space: nowrap;
+    max-width: 172px;
+}
+
+.hud-ctx-widget[hidden] { display: none; }
+
+.hud-ctx-icon { font-size: 12px; flex-shrink: 0; }
+
+.hud-ctx-label {
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 90px;
+}
+
+.hud-ctx-sep {
+    opacity: 0.35;
+    flex-shrink: 0;
+}
+
+.hud-ctx-sub {
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 10px;
+    flex-shrink: 0;
 }
 
 /* Bottom-center: prominent SPEED display */
 .hud-speed-area {
     display: flex;
-    align-items: baseline;
-    gap: 5px;
+    align-items: center;
+    justify-content: center;
     pointer-events: none;
     user-select: none;
 }
 
+.hud-speed-frame {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+}
+
+.hud-speed-header {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: -4px;
+    opacity: 0.5;
+    transition: opacity 0.3s;
+}
+
+.hud-speed-frame.speed-active .hud-speed-header {
+    opacity: 0.9;
+}
+
+.hud-speed-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    color: rgba(255, 255, 255, 0.8);
+    text-transform: uppercase;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+}
+
+.hud-speed-dir {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.4);
+    transition: color 0.2s;
+    line-height: 1;
+}
+
+.hud-speed-frame.dir-forward .hud-speed-dir {
+    color: #64b5f6;
+}
+
+.hud-speed-frame.dir-backward .hud-speed-dir {
+    color: rgba(255, 152, 0, 0.9);
+}
+
+.hud-speed-num-row {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+}
+
 .hud-speed-value {
-    font-size: 80px;
+    font-size: 96px;
     font-weight: 900;
     color: #ffffff;
     font-variant-numeric: tabular-nums;
     line-height: 1;
     letter-spacing: -0.02em;
     text-shadow:
-        0 2px 20px rgba(0, 0, 0, 0.9),
-        0 0 40px rgba(100, 181, 246, 0.25);
-    transition: color 0.2s;
+        0 2px 24px rgba(0, 0, 0, 0.95),
+        0 0 50px rgba(100, 181, 246, 0.18);
+    transition: color 0.2s, text-shadow 0.25s;
 }
 
 .hud-speed-value.hud-speed-active {
-    color: #64b5f6;
+    color: #e8f4fd;
     text-shadow:
-        0 2px 20px rgba(0, 0, 0, 0.9),
-        0 0 40px rgba(100, 181, 246, 0.5);
+        0 2px 24px rgba(0, 0, 0, 0.95),
+        0 0 70px rgba(100, 181, 246, 0.6),
+        0 0 130px rgba(100, 181, 246, 0.22);
 }
 
 .hud-speed-unit {
     font-size: 22px;
     font-weight: 700;
-    color: rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.4);
     margin-bottom: 10px;
     letter-spacing: 0.04em;
 }
@@ -226,30 +322,30 @@ html, body {
         ". up ."
         "left . right"
         ". down .";
-    gap: 3px;
+    gap: 4px;
     pointer-events: none;
 }
 
 .hud-key {
-    width: 30px;
-    height: 30px;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    border-radius: 6px;
-    background: rgba(0, 0, 0, 0.45);
+    width: 34px;
+    height: 34px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.5);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.3);
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.22);
     backdrop-filter: blur(4px);
     transition: background 0.08s, color 0.08s, border-color 0.08s, box-shadow 0.08s;
 }
 
 .hud-key.active {
-    background: rgba(100, 181, 246, 0.45);
-    border-color: rgba(100, 181, 246, 0.8);
+    background: rgba(100, 181, 246, 0.38);
+    border-color: rgba(100, 181, 246, 0.75);
     color: #ffffff;
-    box-shadow: 0 0 10px rgba(100, 181, 246, 0.5);
+    box-shadow: 0 0 14px rgba(100, 181, 246, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 .hud-key-up    { grid-area: up; }

@@ -89,6 +89,7 @@
     var _hasActiveSession = false;
     var _duelState = 'idle'; // idle | searching | ready_pending | countdown | in_progress | result
     var _countdownInterval = null;
+    var _opponentName = null; // tracked for HUD widget
 
     // -------------------------------------------------------------------------
     // DOM references (set in init)
@@ -161,6 +162,22 @@
         if (_resultCard) {
             _resultCard.style.display = isResult ? 'block' : 'none';
         }
+
+        // ── Update compact duel HUD widget ──
+        if (typeof window._setHudDuelWidget === 'function') {
+            if (isSearching) {
+                window._setHudDuelWidget('Поиск…', '');
+            } else if (state === 'ready_pending') {
+                window._setHudDuelWidget(_opponentName || '⚔️', 'Готовность');
+            } else if (state === 'countdown' || state === 'in_progress') {
+                window._setHudDuelWidget(_opponentName || '⚔️', state === 'in_progress' ? 'ГОНКА' : 'СТАРТ');
+            } else if (isIdle || isResult) {
+                window._setHudDuelWidget(null);
+            }
+        }
+
+        // Clear cached opponent when returning to idle
+        if (isIdle) _opponentName = null;
 
         // ── Update HUD mode status ──
         if (typeof window._setHudModeStatus === 'function') {
@@ -252,6 +269,7 @@
 
         if (_matchCard) {
             var opponent = data.opponent || {};
+            _opponentName = opponent.username || '—';
             var checkpoints = data.requiredCheckpoints || 0;
             _matchCard.innerHTML =
                 '<div class="duel-match-title">⚔️ Соперник найден!</div>' +

@@ -54,10 +54,6 @@
                             <span class="hud-tele-label">📡</span>
                             <span class="telemetry-value" id="tele-ping">—</span>
                         </div>
-                        <div class="hud-tele-item" title="Качество связи">
-                            <span class="hud-tele-label">📶</span>
-                            <span class="telemetry-value" id="tele-quality">—</span>
-                        </div>
                         <div class="hud-tele-item" title="Батарея">
                             <span class="hud-tele-label">🔋</span>
                             <span class="telemetry-value" id="tele-battery">—</span>
@@ -76,13 +72,35 @@
                     <div class="hud-session-timer" title="Время сессии">
                         <span id="session-timer">00:00</span>
                     </div>
+                    <!-- Compact race status widget (hidden until in a race) -->
+                    <div id="hud-race-widget" class="hud-ctx-widget" hidden aria-live="polite">
+                        <span class="hud-ctx-icon">🏁</span>
+                        <span class="hud-ctx-label" id="hud-race-name">—</span>
+                        <span class="hud-ctx-sep">·</span>
+                        <span class="hud-ctx-sub" id="hud-race-pos"></span>
+                    </div>
+                    <!-- Compact duel status widget (hidden until in a duel) -->
+                    <div id="hud-duel-widget" class="hud-ctx-widget" hidden aria-live="polite">
+                        <span class="hud-ctx-icon">⚔️</span>
+                        <span class="hud-ctx-label" id="hud-duel-opp">—</span>
+                        <span class="hud-ctx-sep">·</span>
+                        <span class="hud-ctx-sub" id="hud-duel-sub"></span>
+                    </div>
                     <div id="hud-mode-status" class="hud-mode-status"></div>
                 </div>
 
                 <!-- Prominent speed display -->
                 <div class="hud-speed-area">
-                    <span id="hud-speed-value" class="hud-speed-value">0</span>
-                    <span class="hud-speed-unit">%</span>
+                    <div class="hud-speed-frame" id="hud-speed-frame">
+                        <div class="hud-speed-header">
+                            <span class="hud-speed-dir" id="hud-speed-dir">▶</span>
+                            <span class="hud-speed-label">SPEED</span>
+                        </div>
+                        <div class="hud-speed-num-row">
+                            <span id="hud-speed-value" class="hud-speed-value">0</span>
+                            <span class="hud-speed-unit">%</span>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="hud-bottom-right">
