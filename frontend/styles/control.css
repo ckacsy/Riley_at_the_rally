@@ -203,6 +203,8 @@ html, body {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    flex: 1;
+    min-width: 0;
     max-width: 108px;
 }
 
@@ -1263,6 +1265,12 @@ body.session-active {
     gap: 8px;
 }
 
+/* Visual separator between consecutive sections */
+.drawer-section + .drawer-section {
+    padding-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
 /* Compact section header — replaces old h2 headings */
 .drawer-section-hdr {
     display: flex;
@@ -1352,13 +1360,19 @@ body.session-active {
 .das-rank-wrap {
     flex-shrink: 0;
     font-size: 11px;
+    max-width: 76px; /* cap rank badge width so long opponent names still show */
+    overflow: hidden;
 }
 
 .das-sub-row {
     font-size: 11px;
     color: rgba(255, 255, 255, 0.36);
-    min-height: 14px;
     letter-spacing: 0.02em;
+}
+
+/* Collapse the sub-row entirely when it carries no content */
+.das-sub-row:empty {
+    display: none;
 }
 
 /* ─────────────────────────────────────────────────────────────

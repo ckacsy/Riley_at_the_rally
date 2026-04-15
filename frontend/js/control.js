@@ -45,7 +45,7 @@
             if (raceName) {
                 if (nameEl) nameEl.textContent = raceName;
                 if (posEl)  posEl.textContent  = posText || '';
-                if (subEl)  subEl.textContent  = lapActive ? '⏱ Круг активен' : '';
+                if (subEl)  subEl.textContent  = lapActive ? '⏱ Круг' : '';
                 el.hidden = false;
             } else {
                 el.hidden = true;
@@ -53,6 +53,12 @@
                 if (posEl)  posEl.textContent  = '';
                 if (subEl)  subEl.textContent  = '';
             }
+        }
+
+        // ── Convenience: update both race display layers in one call ──
+        function syncRaceWidgets(name, pos, lapActive) {
+            updateHudRaceWidget(name, pos, lapActive);
+            updateDrawerActiveRace(name, pos, lapActive);
         }
 
         // ── Compact duel HUD widget ──
@@ -943,8 +949,7 @@
             var flashEl = document.getElementById('lap-flash');
             if (flashEl) { clearTimeout(flashEl._timeout); flashEl.textContent = ''; }
             // Hide compact race HUD widget and drawer summary so they never linger after reset
-            updateHudRaceWidget(null);
-            updateDrawerActiveRace(null);
+            syncRaceWidgets(null);
         }
 
         /** Sort race players by position: lapCount desc, then bestLapTime asc. */
@@ -1060,8 +1065,7 @@
             renderPositions(data.players);
             loadLeaderboard();
             setHudModeStatus('');
-            updateHudRaceWidget(currentRaceName, '');
-            updateDrawerActiveRace(currentRaceName, '', false);
+            syncRaceWidgets(currentRaceName, '');
         });
 
         socket.on('race_updated', function (data) {
@@ -1082,8 +1086,7 @@
             }
             currentRaceName = data.raceName;
             currentRacePos  = myPos ? 'P' + myPos : '';
-            updateHudRaceWidget(currentRaceName, currentRacePos, lapRunning);
-            updateDrawerActiveRace(currentRaceName, currentRacePos, lapRunning);
+            syncRaceWidgets(currentRaceName, currentRacePos, lapRunning);
         });
 
         socket.on('race_left', function () {
@@ -1093,7 +1096,6 @@
             resetRaceUiState();
             showRaceUI(false);
             loadActiveRaces();
-            updateHudRaceWidget(null);
             setHudModeStatus(_isDebugMode ? '🛠 DEBUG' : '');
         });
 
@@ -1106,15 +1108,11 @@
                 const elapsed = Date.now() - lapStartTime;
                 document.getElementById('lap-time-display').textContent = SharedUtils.formatLapTime(elapsed);
             }, 50);
-            // Reflect lap-running state in HUD widget and drawer summary
-            if (currentRaceName) {
-                updateHudRaceWidget(currentRaceName, currentRacePos, /*lapActive=*/true);
-                updateDrawerActiveRace(currentRaceName, currentRacePos, /*lapActive=*/true);
-            }
+            syncRaceWidgets(currentRaceName, currentRacePos, /*lapActive=*/true);
         });
 
         socket.on('lap_recorded', function (data) {
-            // Bug 1: Only reset lap UI for the player who finished their lap
+            // Only reset lap UI for the player who finished their lap
             if (data.userId === getMyUserId()) {
                 lapRunning = false;
                 clearInterval(lapDisplayInterval);
@@ -1123,10 +1121,7 @@
                 document.getElementById('stop-lap-btn').disabled = true;
                 document.getElementById('lap-time-display').textContent = SharedUtils.formatLapTime(data.lapTimeMs);
                 // Clear lap-active state in HUD widget and drawer summary
-                if (currentRaceName) {
-                    updateHudRaceWidget(currentRaceName, currentRacePos, /*lapActive=*/false);
-                    updateDrawerActiveRace(currentRaceName, currentRacePos, /*lapActive=*/false);
-                }
+                syncRaceWidgets(currentRaceName, currentRacePos, /*lapActive=*/false);
                 if (data.isGlobalRecord) {
                     flashMessage('🏆 Новый рекорд трассы: ' + SharedUtils.formatLapTime(data.lapTimeMs) + '!', true);
                 } else if (data.isPersonalBest) {
