@@ -18,6 +18,8 @@
         var chatJumpBtnEl = document.getElementById('chat-jump-btn');
 
         var _controlChatUser = null;
+        var _chatInputPlaceholder = chatInputEl.placeholder;
+        var _rateLimitTimer = null;
         fetch('/api/auth/me').then(function (r) {
             return r.ok ? r.json() : null;
         }).then(function (data) {
@@ -27,12 +29,14 @@
         function openDrawer() {
             document.body.setAttribute('data-chat-open', 'true');
             drawer.setAttribute('aria-hidden', 'false');
+            scrollToBottom();
             chatInputEl.focus();
         }
 
         function closeDrawer() {
             document.body.setAttribute('data-chat-open', 'false');
             drawer.setAttribute('aria-hidden', 'true');
+            toggleBtn.focus();
         }
 
         toggleBtn.addEventListener('click', function () {
@@ -49,7 +53,7 @@
         });
 
         function isScrolledToBottom() {
-            return chatMessagesEl.scrollHeight - chatMessagesEl.scrollTop - chatMessagesEl.clientHeight < 40;
+            return chatMessagesEl.scrollHeight - chatMessagesEl.scrollTop - chatMessagesEl.clientHeight < 60;
         }
 
         function scrollToBottom() {
@@ -174,12 +178,15 @@
 
         socket.on('chat:error', function (err) {
             if (err && err.code === 'rate_limited') {
+                if (_rateLimitTimer) clearTimeout(_rateLimitTimer);
                 chatInputEl.disabled = true;
                 chatSendBtnEl.disabled = true;
-                setTimeout(function () {
+                chatInputEl.placeholder = 'Подождите…';
+                _rateLimitTimer = setTimeout(function () {
                     chatInputEl.disabled = false;
                     chatSendBtnEl.disabled = false;
-                    chatInputEl.focus();
+                    chatInputEl.placeholder = _chatInputPlaceholder;
+                    _rateLimitTimer = null;
                 }, 1500);
             }
         });

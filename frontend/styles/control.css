@@ -447,28 +447,30 @@ body[data-left-drawer-open="true"] .drawer-toggle-left {
     right: 14px;
     top: 50%;
     transform: translateY(-50%);
-    background: rgba(0, 0, 0, 0.55);
-    color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.42);
+    color: rgba(255, 255, 255, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 10px;
-    padding: 10px 12px;
-    font-size: 20px;
+    padding: 9px 11px;
+    font-size: 18px;
     line-height: 1;
     cursor: pointer;
     z-index: 200;
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    transition: background 0.2s, right 0.3s ease, border-color 0.2s;
-    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.5);
+    transition: background 0.2s, right 0.3s ease, border-color 0.2s, color 0.2s;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
 }
 
 #chat-toggle-btn:hover {
-    background: rgba(100, 181, 246, 0.22);
-    border-color: rgba(100, 181, 246, 0.3);
+    background: rgba(100, 181, 246, 0.18);
+    border-color: rgba(100, 181, 246, 0.28);
+    color: rgba(255, 255, 255, 0.85);
 }
 
 body[data-chat-open="true"] #chat-toggle-btn {
-    right: calc(380px + 14px);
+    right: calc(360px + 14px);
+    color: rgba(255, 255, 255, 0.85);
 }
 
 /* ── 10. Drawer base styles ── */
@@ -551,18 +553,18 @@ body[data-left-drawer-open="true"] .drawer-left {
     position: fixed;
     top: 0;
     right: 0;
-    width: 380px;
+    width: 360px;
     height: 100vh;
-    background: rgba(8, 10, 18, 0.94);
+    background: rgba(8, 10, 18, 0.93);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
-    border-left: 1px solid rgba(255, 255, 255, 0.07);
-    box-shadow: -6px 0 28px rgba(0, 0, 0, 0.6);
+    border-left: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.55);
     display: flex;
     flex-direction: column;
     z-index: 150;
     transform: translateX(100%);
-    transition: transform 0.3s ease;
+    transition: transform 0.28s ease;
 }
 
 body[data-chat-open="true"] #chat-drawer {
@@ -573,155 +575,188 @@ body[data-chat-open="true"] #chat-drawer {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 14px 16px;
-    background: rgba(255, 255, 255, 0.03);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    padding: 11px 14px;
+    background: rgba(255, 255, 255, 0.025);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     flex-shrink: 0;
 }
 
 .chat-drawer-title {
-    font-size: 13px;
-    font-weight: 700;
-    color: rgba(255, 255, 255, 0.75);
-    letter-spacing: 0.07em;
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.55);
+    letter-spacing: 0.1em;
     text-transform: uppercase;
 }
 
 .chat-drawer-close {
     background: none;
     border: none;
-    color: rgba(255, 255, 255, 0.35);
-    font-size: 20px;
+    color: rgba(255, 255, 255, 0.38);
+    font-size: 18px;
     cursor: pointer;
     line-height: 1;
-    padding: 2px 6px;
+    padding: 2px 5px;
     border-radius: 5px;
-    transition: color 0.2s, background 0.2s;
+    transition: color 0.15s, background 0.15s;
 }
 
 .chat-drawer-close:hover {
-    color: var(--text-primary);
-    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.75);
+    background: rgba(255, 255, 255, 0.07);
 }
 
 .chat-messages {
     flex: 1;
     overflow-y: auto;
-    padding: 12px 14px;
+    padding: 10px 12px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 5px;
     scroll-behavior: smooth;
     scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+    scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
 }
 
 .chat-msg {
     font-size: 13px;
-    line-height: 1.4;
+    line-height: 1.45;
     word-break: break-word;
+    padding: 2px 0;
 }
 
 .chat-msg .chat-msg-user {
-    font-weight: bold;
-    color: var(--accent-secondary);
-    margin-right: 4px;
+    font-weight: 700;
+    color: rgba(100, 181, 246, 0.82);
+    margin-right: 3px;
+    font-size: 12px;
+    letter-spacing: 0.01em;
 }
 
 .chat-msg .chat-msg-text {
-    color: var(--text-primary);
+    color: rgba(255, 255, 255, 0.82);
 }
 
 .chat-msg-deleted-text {
-    color: var(--text-secondary);
+    color: rgba(255, 255, 255, 0.3);
     font-style: italic;
+    font-size: 12px;
 }
 
 .chat-msg .chat-msg-time {
-    color: var(--text-secondary);
-    font-size: 11px;
+    color: rgba(255, 255, 255, 0.32);
+    font-size: 10px;
     margin-left: 4px;
-    opacity: 0.6;
+    font-variant-numeric: tabular-nums;
 }
 
 .chat-msg-delete-btn {
     background: none;
     border: none;
     cursor: pointer;
-    font-size: 12px;
-    opacity: 0.5;
+    font-size: 11px;
+    opacity: 0.35;
     padding: 0 2px;
-    margin-left: 4px;
+    margin-left: 3px;
     vertical-align: middle;
     line-height: 1;
+    transition: opacity 0.15s;
 }
 
 .chat-msg-delete-btn:hover {
-    opacity: 1;
+    opacity: 0.9;
 }
 
 .chat-empty {
-    color: var(--text-secondary);
+    color: rgba(255, 255, 255, 0.3);
     font-size: 12px;
     font-style: italic;
     text-align: center;
-    padding-top: 16px;
+    padding: 24px 0 8px;
+    letter-spacing: 0.03em;
 }
 
 .chat-jump-btn {
-    display: none;
     position: absolute;
-    bottom: 66px;
-    right: 14px;
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 4px 12px;
-    font-size: 12px;
+    bottom: 60px;
+    right: 12px;
+    background: rgba(8, 10, 18, 0.88);
+    color: rgba(255, 255, 255, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    padding: 3px 10px;
+    font-size: 11px;
     cursor: pointer;
     z-index: 5;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease, background 0.15s, color 0.15s;
+    letter-spacing: 0.03em;
 }
 
-.chat-jump-btn.visible { display: block; }
+.chat-jump-btn:hover {
+    background: rgba(30, 35, 58, 0.95);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.chat-jump-btn.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
 
 .chat-input-row {
     display: flex;
     gap: 6px;
-    padding: 10px 14px;
-    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    padding: 8px 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
     flex-shrink: 0;
 }
 
 .chat-input {
     flex: 1;
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.09);
     border-radius: 6px;
-    color: var(--text-primary);
+    color: rgba(255, 255, 255, 0.85);
     font-size: 13px;
-    padding: 7px 10px;
+    padding: 6px 9px;
     outline: none;
-    transition: border-color var(--transition-speed);
+    transition: border-color 0.15s;
 }
 
-.chat-input:focus { border-color: rgba(255, 255, 255, 0.3); }
-.chat-input:disabled { opacity: 0.4; cursor: not-allowed; }
+.chat-input::placeholder {
+    color: rgba(255, 255, 255, 0.25);
+}
+
+.chat-input:focus { border-color: rgba(255, 255, 255, 0.25); }
+
+.chat-input:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    background: rgba(255, 255, 255, 0.03);
+}
 
 .chat-send-btn {
-    background: var(--accent-secondary);
-    color: var(--text-primary);
+    background: rgba(100, 181, 246, 0.65);
+    color: #fff;
     border: none;
     border-radius: 6px;
-    padding: 7px 14px;
+    padding: 6px 13px;
     font-size: 13px;
     cursor: pointer;
-    transition: background var(--transition-speed);
+    transition: background 0.15s;
     flex-shrink: 0;
 }
 
-.chat-send-btn:hover { background: var(--accent-secondary-hover); }
-.chat-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.chat-send-btn:hover { background: rgba(100, 181, 246, 0.85); }
+
+.chat-send-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    background: rgba(100, 181, 246, 0.3);
+}
 
 /* ── 11. Debug panel (bottom slide-up) ── */
 .debug-panel {
