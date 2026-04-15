@@ -89,7 +89,8 @@
     var _hasActiveSession = false;
     var _duelState = 'idle'; // idle | searching | ready_pending | countdown | in_progress | result
     var _countdownInterval = null;
-    var _opponentName = null; // tracked for HUD widget
+    var _opponentName    = null; // tracked for HUD widget
+    var _opponentRankHtml = ''; // tracked for drawer active summary
 
     // -------------------------------------------------------------------------
     // DOM references (set in init)
@@ -138,6 +139,26 @@
     // UI state transitions
     // -------------------------------------------------------------------------
 
+    /** Update the in-drawer active duel summary strip. */
+    function _updateDrawerActiveDuel(oppName, rankHtml, phaseText) {
+        var el     = document.getElementById('duel-active-summary');
+        var oppEl  = document.getElementById('das-duel-opp');
+        var rankEl = document.getElementById('das-duel-rank');
+        var subEl  = document.getElementById('das-duel-sub');
+        if (!el) return;
+        if (oppName) {
+            if (oppEl)  oppEl.textContent = oppName;
+            if (rankEl) rankEl.innerHTML  = rankHtml || '';
+            if (subEl)  subEl.textContent = phaseText || '';
+            el.hidden = false;
+        } else {
+            el.hidden = true;
+            if (oppEl)  oppEl.textContent = '—';
+            if (rankEl) rankEl.innerHTML  = '';
+            if (subEl)  subEl.textContent = '';
+        }
+    }
+
     function _setState(state) {
         _duelState = state;
 
@@ -165,19 +186,40 @@
 
         // ── Update compact duel HUD widget ──
         if (typeof window._setHudDuelWidget === 'function') {
+            var isDuelLive = (state === 'in_progress' || state === 'countdown');
             if (isSearching) {
                 window._setHudDuelWidget('Поиск…', '');
             } else if (state === 'ready_pending') {
                 window._setHudDuelWidget(_opponentName || '⚔️', 'Готовность');
-            } else if (state === 'countdown' || state === 'in_progress') {
-                window._setHudDuelWidget(_opponentName || '⚔️', state === 'in_progress' ? 'ГОНКА' : 'СТАРТ');
+            } else if (state === 'countdown') {
+                window._setHudDuelWidget(_opponentName || '⚔️', 'СТАРТ', /*liveDuel=*/true);
+            } else if (state === 'in_progress') {
+                window._setHudDuelWidget(_opponentName || '⚔️', 'ДУЭЛЬ', /*liveDuel=*/true);
             } else if (isIdle || isResult) {
                 window._setHudDuelWidget(null);
             }
         }
 
-        // Clear cached opponent when returning to idle
-        if (isIdle) _opponentName = null;
+        // ── Update drawer active duel summary ──
+        // During searching there is no opponent — hide the summary; the
+        // in-panel duel-status-text already communicates the searching state.
+        if (isSearching) {
+            _updateDrawerActiveDuel(null, '', '');
+        } else if (state === 'ready_pending') {
+            _updateDrawerActiveDuel(_opponentName || '—', _opponentRankHtml, 'Нажмите Готов');
+        } else if (state === 'countdown') {
+            _updateDrawerActiveDuel(_opponentName || '—', _opponentRankHtml, 'Запуск…');
+        } else if (state === 'in_progress') {
+            _updateDrawerActiveDuel(_opponentName || '—', _opponentRankHtml, 'В гонке');
+        } else if (isIdle || isResult) {
+            _updateDrawerActiveDuel(null, '', '');
+        }
+
+        // Clear cached opponent data when returning to idle
+        if (isIdle) {
+            _opponentName     = null;
+            _opponentRankHtml = '';
+        }
 
         // ── Update HUD mode status ──
         if (typeof window._setHudModeStatus === 'function') {
@@ -269,8 +311,8 @@
 
         if (_matchCard) {
             var opponent = data.opponent || {};
-            _opponentName = opponent.username || '—';
-            var checkpoints = data.requiredCheckpoints || 0;
+            _opponentName     = opponent.username || '—';
+            _opponentRankHtml = renderOpponentBadge(opponent);
             _matchCard.innerHTML =
                 '<div class="duel-match-title">⚔️ Соперник найден!</div>' +
                 '<div class="duel-match-opponent">' +
@@ -291,6 +333,8 @@
             _attachReadyBtnHandler();
             _attachCancelReadyBtnHandler();
         }
+        // Refresh drawer summary with opponent details now that we have them
+        _updateDrawerActiveDuel(_opponentName || '—', _opponentRankHtml, 'Нажмите Готов');
     }
 
     function _onOpponentReady() {
@@ -507,6 +551,7 @@
         var code = (data && data.code) || '';
         if (code === 'already_in_duel') return; // silently ignore if already tracked
         _setState('idle');
+        if (_matchCard) _matchCard.innerHTML = ''; // clear any stale match card content
         _setStatusText('⚠ ' + (data && data.message ? data.message : 'Ошибка дуэли.'));
         setTimeout(function () {
             if (_duelState === 'idle') _setStatusText('');
@@ -565,6 +610,12 @@
                     _setState('searching');
                     _setStatusText('🔍 Поиск соперника…');
                 } else if (s === 'ready_pending') {
+                    // Restore opponent context if the API returned it
+                    var opp = data.opponent || null;
+                    if (opp) {
+                        _opponentName     = opp.username || '—';
+                        _opponentRankHtml = renderOpponentBadge(opp);
+                    }
                     _setState('ready_pending');
                     _setStatusText('✅ Соперник найден — нажмите «Готов»');
                     if (_matchCard) {
@@ -587,6 +638,11 @@
                 } else if (s === 'in_progress' || s === 'countdown') {
                     // Treat countdown as in_progress on restore: the 3s window is too short
                     // to reconstruct the countdown UI, so go straight to active racing state.
+                    var opp = data.opponent || null;
+                    if (opp) {
+                        _opponentName     = opp.username || '—';
+                        _opponentRankHtml = renderOpponentBadge(opp);
+                    }
                     _setState('in_progress');
                     _setStatusText('⚔️ Дуэль в процессе');
                     if (_socket) _socket.emit('duel:start_lap');

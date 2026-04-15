@@ -203,7 +203,8 @@ html, body {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    max-width: 108px;
+    flex: 1;
+    min-width: 0; /* allow truncation inside the flex container */
 }
 
 /* Separator is hidden by default; shown only when there is a sub-status */
@@ -224,6 +225,32 @@ html, body {
     font-weight: 500;
     flex-shrink: 0;
     letter-spacing: 0.04em;
+}
+
+/* Race widget: accent when a lap is actively running */
+.hud-ctx-widget.lap-active {
+    border-color: rgba(100, 181, 246, 0.32);
+    background: rgba(100, 181, 246, 0.1);
+}
+
+.hud-ctx-widget.lap-active .hud-ctx-icon {
+    animation: lap-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes lap-pulse {
+    0%, 100% { opacity: 0.6; }
+    50%       { opacity: 1;   }
+}
+
+/* Duel widget: accent when duel is live (in_progress or countdown) */
+.hud-ctx-widget.duel-live {
+    border-color: rgba(186, 104, 200, 0.32);
+    background: rgba(186, 104, 200, 0.1);
+}
+
+.hud-ctx-widget.duel-live .hud-ctx-sub {
+    color: rgba(186, 104, 200, 0.85);
+    font-weight: 700;
 }
 
 /* Bottom-center: prominent SPEED display */
@@ -1227,21 +1254,136 @@ body.session-active {
 .lb-empty-cell { text-align: center; color: #888; }
 
 /* ─────────────────────────────────────────────────────────────
-   RACE PANEL — inside left drawer
+   DRAWER SECTIONS — race / duel competitive system hierarchy
 ───────────────────────────────────────────────────────────── */
-.race-panel {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    border-radius: 10px;
-    padding: 16px;
+
+/* Section wrapper: groups header + summary + content with tighter spacing */
+.drawer-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
-.race-panel h2 {
-    margin: 0 0 14px;
-    font-size: 15px;
-    color: var(--text-primary);
-    text-align: center;
+/* Visual separator between consecutive sections */
+.drawer-section + .drawer-section {
+    padding-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Compact section header — replaces old h2 headings */
+.drawer-section-hdr {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(100, 181, 246, 0.1);
+}
+
+.drawer-section-hdr--duel {
+    border-bottom-color: rgba(186, 104, 200, 0.15);
+}
+
+.dsec-icon {
+    font-size: 12px;
+    flex-shrink: 0;
+    opacity: 0.55;
+}
+
+.dsec-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(100, 181, 246, 0.5);
+}
+
+.drawer-section-hdr--duel .dsec-title {
+    color: rgba(186, 104, 200, 0.6);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   ACTIVE COMPETITIVE STATE SUMMARY — in-drawer context strip
+───────────────────────────────────────────────────────────── */
+
+.drawer-active-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: rgba(100, 181, 246, 0.06);
+    border: 1px solid rgba(100, 181, 246, 0.15);
+    border-radius: 7px;
+    padding: 9px 12px;
+}
+
+.drawer-active-summary[hidden] { display: none; }
+
+.drawer-active-summary--duel {
+    background: rgba(186, 104, 200, 0.07);
+    border-color: rgba(186, 104, 200, 0.2);
+}
+
+.das-main-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+}
+
+.das-vs-label {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.25);
+    flex-shrink: 0;
     letter-spacing: 0.04em;
+}
+
+.das-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.9);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+
+.das-pos-badge {
+    font-size: 12px;
+    font-weight: 700;
+    color: rgba(100, 181, 246, 0.9);
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.03em;
+}
+
+.das-rank-wrap {
+    flex-shrink: 0;
+    font-size: 11px;
+    max-width: 76px; /* cap rank badge width so long opponent names still show */
+    overflow: hidden;
+}
+
+.das-sub-row {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.36);
+    letter-spacing: 0.02em;
+}
+
+/* Collapse the sub-row entirely when it carries no content */
+.das-sub-row:empty {
+    display: none;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   RACE PANEL — inside left drawer
+───────────────────────────────────────────────────────────── */
+
+/* Remove card styling — let sections flow naturally as drawer content */
+.race-panel {
+    background: none;
+    border: none;
+    border-radius: 0;
+    padding: 0;
 }
 
 .race-actions {
@@ -1436,19 +1578,13 @@ body.session-active {
 /* ─────────────────────────────────────────────────────────────
    DUEL PANEL — inside left drawer
 ───────────────────────────────────────────────────────────── */
-.duel-panel {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    border-radius: 10px;
-    padding: 16px;
-}
 
-.duel-panel h2 {
-    margin: 0 0 12px;
-    font-size: 15px;
-    color: var(--text-primary);
-    text-align: center;
-    letter-spacing: 0.04em;
+/* Remove card styling — let sections flow naturally as drawer content */
+.duel-panel {
+    background: none;
+    border: none;
+    border-radius: 0;
+    padding: 0;
 }
 
 .duel-no-session-msg {

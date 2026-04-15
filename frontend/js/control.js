@@ -17,7 +17,7 @@
         window._setHudModeStatus = setHudModeStatus;
 
         // ── Compact race HUD widget ──
-        function updateHudRaceWidget(raceName, posText) {
+        function updateHudRaceWidget(raceName, posText, lapActive) {
             var widget  = document.getElementById('hud-race-widget');
             var nameEl  = document.getElementById('hud-race-name');
             var posEl   = document.getElementById('hud-race-pos');
@@ -27,15 +27,42 @@
                 var pos = posText || '';
                 if (posEl)  posEl.textContent = pos;
                 widget.classList.toggle('has-sub', !!pos);
+                widget.classList.toggle('lap-active', !!lapActive);
                 widget.hidden = false;
             } else {
                 widget.hidden = true;
-                widget.classList.remove('has-sub');
+                widget.classList.remove('has-sub', 'lap-active');
             }
         }
 
+        // ── Drawer active race summary ──
+        function updateDrawerActiveRace(raceName, posText, lapActive) {
+            var el     = document.getElementById('race-active-summary');
+            var nameEl = document.getElementById('das-race-name');
+            var posEl  = document.getElementById('das-race-pos');
+            var subEl  = document.getElementById('das-race-sub');
+            if (!el) return;
+            if (raceName) {
+                if (nameEl) nameEl.textContent = raceName;
+                if (posEl)  posEl.textContent  = posText || '';
+                if (subEl)  subEl.textContent  = lapActive ? '⏱ Круг' : '';
+                el.hidden = false;
+            } else {
+                el.hidden = true;
+                if (nameEl) nameEl.textContent = '—';
+                if (posEl)  posEl.textContent  = '';
+                if (subEl)  subEl.textContent  = '';
+            }
+        }
+
+        // ── Convenience: update both race display layers in one call ──
+        function syncRaceWidgets(name, pos, lapActive) {
+            updateHudRaceWidget(name, pos, lapActive);
+            updateDrawerActiveRace(name, pos, lapActive);
+        }
+
         // ── Compact duel HUD widget ──
-        function updateHudDuelWidget(oppName, statusText) {
+        function updateHudDuelWidget(oppName, statusText, liveDuel) {
             var widget = document.getElementById('hud-duel-widget');
             var oppEl  = document.getElementById('hud-duel-opp');
             var subEl  = document.getElementById('hud-duel-sub');
@@ -45,10 +72,11 @@
                 var sub = statusText || '';
                 if (subEl) subEl.textContent = sub;
                 widget.classList.toggle('has-sub', !!sub);
+                widget.classList.toggle('duel-live', !!liveDuel);
                 widget.hidden = false;
             } else {
                 widget.hidden = true;
-                widget.classList.remove('has-sub');
+                widget.classList.remove('has-sub', 'duel-live');
                 // Reset to default placeholder so stale text can't reappear
                 if (oppEl) oppEl.textContent = '—';
                 if (subEl) subEl.textContent = '';
@@ -890,7 +918,9 @@
         });
 
         // --- Race / Multiplayer Logic ---
-        let currentRaceId = null;
+        let currentRaceId   = null;
+        let currentRaceName = null; // tracked for drawer summary and HUD widget
+        let currentRacePos  = '';   // tracked for drawer summary and HUD widget
         let lapRunning = false;
         let lapStartTime = null;
         let lapDisplayInterval = null;
@@ -918,8 +948,8 @@
             lapDisplayInterval = null;
             var flashEl = document.getElementById('lap-flash');
             if (flashEl) { clearTimeout(flashEl._timeout); flashEl.textContent = ''; }
-            // Hide the compact race HUD widget so it never lingers after reset
-            updateHudRaceWidget(null);
+            // Hide compact race HUD widget and drawer summary so they never linger after reset
+            syncRaceWidgets(null);
         }
 
         /** Sort race players by position: lapCount desc, then bestLapTime asc. */
@@ -1022,7 +1052,9 @@
         });
 
         socket.on('race_joined', function (data) {
-            currentRaceId = data.raceId;
+            currentRaceId   = data.raceId;
+            currentRaceName = data.raceName;
+            currentRacePos  = '';
             // Clear the selectedRaceId so reconnections don't re-join automatically
             const updated = Object.assign({}, sessionData);
             delete updated.selectedRaceId;
@@ -1033,7 +1065,7 @@
             renderPositions(data.players);
             loadLeaderboard();
             setHudModeStatus('');
-            updateHudRaceWidget(data.raceName, '');
+            syncRaceWidgets(currentRaceName, '');
         });
 
         socket.on('race_updated', function (data) {
@@ -1046,21 +1078,24 @@
             bar.appendChild(strong);
             bar.appendChild(document.createTextNode(' — ' + data.players.length + ' участник(ов)'));
             renderPositions(data.players);
-            // Update compact race widget with current position
+            // Update compact race widget and drawer summary with current position
             var myPos = 0;
             var sorted = sortPlayersByPosition(data.players);
             for (var i = 0; i < sorted.length; i++) {
                 if (sorted[i].socketId === socket.id) { myPos = i + 1; break; }
             }
-            updateHudRaceWidget(data.raceName, myPos ? 'P' + myPos : '');
+            currentRaceName = data.raceName;
+            currentRacePos  = myPos ? 'P' + myPos : '';
+            syncRaceWidgets(currentRaceName, currentRacePos, lapRunning);
         });
 
         socket.on('race_left', function () {
-            currentRaceId = null;
+            currentRaceId   = null;
+            currentRaceName = null;
+            currentRacePos  = '';
             resetRaceUiState();
             showRaceUI(false);
             loadActiveRaces();
-            updateHudRaceWidget(null);
             setHudModeStatus(_isDebugMode ? '🛠 DEBUG' : '');
         });
 
@@ -1073,10 +1108,11 @@
                 const elapsed = Date.now() - lapStartTime;
                 document.getElementById('lap-time-display').textContent = SharedUtils.formatLapTime(elapsed);
             }, 50);
+            syncRaceWidgets(currentRaceName, currentRacePos, /*lapActive=*/true);
         });
 
         socket.on('lap_recorded', function (data) {
-            // Bug 1: Only reset lap UI for the player who finished their lap
+            // Only reset lap UI for the player who finished their lap
             if (data.userId === getMyUserId()) {
                 lapRunning = false;
                 clearInterval(lapDisplayInterval);
@@ -1084,6 +1120,8 @@
                 document.getElementById('start-lap-btn').disabled = false;
                 document.getElementById('stop-lap-btn').disabled = true;
                 document.getElementById('lap-time-display').textContent = SharedUtils.formatLapTime(data.lapTimeMs);
+                // Clear lap-active state in HUD widget and drawer summary
+                syncRaceWidgets(currentRaceName, currentRacePos, /*lapActive=*/false);
                 if (data.isGlobalRecord) {
                     flashMessage('🏆 Новый рекорд трассы: ' + SharedUtils.formatLapTime(data.lapTimeMs) + '!', true);
                 } else if (data.isPersonalBest) {
