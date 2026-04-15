@@ -367,12 +367,33 @@
         const MAX_CMD_LOG = 5;
         const cmdLogEntries = [];
 
+        // Source labels for debug control state readout — defined once, used in updateDebugCtrlState()
+        var DEBUG_SOURCE_LABELS = {
+            keyboard: '⌨️ клавиатура',
+            gamepad:  '🎮 геймпад',
+            debug:    '🖱 кнопки',
+            none:     '— нет',
+        };
+
         function addCmdLogEntry(text) {
             const logEl = document.getElementById('cmd-log');
             if (!logEl) return;
-            const entry = { text, el: document.createElement('div') };
-            entry.el.className = 'cmd-log-entry';
-            entry.el.textContent = text;
+            const now = new Date();
+            const hh = String(now.getHours()).padStart(2, '0');
+            const mm = String(now.getMinutes()).padStart(2, '0');
+            const ss = String(now.getSeconds()).padStart(2, '0');
+            const timeStr = hh + ':' + mm + ':' + ss;
+            const entryEl = document.createElement('div');
+            entryEl.className = 'cmd-log-entry';
+            const timeEl = document.createElement('span');
+            timeEl.className = 'cmd-log-time';
+            timeEl.textContent = timeStr;
+            const textEl = document.createElement('span');
+            textEl.className = 'cmd-log-text';
+            textEl.textContent = text;
+            entryEl.appendChild(timeEl);
+            entryEl.appendChild(textEl);
+            const entry = { text, el: entryEl };
             cmdLogEntries.unshift(entry);
             if (cmdLogEntries.length > MAX_CMD_LOG) {
                 const removed = cmdLogEntries.pop();
@@ -418,6 +439,45 @@
                 el.classList.remove('hud-speed-active');
                 if (dirEl)   dirEl.textContent = '▶';
                 if (frameEl) { frameEl.classList.remove('speed-active', 'dir-forward', 'dir-backward'); }
+            }
+        }
+
+        // ── Debug control state readout (operator panel only) ──
+        function updateDebugCtrlState() {
+            if (!_isDebugMode) return;
+            var srcEl  = document.getElementById('dcs-source');
+            var dirEl  = document.getElementById('dcs-direction');
+            var spdEl  = document.getElementById('dcs-speed');
+            var strEl  = document.getElementById('dcs-steering');
+            if (!srcEl) return; // panel not in DOM
+            // Source
+            var srcLabels = DEBUG_SOURCE_LABELS;
+            srcEl.textContent = srcLabels[ctrl.source] || ctrl.source;
+            // Direction
+            if (ctrl.direction === 'forward') {
+                dirEl.textContent = '▲ вперёд';
+                dirEl.className = 'dcs-value state-active';
+            } else if (ctrl.direction === 'backward') {
+                dirEl.textContent = '▼ назад';
+                dirEl.className = 'dcs-value state-backward';
+            } else {
+                dirEl.textContent = '■ стоп';
+                dirEl.className = 'dcs-value';
+            }
+            // Speed
+            spdEl.textContent = ctrl.speed + '%';
+            spdEl.className = ctrl.speed > 0 ? 'dcs-value state-active' : 'dcs-value';
+            // Steering
+            var steerVal = ctrl.steering;
+            if (steerVal > 0) {
+                strEl.textContent = '→ +' + steerVal + '°';
+                strEl.className = 'dcs-value state-active';
+            } else if (steerVal < 0) {
+                strEl.textContent = '← ' + steerVal + '°';
+                strEl.className = 'dcs-value state-backward';
+            } else {
+                strEl.textContent = '0°';
+                strEl.className = 'dcs-value';
             }
         }
 
@@ -675,6 +735,18 @@
         bindDebugButton('left',     'left');
         bindDebugButton('right',    'right');
 
+        // ── Debug stop button (emergency stop) ──
+        (function () {
+            var stopBtn = document.getElementById('debug-stop-btn');
+            if (!stopBtn) return;
+            stopBtn.addEventListener('click', function () {
+                // Reset all held debug states so a subsequent hold re-registers cleanly
+                Object.keys(debugHeld).forEach(function (k) { debugHeld[k] = false; });
+                emitSafetyStop();
+                addCmdLogEntry('🛑 Стоп (кнопка)');
+            });
+        }());
+
         // ═══════════════════════════════════════════════════════════════════
         // Unified control state & dispatch pipeline
         // ═══════════════════════════════════════════════════════════════════
@@ -686,6 +758,9 @@
             steering:  0,        // –90 to +90
             source:    'none',   // 'keyboard' | 'gamepad' | 'debug' | 'none'
         };
+
+        // Seed the debug control-state readout immediately so it shows correct defaults.
+        if (_isDebugMode) updateDebugCtrlState();
 
         /** Build the canonical socket payload from ctrl state. */
         function buildPayload() {
@@ -744,6 +819,7 @@
             if (teleSpeed) teleSpeed.textContent = Math.abs(displaySpeed) + '%';
             updateButtonHighlights();
             updateInputViz();
+            updateDebugCtrlState();
         }
 
         /**
@@ -1230,21 +1306,12 @@
             });
         }());
 
-        // ── Debug panel close button ──
-        (function () {
-            var closeBtn = document.getElementById('debug-panel-close');
-            if (!closeBtn) return;
-            closeBtn.addEventListener('click', function () {
-                var panel = document.getElementById('debug-panel');
-                if (panel) panel.hidden = true;
-            });
-        }());
-
-        // ── Debug panel toggle button + backtick hotkey (debug mode only) ──
+        // ── Debug panel toggle button, close button, and backtick hotkey (debug mode only) ──
         if (_isDebugMode) {
             (function () {
-                var panel      = document.getElementById('debug-panel');
-                var toggleBtn  = document.getElementById('debug-panel-toggle');
+                var panel     = document.getElementById('debug-panel');
+                var toggleBtn = document.getElementById('debug-panel-toggle');
+                var closeBtn  = document.getElementById('debug-panel-close');
 
                 function isPanelOpen() {
                     return panel && !panel.hidden;
@@ -1253,23 +1320,33 @@
                 function syncToggleBtn() {
                     if (!toggleBtn) return;
                     if (isPanelOpen()) {
-                        toggleBtn.textContent = '🛠 Скрыть отладку';
+                        toggleBtn.textContent = '🛠 Скрыть консоль';
                         toggleBtn.classList.add('panel-open');
                     } else {
-                        toggleBtn.textContent = '🛠 Отладка';
+                        toggleBtn.textContent = '🛠 Консоль оператора';
                         toggleBtn.classList.remove('panel-open');
                     }
                 }
 
-                function togglePanel() {
+                function openPanel() {
                     if (!panel) return;
-                    panel.hidden = !panel.hidden;
+                    panel.hidden = false;
                     syncToggleBtn();
                 }
 
-                if (toggleBtn) {
-                    toggleBtn.addEventListener('click', togglePanel);
+                function closePanel() {
+                    if (!panel) return;
+                    panel.hidden = true;
+                    syncToggleBtn();
                 }
+
+                function togglePanel() {
+                    if (isPanelOpen()) { closePanel(); } else { openPanel(); }
+                }
+
+                if (toggleBtn) toggleBtn.addEventListener('click', togglePanel);
+                // Close button: hide panel AND sync the toggle button label
+                if (closeBtn)  closeBtn.addEventListener('click', closePanel);
 
                 // Backtick (`) hotkey — toggle debug panel
                 document.addEventListener('keydown', function (e) {
