@@ -370,9 +370,22 @@
         function addCmdLogEntry(text) {
             const logEl = document.getElementById('cmd-log');
             if (!logEl) return;
-            const entry = { text, el: document.createElement('div') };
-            entry.el.className = 'cmd-log-entry';
-            entry.el.textContent = text;
+            const now = new Date();
+            const hh = String(now.getHours()).padStart(2, '0');
+            const mm = String(now.getMinutes()).padStart(2, '0');
+            const ss = String(now.getSeconds()).padStart(2, '0');
+            const timeStr = hh + ':' + mm + ':' + ss;
+            const entryEl = document.createElement('div');
+            entryEl.className = 'cmd-log-entry';
+            const timeEl = document.createElement('span');
+            timeEl.className = 'cmd-log-time';
+            timeEl.textContent = timeStr;
+            const textEl = document.createElement('span');
+            textEl.className = 'cmd-log-text';
+            textEl.textContent = text;
+            entryEl.appendChild(timeEl);
+            entryEl.appendChild(textEl);
+            const entry = { text, el: entryEl };
             cmdLogEntries.unshift(entry);
             if (cmdLogEntries.length > MAX_CMD_LOG) {
                 const removed = cmdLogEntries.pop();
@@ -418,6 +431,45 @@
                 el.classList.remove('hud-speed-active');
                 if (dirEl)   dirEl.textContent = '▶';
                 if (frameEl) { frameEl.classList.remove('speed-active', 'dir-forward', 'dir-backward'); }
+            }
+        }
+
+        // ── Debug control state readout (operator panel only) ──
+        function updateDebugCtrlState() {
+            if (!_isDebugMode) return;
+            var srcEl  = document.getElementById('dcs-source');
+            var dirEl  = document.getElementById('dcs-direction');
+            var spdEl  = document.getElementById('dcs-speed');
+            var strEl  = document.getElementById('dcs-steering');
+            if (!srcEl) return; // panel not in DOM
+            // Source
+            var srcLabels = { keyboard: '⌨️ клавиатура', gamepad: '🎮 геймпад', debug: '🖱 кнопки', none: '— нет' };
+            srcEl.textContent = srcLabels[ctrl.source] || ctrl.source;
+            // Direction
+            if (ctrl.direction === 'forward') {
+                dirEl.textContent = '▲ вперёд';
+                dirEl.className = 'dcs-value state-active';
+            } else if (ctrl.direction === 'backward') {
+                dirEl.textContent = '▼ назад';
+                dirEl.className = 'dcs-value state-backward';
+            } else {
+                dirEl.textContent = '■ стоп';
+                dirEl.className = 'dcs-value';
+            }
+            // Speed
+            spdEl.textContent = ctrl.speed + '%';
+            spdEl.className = ctrl.speed > 0 ? 'dcs-value state-active' : 'dcs-value';
+            // Steering
+            var steerVal = ctrl.steering;
+            if (steerVal > 0) {
+                strEl.textContent = '→ +' + steerVal + '°';
+                strEl.className = 'dcs-value state-active';
+            } else if (steerVal < 0) {
+                strEl.textContent = '← ' + steerVal + '°';
+                strEl.className = 'dcs-value state-backward';
+            } else {
+                strEl.textContent = '0°';
+                strEl.className = 'dcs-value';
             }
         }
 
@@ -675,6 +727,19 @@
         bindDebugButton('left',     'left');
         bindDebugButton('right',    'right');
 
+        // ── Debug stop button (emergency stop) ──
+        (function () {
+            var stopBtn = document.getElementById('debug-stop-btn');
+            if (!stopBtn) return;
+            stopBtn.addEventListener('click', function () {
+                // Reset all held debug states so a subsequent hold re-registers cleanly
+                debugHeld.up = false; debugHeld.down = false;
+                debugHeld.left = false; debugHeld.right = false;
+                emitSafetyStop();
+                addCmdLogEntry('🛑 Стоп (кнопка)');
+            });
+        }());
+
         // ═══════════════════════════════════════════════════════════════════
         // Unified control state & dispatch pipeline
         // ═══════════════════════════════════════════════════════════════════
@@ -744,6 +809,7 @@
             if (teleSpeed) teleSpeed.textContent = Math.abs(displaySpeed) + '%';
             updateButtonHighlights();
             updateInputViz();
+            updateDebugCtrlState();
         }
 
         /**
@@ -1253,10 +1319,10 @@
                 function syncToggleBtn() {
                     if (!toggleBtn) return;
                     if (isPanelOpen()) {
-                        toggleBtn.textContent = '🛠 Скрыть отладку';
+                        toggleBtn.textContent = '🛠 Скрыть консоль';
                         toggleBtn.classList.add('panel-open');
                     } else {
-                        toggleBtn.textContent = '🛠 Отладка';
+                        toggleBtn.textContent = '🛠 Operator Console';
                         toggleBtn.classList.remove('panel-open');
                     }
                 }

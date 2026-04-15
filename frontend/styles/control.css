@@ -849,6 +849,174 @@ body.debug-mode .drawer-toggle-left::after {
     background: rgba(255, 204, 0, 0.85);
 }
 
+/* ── Debug panel header sub-structure ── */
+.debug-panel-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.debug-panel-header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.debug-panel-badge {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: rgba(8, 10, 18, 0.95);
+    background: rgba(255, 204, 0, 0.85);
+    padding: 2px 6px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.debug-panel-kbd-hint {
+    font-size: 10px;
+    color: rgba(255, 204, 0, 0.25);
+    letter-spacing: 0.04em;
+    font-family: monospace;
+}
+
+/* ── Debug two-column grid (Control State + Telemetry) ── */
+.debug-two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+/* ── Control state readout ── */
+.debug-ctrl-state {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 204, 0, 0.1);
+    border-radius: 6px;
+    padding: 8px 10px;
+}
+
+.dcs-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+    min-height: 20px;
+}
+
+.dcs-label {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.35);
+    letter-spacing: 0.03em;
+    flex-shrink: 0;
+}
+
+.dcs-value {
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.8);
+    font-variant-numeric: tabular-nums;
+    font-family: monospace;
+    text-align: right;
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dcs-value.state-active {
+    color: rgba(100, 220, 120, 0.9);
+}
+
+.dcs-value.state-backward {
+    color: rgba(255, 152, 0, 0.9);
+}
+
+/* ── Debug D-pad manual controls ── */
+.debug-controls-wrap {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+
+.debug-dpad {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    flex-shrink: 0;
+}
+
+.debug-dpad-row {
+    display: flex;
+    gap: 3px;
+    justify-content: center;
+}
+
+.debug-dpad-btn {
+    width: 48px !important;
+    height: 44px !important;
+    padding: 0 !important;
+    font-size: 20px !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px !important;
+    font-weight: 400 !important;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: none;
+}
+
+.debug-dpad-stop {
+    background: rgba(244, 67, 54, 0.12) !important;
+    border-color: rgba(244, 67, 54, 0.25) !important;
+    font-size: 14px !important;
+    color: rgba(244, 67, 54, 0.7) !important;
+}
+
+.debug-dpad-stop:hover {
+    background: rgba(244, 67, 54, 0.3) !important;
+    border-color: rgba(244, 67, 54, 0.55) !important;
+    color: rgba(244, 67, 54, 0.95) !important;
+}
+
+.debug-speed-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.debug-speed-display {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 1px;
+}
+
+.debug-speed-unit {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* ── Debug section title with subtitle ── */
+.debug-section-title-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.debug-section-subtitle {
+    font-size: 9px;
+    color: rgba(255, 255, 255, 0.2);
+    letter-spacing: 0.03em;
+    font-style: italic;
+}
+
 /* ── Debug toggle button (floating, debug-mode only) ── */
 .debug-panel-toggle {
     display: none; /* hidden by default; shown only in debug mode */
@@ -1211,7 +1379,8 @@ body.session-active {
     cursor: pointer;
 }
 
-.speed-control span {
+.speed-control span,
+#speed-value {
     min-width: 28px;
     text-align: left;
     color: var(--accent-secondary);
@@ -1245,9 +1414,29 @@ body.session-active {
 }
 
 .cmd-log-entry {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
     opacity: 1;
     transition: opacity 2s;
-    line-height: 1.4;
+    line-height: 1.5;
+}
+
+.cmd-log-time {
+    font-size: 9px;
+    color: rgba(255, 204, 0, 0.28);
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+    font-family: monospace;
+    padding-top: 1px;
+}
+
+.cmd-log-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .cmd-log-entry.fading { opacity: 0.25; }

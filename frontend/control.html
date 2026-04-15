@@ -260,50 +260,94 @@
         <!-- ── Debug Panel (hidden by default; shown via ?debug=1) ── -->
         <div id="debug-panel" class="debug-panel" hidden>
             <div class="debug-panel-header">
-                <span class="debug-panel-title">🛠 Debug / Operator</span>
-                <button class="debug-panel-close" id="debug-panel-close" aria-label="Закрыть отладку">×</button>
+                <div class="debug-panel-header-left">
+                    <span class="debug-panel-badge">OPS</span>
+                    <span class="debug-panel-title">Operator Console</span>
+                </div>
+                <div class="debug-panel-header-right">
+                    <span class="debug-panel-kbd-hint">` — toggle</span>
+                    <button class="debug-panel-close" id="debug-panel-close" aria-label="Закрыть отладку">×</button>
+                </div>
             </div>
             <div class="debug-panel-body">
 
-                <!-- Mouse driving controls (debug / fallback only) -->
-                <div class="debug-section">
-                    <div class="debug-section-title">Управление (мышь / кнопки)</div>
-                    <div class="control-panel">
-                        <button class="button" id="forward">↑ Вперёд</button>
-                        <button class="button" id="backward">↓ Назад</button>
-                    </div>
-                    <div class="control-panel">
-                        <button class="button" id="left">← Влево</button>
-                        <button class="button" id="right">Вправо →</button>
-                    </div>
-                    <div class="speed-control">
-                        <label for="speed-slider">Скорость:</label>
-                        <input type="range" id="speed-slider" min="0" max="100" value="50" />
-                        <span id="speed-value">50</span>
-                    </div>
-                    <p class="keyboard-hint">⌨️ W/↑↓/S — движение, A/←→/D — поворот, пробел — стоп &nbsp;|&nbsp; 🎮 Геймпад: стик + RT/LT</p>
-                </div>
+                <!-- Row 1: Control State (what the page thinks it's doing) + Telemetry (hardware/connectivity) -->
+                <div class="debug-two-col">
 
-                <!-- Extended telemetry -->
-                <div class="debug-section">
-                    <div class="debug-section-title">Телеметрия (расширенная)</div>
-                    <div class="telemetry-bar" id="telemetry-bar">
-                        <div class="telemetry-item">
-                            <span class="telemetry-icon">⚡</span>
-                            <span class="telemetry-label">Скорость</span>
-                            <span class="telemetry-value" id="tele-speed">0%</span>
-                        </div>
-                        <div class="telemetry-item">
-                            <span class="telemetry-icon">🎮</span>
-                            <span class="telemetry-label">Геймпад</span>
-                            <span class="telemetry-value" id="tele-gamepad">—</span>
+                    <div class="debug-section">
+                        <div class="debug-section-title">Состояние управления</div>
+                        <div class="debug-ctrl-state">
+                            <div class="dcs-row">
+                                <span class="dcs-label">Источник</span>
+                                <span class="dcs-value" id="dcs-source">—</span>
+                            </div>
+                            <div class="dcs-row">
+                                <span class="dcs-label">Направление</span>
+                                <span class="dcs-value" id="dcs-direction">■ стоп</span>
+                            </div>
+                            <div class="dcs-row">
+                                <span class="dcs-label">Скорость</span>
+                                <span class="dcs-value" id="dcs-speed">0%</span>
+                            </div>
+                            <div class="dcs-row">
+                                <span class="dcs-label">Руль</span>
+                                <span class="dcs-value" id="dcs-steering">0°</span>
+                            </div>
                         </div>
                     </div>
+
+                    <div class="debug-section">
+                        <div class="debug-section-title">Телеметрия</div>
+                        <div class="telemetry-bar" id="telemetry-bar">
+                            <div class="telemetry-item">
+                                <span class="telemetry-icon">⚡</span>
+                                <span class="telemetry-label">Скорость</span>
+                                <span class="telemetry-value" id="tele-speed">0%</span>
+                            </div>
+                            <div class="telemetry-item">
+                                <span class="telemetry-icon">🎮</span>
+                                <span class="telemetry-label">Геймпад</span>
+                                <span class="telemetry-value" id="tele-gamepad">—</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div><!-- /.debug-two-col -->
+
+                <!-- Manual controls: press-and-hold D-pad, routed through unified input pipeline -->
+                <div class="debug-section">
+                    <div class="debug-section-title">Ручное управление (тест без железа)</div>
+                    <div class="debug-controls-wrap">
+                        <div class="debug-dpad">
+                            <div class="debug-dpad-row">
+                                <button class="button debug-dpad-btn" id="forward" aria-label="Вперёд">↑</button>
+                            </div>
+                            <div class="debug-dpad-row">
+                                <button class="button debug-dpad-btn" id="left" aria-label="Влево">←</button>
+                                <button class="button debug-dpad-btn debug-dpad-stop" id="debug-stop-btn" aria-label="Стоп (экстренный)">■</button>
+                                <button class="button debug-dpad-btn" id="right" aria-label="Вправо">→</button>
+                            </div>
+                            <div class="debug-dpad-row">
+                                <button class="button debug-dpad-btn" id="backward" aria-label="Назад">↓</button>
+                            </div>
+                        </div>
+                        <div class="debug-speed-wrap">
+                            <div class="speed-control">
+                                <label for="speed-slider">Скорость</label>
+                                <input type="range" id="speed-slider" min="0" max="100" value="50" />
+                                <span class="debug-speed-display"><span id="speed-value">50</span><span class="debug-speed-unit">%</span></span>
+                            </div>
+                            <p class="keyboard-hint">⌨️ W/↑↓/S движение · A/←→/D руль · пробел стоп<br>🎮 Стик + RT/LT</p>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Command log -->
+                <!-- Command log: recent activity with timestamps -->
                 <div class="debug-section">
-                    <div class="debug-section-title">Лог команд</div>
+                    <div class="debug-section-title-row">
+                        <span class="debug-section-title">Лог команд</span>
+                        <span class="debug-section-subtitle">последние 5 событий</span>
+                    </div>
                     <div class="cmd-log" id="cmd-log"></div>
                 </div>
 
@@ -314,7 +358,7 @@
         <button id="debug-panel-toggle"
                 class="debug-panel-toggle"
                 aria-label="Переключить отладочную панель"
-                title="Отладочная панель (клавиша `)">🛠</button>
+                title="Operator Console (клавиша `)">🛠</button>
 
         <!-- ── Persistent floating overlays ── -->
         <div class="session-warning-banner" id="session-warning-banner" role="alert" aria-live="polite"></div>
