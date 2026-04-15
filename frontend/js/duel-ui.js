@@ -89,7 +89,8 @@
     var _hasActiveSession = false;
     var _duelState = 'idle'; // idle | searching | ready_pending | countdown | in_progress | result
     var _countdownInterval = null;
-    var _opponentName = null; // tracked for HUD widget
+    var _opponentName    = null; // tracked for HUD widget
+    var _opponentRankHtml = ''; // tracked for drawer active summary
 
     // -------------------------------------------------------------------------
     // DOM references (set in init)
@@ -138,6 +139,26 @@
     // UI state transitions
     // -------------------------------------------------------------------------
 
+    /** Update the in-drawer active duel summary strip. */
+    function _updateDrawerActiveDuel(oppName, rankHtml, phaseText) {
+        var el     = document.getElementById('duel-active-summary');
+        var oppEl  = document.getElementById('das-duel-opp');
+        var rankEl = document.getElementById('das-duel-rank');
+        var subEl  = document.getElementById('das-duel-sub');
+        if (!el) return;
+        if (oppName) {
+            if (oppEl)  oppEl.textContent = oppName;
+            if (rankEl) rankEl.innerHTML  = rankHtml || '';
+            if (subEl)  subEl.textContent = phaseText || '';
+            el.hidden = false;
+        } else {
+            el.hidden = true;
+            if (oppEl)  oppEl.textContent = '—';
+            if (rankEl) rankEl.innerHTML  = '';
+            if (subEl)  subEl.textContent = '';
+        }
+    }
+
     function _setState(state) {
         _duelState = state;
 
@@ -165,19 +186,38 @@
 
         // ── Update compact duel HUD widget ──
         if (typeof window._setHudDuelWidget === 'function') {
+            var isDuelLive = (state === 'in_progress' || state === 'countdown');
             if (isSearching) {
                 window._setHudDuelWidget('Поиск…', '');
             } else if (state === 'ready_pending') {
                 window._setHudDuelWidget(_opponentName || '⚔️', 'Готовность');
-            } else if (state === 'countdown' || state === 'in_progress') {
-                window._setHudDuelWidget(_opponentName || '⚔️', state === 'in_progress' ? 'ГОНКА' : 'СТАРТ');
+            } else if (state === 'countdown') {
+                window._setHudDuelWidget(_opponentName || '⚔️', 'СТАРТ', true);
+            } else if (state === 'in_progress') {
+                window._setHudDuelWidget(_opponentName || '⚔️', 'ДУЭЛЬ', true);
             } else if (isIdle || isResult) {
                 window._setHudDuelWidget(null);
             }
         }
 
-        // Clear cached opponent when returning to idle
-        if (isIdle) _opponentName = null;
+        // ── Update drawer active duel summary ──
+        if (isSearching) {
+            _updateDrawerActiveDuel('Поиск соперника…', '', '🔍 Идёт поиск');
+        } else if (state === 'ready_pending') {
+            _updateDrawerActiveDuel(_opponentName || '—', _opponentRankHtml, '⚔️ Подтвердите готовность');
+        } else if (state === 'countdown') {
+            _updateDrawerActiveDuel(_opponentName || '—', _opponentRankHtml, '🏁 Приготовьтесь!');
+        } else if (state === 'in_progress') {
+            _updateDrawerActiveDuel(_opponentName || '—', _opponentRankHtml, '⚡ Дуэль идёт');
+        } else if (isIdle || isResult) {
+            _updateDrawerActiveDuel(null, '', '');
+        }
+
+        // Clear cached opponent data when returning to idle
+        if (isIdle) {
+            _opponentName     = null;
+            _opponentRankHtml = '';
+        }
 
         // ── Update HUD mode status ──
         if (typeof window._setHudModeStatus === 'function') {
@@ -269,7 +309,8 @@
 
         if (_matchCard) {
             var opponent = data.opponent || {};
-            _opponentName = opponent.username || '—';
+            _opponentName     = opponent.username || '—';
+            _opponentRankHtml = renderOpponentBadge(opponent);
             var checkpoints = data.requiredCheckpoints || 0;
             _matchCard.innerHTML =
                 '<div class="duel-match-title">⚔️ Соперник найден!</div>' +
@@ -291,6 +332,8 @@
             _attachReadyBtnHandler();
             _attachCancelReadyBtnHandler();
         }
+        // Refresh drawer summary with opponent details now that we have them
+        _updateDrawerActiveDuel(_opponentName || '—', _opponentRankHtml, '⚔️ Подтвердите готовность');
     }
 
     function _onOpponentReady() {

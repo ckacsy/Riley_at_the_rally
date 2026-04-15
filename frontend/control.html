@@ -138,66 +138,95 @@
             </div>
             <div class="drawer-body">
 
-                <!-- Race Panel -->
-                <div class="race-panel" id="race-panel">
-                    <h2>🏁 Мультиплеер гонки</h2>
-                    <div class="race-actions" id="race-no-session">
-                        <button class="race-btn create" id="create-race-btn">➕ Создать гонку</button>
-                        <select class="race-join-select" id="race-select">
-                            <option value="">— Присоединиться к гонке —</option>
-                        </select>
-                        <button class="race-join-go" id="join-race-btn" disabled>Войти</button>
+                <!-- ── Race section ── -->
+                <div class="drawer-section">
+                    <div class="drawer-section-hdr">
+                        <span class="dsec-icon">🏁</span>
+                        <span class="dsec-title">Гонки</span>
                     </div>
-                    <div class="race-actions" id="race-in-session">
-                        <button class="race-btn leave" id="leave-race-btn">Покинуть гонку</button>
+                    <!-- Active race summary (visible when in a race) -->
+                    <div id="race-active-summary" class="drawer-active-summary" hidden>
+                        <div class="das-main-row">
+                            <span class="das-name" id="das-race-name">—</span>
+                            <span class="das-pos-badge" id="das-race-pos"></span>
+                        </div>
+                        <div class="das-sub-row" id="das-race-sub"></div>
                     </div>
-                    <div class="race-status-bar" id="race-status-bar"></div>
-                    <div class="lap-timer-section" id="lap-timer-section">
-                        <div class="lap-time-display" id="lap-time-display">00:00.000</div>
-                        <button class="lap-btn start" id="start-lap-btn">▶ Старт круга</button>
-                        <button class="lap-btn stop" id="stop-lap-btn" disabled>⏹ Финиш</button>
-                    </div>
-                    <div class="lap-flash" id="lap-flash"></div>
-                    <div id="positions-section">
-                        <table class="positions-table" id="positions-table">
-                            <thead>
-                                <tr><th>#</th><th>Машина</th><th>Кругов</th><th>Лучший круг</th></tr>
-                            </thead>
-                            <tbody id="positions-body"></tbody>
-                        </table>
-                    </div>
-                    <div id="lb-section">
-                        <div class="race-leaderboard-title">🏆 Топ рекорды</div>
-                        <table class="lb-table" id="lb-table">
-                            <thead>
-                                <tr><th>#</th><th>Машина</th><th>Гонщик</th><th>Время</th></tr>
-                            </thead>
-                            <tbody id="lb-body"></tbody>
-                        </table>
-                    </div>
-                </div><!-- /.race-panel -->
+                    <!-- Race panel (join/create + in-race controls + leaderboard) -->
+                    <div class="race-panel" id="race-panel">
+                        <div class="race-actions" id="race-no-session">
+                            <button class="race-btn create" id="create-race-btn">➕ Создать гонку</button>
+                            <select class="race-join-select" id="race-select">
+                                <option value="">— Присоединиться к гонке —</option>
+                            </select>
+                            <button class="race-join-go" id="join-race-btn" disabled>Войти</button>
+                        </div>
+                        <div class="race-actions" id="race-in-session">
+                            <button class="race-btn leave" id="leave-race-btn">Покинуть гонку</button>
+                        </div>
+                        <div class="race-status-bar" id="race-status-bar"></div>
+                        <div class="lap-timer-section" id="lap-timer-section">
+                            <div class="lap-time-display" id="lap-time-display">00:00.000</div>
+                            <button class="lap-btn start" id="start-lap-btn">▶ Старт круга</button>
+                            <button class="lap-btn stop" id="stop-lap-btn" disabled>⏹ Финиш</button>
+                        </div>
+                        <div class="lap-flash" id="lap-flash"></div>
+                        <div id="positions-section">
+                            <table class="positions-table" id="positions-table">
+                                <thead>
+                                    <tr><th>#</th><th>Машина</th><th>Кругов</th><th>Лучший круг</th></tr>
+                                </thead>
+                                <tbody id="positions-body"></tbody>
+                            </table>
+                        </div>
+                        <div id="lb-section">
+                            <div class="race-leaderboard-title">🏆 Топ рекорды</div>
+                            <table class="lb-table" id="lb-table">
+                                <thead>
+                                    <tr><th>#</th><th>Машина</th><th>Гонщик</th><th>Время</th></tr>
+                                </thead>
+                                <tbody id="lb-body"></tbody>
+                            </table>
+                        </div>
+                    </div><!-- /.race-panel -->
+                </div><!-- /.drawer-section (race) -->
 
-                <!-- Duel Panel -->
-                <div class="duel-panel" id="duel-panel">
-                    <h2>⚔️ Ранговая дуэль</h2>
-                    <p class="duel-no-session-msg" id="duel-no-session-msg">
-                        Для участия в ранговой дуэли необходима активная аренда машины.
-                    </p>
-                    <div class="duel-actions" id="duel-actions">
-                        <button class="duel-search-btn" id="duel-search-btn" disabled>🔍 Найти соперника</button>
-                        <button class="duel-cancel-btn" id="duel-cancel-btn">✖ Отменить поиск</button>
+                <!-- ── Duel section ── -->
+                <div class="drawer-section">
+                    <div class="drawer-section-hdr drawer-section-hdr--duel">
+                        <span class="dsec-icon">⚔️</span>
+                        <span class="dsec-title">Дуэль</span>
                     </div>
-                    <div class="duel-status-text" id="duel-status-text" role="status" aria-live="polite"></div>
-                    <div class="duel-match-card" id="duel-match-card"></div>
-                    <div id="duel-progress-panel" class="duel-progress-panel">
-                        <div class="duel-progress-title">📍 Прогресс дуэли</div>
-                        <div class="duel-progress-elapsed" id="duel-progress-elapsed">⏱ 00:00.000</div>
-                        <div id="duel-emulation-controls"></div>
-                        <div class="duel-progress-checkpoints" id="duel-progress-checkpoints"></div>
-                        <div class="duel-progress-finish" id="duel-progress-finish">🏁 Финиш: ожидание</div>
+                    <!-- Active duel summary (visible when searching or in a duel) -->
+                    <div id="duel-active-summary" class="drawer-active-summary drawer-active-summary--duel" hidden>
+                        <div class="das-main-row">
+                            <span class="das-vs-label">vs.</span>
+                            <span class="das-name" id="das-duel-opp">—</span>
+                            <span class="das-rank-wrap" id="das-duel-rank"></span>
+                        </div>
+                        <div class="das-sub-row" id="das-duel-sub"></div>
                     </div>
-                    <div class="duel-result-card" id="duel-result-card"></div>
-                </div><!-- /.duel-panel -->
+                    <!-- Duel panel (search + match + progress + result) -->
+                    <div class="duel-panel" id="duel-panel">
+                        <p class="duel-no-session-msg" id="duel-no-session-msg">
+                            Для участия в ранговой дуэли необходима активная аренда машины.
+                        </p>
+                        <div class="duel-actions" id="duel-actions">
+                            <button class="duel-search-btn" id="duel-search-btn" disabled>🔍 Найти соперника</button>
+                            <button class="duel-cancel-btn" id="duel-cancel-btn">✖ Отменить поиск</button>
+                        </div>
+                        <div class="duel-status-text" id="duel-status-text" role="status" aria-live="polite"></div>
+                        <div class="duel-match-card" id="duel-match-card"></div>
+                        <div id="duel-progress-panel" class="duel-progress-panel">
+                            <div class="duel-progress-title">📍 Прогресс дуэли</div>
+                            <div class="duel-progress-elapsed" id="duel-progress-elapsed">⏱ 00:00.000</div>
+                            <div id="duel-emulation-controls"></div>
+                            <div class="duel-progress-checkpoints" id="duel-progress-checkpoints"></div>
+                            <div class="duel-progress-finish" id="duel-progress-finish">🏁 Финиш: ожидание</div>
+                        </div>
+                        <div class="duel-result-card" id="duel-result-card"></div>
+                    </div><!-- /.duel-panel -->
+                </div><!-- /.drawer-section (duel) -->
 
             </div><!-- /.drawer-body -->
         </div><!-- /#left-drawer -->
