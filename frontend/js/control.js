@@ -1,3 +1,26 @@
+        // ── Debug mode: activate via ?debug=1 query parameter ──
+        var _isDebugMode = /[?&]debug=1/.test(window.location.search);
+        if (_isDebugMode) {
+            document.body.classList.add('debug-mode');
+            var _debugPanel = document.getElementById('debug-panel');
+            if (_debugPanel) _debugPanel.hidden = false;
+        }
+
+        // ── HUD mode status helper (used by race/duel to reflect current mode) ──
+        function setHudModeStatus(text) {
+            var el = document.getElementById('hud-mode-status');
+            if (!el) return;
+            el.textContent = text || '';
+        }
+
+        // Expose for duel-ui.js (loaded later)
+        window._setHudModeStatus = setHudModeStatus;
+
+        // Seed debug indicator immediately if debug mode is active
+        if (_isDebugMode) {
+            setHudModeStatus('🛠 DEBUG');
+        }
+
         // Read activeSession from sessionStorage, returning null if missing or invalid
         function getActiveSession() {
             try {
@@ -313,12 +336,39 @@
             setTimeout(function () { btn.classList.remove('button-active'); }, 150);
         }
 
+        // ── HUD speed display update ──
+        function updateHudSpeed(value) {
+            const el = document.getElementById('hud-speed-value');
+            if (!el) return;
+            el.textContent = Math.abs(value);
+            if (value > 0) {
+                el.classList.add('hud-speed-active');
+            } else {
+                el.classList.remove('hud-speed-active');
+            }
+        }
+
+        // ── Input visualisation (keyboard arrows in the HUD grid) ──
+        function updateInputViz() {
+            var map = {
+                'ArrowUp':    'hud-key-up',
+                'ArrowDown':  'hud-key-down',
+                'ArrowLeft':  'hud-key-left',
+                'ArrowRight': 'hud-key-right',
+            };
+            Object.keys(map).forEach(function (key) {
+                var el = document.getElementById(map[key]);
+                if (el) el.classList.toggle('active', pressedKeys.has(key));
+            });
+        }
+
         speedSlider.addEventListener('input', function () {
             resetInactivityCountdown();
             speedValue.textContent = speedSlider.value;
             showSpeedToast(speedSlider.value);
             const teleSpeed = document.getElementById('tele-speed');
             if (teleSpeed) teleSpeed.textContent = speedSlider.value + '%';
+            updateHudSpeed(parseInt(speedSlider.value, 10));
         });
 
         // Ping measurement
@@ -537,6 +587,7 @@
                                  (id === 'right' && pressedKeys.has('ArrowRight'));
                 btn.classList.toggle('button-active', isActive);
             });
+            updateInputViz();
         }
 
         function sendKeyCommand() {
@@ -567,6 +618,11 @@
             if (Object.keys(cmd).length > 0) {
                 socket.emit('control_command', cmd);
             }
+            // Sync speed to HUD and telemetry whenever a key command fires
+            const isMoving = pressedKeys.has('ArrowUp') || pressedKeys.has('ArrowDown');
+            updateHudSpeed(isMoving ? speed : 0);
+            const teleSpeed = document.getElementById('tele-speed');
+            if (teleSpeed) teleSpeed.textContent = (isMoving ? speed : 0) + '%';
         }
 
         document.addEventListener('keydown', function (e) {
@@ -595,6 +651,9 @@
                         lastCommandSignature = '';
                         addCmdLogEntry('⌨️ Стоп');
                     }
+                    updateHudSpeed(0);
+                    const teleSpeed = document.getElementById('tele-speed');
+                    if (teleSpeed) teleSpeed.textContent = '0%';
                 } else {
                     sendKeyCommand();
                 }
@@ -737,6 +796,7 @@
             showRaceUI(true);
             renderPositions(data.players);
             loadLeaderboard();
+            setHudModeStatus('🏁 ' + data.raceName);
         });
 
         socket.on('race_updated', function (data) {
@@ -756,6 +816,7 @@
             resetRaceUiState();
             showRaceUI(false);
             loadActiveRaces();
+            setHudModeStatus(_isDebugMode ? '🛠 DEBUG' : '');
         });
 
         socket.on('lap_started', function (data) {
@@ -852,3 +913,94 @@
         if (typeof window.DuelUI !== 'undefined') {
             window.DuelUI.init(socket, { hasActiveSession: hasSession });
         }
+
+        // ── Left drawer toggle ──
+        (function () {
+            var toggle  = document.getElementById('left-drawer-toggle');
+            var drawer  = document.getElementById('left-drawer');
+            var closeBtn = document.getElementById('left-drawer-close');
+            if (!toggle || !drawer) return;
+
+            function openLeftDrawer() {
+                document.body.setAttribute('data-left-drawer-open', 'true');
+                drawer.setAttribute('aria-hidden', 'false');
+                toggle.setAttribute('aria-expanded', 'true');
+            }
+
+            function closeLeftDrawer() {
+                document.body.setAttribute('data-left-drawer-open', 'false');
+                drawer.setAttribute('aria-hidden', 'true');
+                toggle.setAttribute('aria-expanded', 'false');
+            }
+
+            toggle.addEventListener('click', function () {
+                var isOpen = document.body.getAttribute('data-left-drawer-open') === 'true';
+                if (isOpen) { closeLeftDrawer(); } else { openLeftDrawer(); }
+            });
+
+            if (closeBtn) closeBtn.addEventListener('click', closeLeftDrawer);
+
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && document.body.getAttribute('data-left-drawer-open') === 'true') {
+                    closeLeftDrawer();
+                }
+            });
+        }());
+
+        // ── Debug panel close button ──
+        (function () {
+            var closeBtn = document.getElementById('debug-panel-close');
+            if (!closeBtn) return;
+            closeBtn.addEventListener('click', function () {
+                var panel = document.getElementById('debug-panel');
+                if (panel) panel.hidden = true;
+            });
+        }());
+
+        // ── Debug panel toggle button + backtick hotkey (debug mode only) ──
+        if (_isDebugMode) {
+            (function () {
+                var panel      = document.getElementById('debug-panel');
+                var toggleBtn  = document.getElementById('debug-panel-toggle');
+
+                function isPanelOpen() {
+                    return panel && !panel.hidden;
+                }
+
+                function syncToggleBtn() {
+                    if (!toggleBtn) return;
+                    if (isPanelOpen()) {
+                        toggleBtn.textContent = '🛠 Скрыть отладку';
+                        toggleBtn.classList.add('panel-open');
+                    } else {
+                        toggleBtn.textContent = '🛠 Отладка';
+                        toggleBtn.classList.remove('panel-open');
+                    }
+                }
+
+                function togglePanel() {
+                    if (!panel) return;
+                    panel.hidden = !panel.hidden;
+                    syncToggleBtn();
+                }
+
+                if (toggleBtn) {
+                    toggleBtn.addEventListener('click', togglePanel);
+                }
+
+                // Backtick (`) hotkey — toggle debug panel
+                document.addEventListener('keydown', function (e) {
+                    if (e.key === '`' || e.key === 'Backquote') {
+                        // Don't trigger if focus is on a text input
+                        var tag = document.activeElement && document.activeElement.tagName;
+                        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+                        e.preventDefault();
+                        togglePanel();
+                    }
+                });
+
+                // Initial sync
+                syncToggleBtn();
+            }());
+        }
+

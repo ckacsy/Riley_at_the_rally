@@ -162,6 +162,18 @@
             _resultCard.style.display = isResult ? 'block' : 'none';
         }
 
+        // ── Update HUD mode status ──
+        if (typeof window._setHudModeStatus === 'function') {
+            if (isSearching) {
+                window._setHudModeStatus('⚔️ Поиск…');
+            } else if (isMatched) {
+                window._setHudModeStatus('⚔️ Дуэль');
+            } else if (isIdle || isResult) {
+                // Restore debug label or clear
+                window._setHudModeStatus(document.body.classList.contains('debug-mode') ? '🛠 DEBUG' : '');
+            }
+        }
+
         syncRaceActionAvailability();
     }
 

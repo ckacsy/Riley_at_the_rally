@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Интерфейс управления RC-машиной</title>
+    <title>Управление — Riley at the Rally</title>
     <link rel="stylesheet" href="styles/common.css">
     <link rel="stylesheet" href="styles/nav.css">
     <link rel="stylesheet" href="styles/control.css">
@@ -11,209 +11,286 @@
     <link rel="stylesheet" href="styles/reliability.css">
 </head>
 <body>
+    <!-- Nav injected by nav.js (hidden during active sessions) -->
     <div id="main-nav"></div>
 
-    <!-- Chat toggle button -->
-    <button id="chat-toggle-btn" aria-label="Открыть чат">💬 Чат</button>
+    <!-- ═══════════════════════════════════════════════════════
+         ROOT CONTROL SHELL — fullscreen immersive container
+    ═══════════════════════════════════════════════════════ -->
+    <div id="control-shell" class="control-shell">
 
-    <!-- Chat right drawer -->
-    <div id="chat-drawer" role="dialog" aria-label="Чат" aria-hidden="true">
-        <div class="chat-drawer-header">
-            <span class="chat-drawer-title">💬 Чат</span>
-            <button class="chat-drawer-close" id="chat-drawer-close" aria-label="Закрыть чат">×</button>
-        </div>
-        <div class="chat-messages" id="chat-messages">
-            <div class="chat-empty" id="chat-empty">Нет сообщений</div>
-        </div>
-        <button class="chat-jump-btn" id="chat-jump-btn" aria-label="К последнему сообщению">↓ Вниз</button>
-        <div class="chat-input-row">
-            <input
-                type="text"
-                id="chat-input"
-                class="chat-input"
-                placeholder="Сообщение…"
-                maxlength="300"
-                autocomplete="off"
-            />
-            <button id="chat-send-btn" class="chat-send-btn">→</button>
-        </div>
-    </div>
-
-    <h1>Управление RC-машиной</h1>
-
-    <div class="session-info">
-        Машина: <span id="car-name">—</span> &nbsp;|&nbsp; Время сессии: <span id="session-timer">00:00</span>
-        <div class="control-rank-wrap" id="control-rank-wrap" aria-label="Текущий ранг"></div>
-    </div>
-
-    <!-- Session countdown timer badges -->
-    <div class="session-timers-bar" id="session-timers-bar">
-        <span class="timer-badge" id="max-timer-badge">
-            <span class="timer-label">⏱ Макс:</span>
-            <span id="max-timer-countdown">--:--</span>
-        </span>
-        <span class="timer-badge" id="inactivity-timer-badge">
-            <span class="timer-label">💤 Неактивность:</span>
-            <span id="inactivity-timer-countdown">--:--</span>
-        </span>
-    </div>
-
-    <!-- Warning banner (non-blocking toast) -->
-    <div class="session-warning-banner" id="session-warning-banner" role="alert" aria-live="polite"></div>
-
-    <!-- Telemetry bar -->
-    <div class="telemetry-bar" id="telemetry-bar">
-        <div class="telemetry-item">
-            <span class="telemetry-icon">📡</span>
-            <span class="telemetry-label">Пинг</span>
-            <span class="telemetry-value" id="tele-ping">—</span>
-        </div>
-        <div class="telemetry-item">
-            <span class="telemetry-icon">📶</span>
-            <span class="telemetry-label">Качество</span>
-            <span class="telemetry-value" id="tele-quality">—</span>
-        </div>
-        <div class="telemetry-item">
-            <span class="telemetry-icon">🔋</span>
-            <span class="telemetry-label">Батарея</span>
-            <span class="telemetry-value" id="tele-battery">—</span>
-        </div>
-        <div class="telemetry-item">
-            <span class="telemetry-icon">⚡</span>
-            <span class="telemetry-label">Скорость</span>
-            <span class="telemetry-value" id="tele-speed">0%</span>
-        </div>
-        <div class="telemetry-item">
-            <span class="telemetry-icon">🎮</span>
-            <span class="telemetry-label">Геймпад</span>
-            <span class="telemetry-value" id="tele-gamepad">—</span>
-        </div>
-    </div>
-
-    <div class="camera-section">
-        <h2>Прямая трансляция камеры (требуется Raspberry Pi)</h2>
-        <img id="camera-feed" class="camera-feed" src="" alt="Прямая трансляция камеры — нет подключения" />
-        <p id="camera-no-url">Камера не настроена для этой машины</p>
-    </div>
-
-    <div class="control-panel">
-        <button class="button" id="forward">Вперёд</button>
-        <button class="button" id="backward">Назад</button>
-    </div>
-    <div class="control-panel">
-        <button class="button" id="left">Влево</button>
-        <button class="button" id="right">Вправо</button>
-    </div>
-    <div class="speed-control">
-        <label for="speed-slider">Скорость:</label>
-        <input type="range" id="speed-slider" min="0" max="100" value="50" />
-        <span id="speed-value">50</span>
-    </div>
-    <p class="keyboard-hint">Клавиатура: ↑↓ — движение, ←→ — поворот &nbsp;|&nbsp; 🎮 Геймпад: стик — руление, RT/LT — вперёд/назад</p>
-    <div class="cmd-log" id="cmd-log"></div>
-    <div class="speed-toast" id="speed-toast"></div>
-    <div class="status">
-        <span class="status-indicator disconnected" id="status-dot"></span>
-        <span id="status-text">Отключено</span>
-    </div>
-
-    <p class="session-inactive-msg" id="session-inactive-msg" role="alert">
-        Нет активной сессии. Управление недоступно. <a href="/garage">Вернуться в гараж</a>.
-    </p>
-
-    <button class="end-rental-btn" id="end-rental">Завершить аренду</button>
-
-    <!-- Race Panel -->
-    <div class="race-panel" id="race-panel">
-        <h2>🏁 Мультиплеер гонки</h2>
-
-        <!-- Join / Create / Leave actions -->
-        <div class="race-actions" id="race-no-session">
-            <button class="race-btn create" id="create-race-btn">➕ Создать гонку</button>
-            <select class="race-join-select" id="race-select">
-                <option value="">— Присоединиться к гонке —</option>
-            </select>
-            <button class="race-join-go" id="join-race-btn" disabled>Войти</button>
-        </div>
-        <div class="race-actions" id="race-in-session">
-            <button class="race-btn leave" id="leave-race-btn">Покинуть гонку</button>
+        <!-- ── Camera Stage: fullscreen background ── -->
+        <div id="camera-stage" class="camera-stage">
+            <img id="camera-feed" class="camera-feed" src="" alt="Прямая трансляция камеры — нет подключения" />
+            <div id="camera-no-url" class="camera-no-url">📡 Камера не настроена для этой машины</div>
         </div>
 
-        <!-- Current race status -->
-        <div class="race-status-bar" id="race-status-bar"></div>
+        <!-- ── HUD Overlay Root (always-visible player info) ── -->
+        <div id="hud-root" class="hud-root">
 
-        <!-- Lap Timer (visible when in race) -->
-        <div class="lap-timer-section" id="lap-timer-section">
-            <div class="lap-time-display" id="lap-time-display">00:00.000</div>
-            <button class="lap-btn start" id="start-lap-btn">▶ Старт круга</button>
-            <button class="lap-btn stop" id="stop-lap-btn" disabled>⏹ Финиш круга</button>
+            <!-- Top HUD strip: car name / rank / timers / telemetry / status -->
+            <div id="hud-top" class="hud-strip hud-top">
+                <div class="hud-top-left">
+                    <span class="hud-car-name" id="car-name">—</span>
+                    <div id="control-rank-wrap" aria-label="Текущий ранг"></div>
+                </div>
+
+                <div class="hud-top-center">
+                    <div class="session-timers-bar" id="session-timers-bar">
+                        <span class="timer-badge" id="max-timer-badge">
+                            <span class="timer-label">⏱</span>
+                            <span id="max-timer-countdown">--:--</span>
+                        </span>
+                        <span class="timer-badge" id="inactivity-timer-badge">
+                            <span class="timer-label">💤</span>
+                            <span id="inactivity-timer-countdown">--:--</span>
+                        </span>
+                    </div>
+                </div>
+
+                <div class="hud-top-right">
+                    <div class="hud-telemetry">
+                        <div class="hud-tele-item" title="Пинг">
+                            <span class="hud-tele-label">📡</span>
+                            <span class="telemetry-value" id="tele-ping">—</span>
+                        </div>
+                        <div class="hud-tele-item" title="Качество связи">
+                            <span class="hud-tele-label">📶</span>
+                            <span class="telemetry-value" id="tele-quality">—</span>
+                        </div>
+                        <div class="hud-tele-item" title="Батарея">
+                            <span class="hud-tele-label">🔋</span>
+                            <span class="telemetry-value" id="tele-battery">—</span>
+                        </div>
+                    </div>
+                    <div class="hud-status">
+                        <span class="status-indicator disconnected" id="status-dot"></span>
+                        <span id="status-text" class="hud-status-text">Отключено</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom HUD strip: session timer / mode status / SPEED / input viz -->
+            <div id="hud-bottom" class="hud-strip hud-bottom">
+                <div class="hud-bottom-left">
+                    <div class="hud-session-timer" title="Время сессии">
+                        <span id="session-timer">00:00</span>
+                    </div>
+                    <div id="hud-mode-status" class="hud-mode-status"></div>
+                </div>
+
+                <!-- Prominent speed display -->
+                <div class="hud-speed-area">
+                    <span id="hud-speed-value" class="hud-speed-value">0</span>
+                    <span class="hud-speed-unit">%</span>
+                </div>
+
+                <div class="hud-bottom-right">
+                    <!-- Keyboard / gamepad input visualisation (testing without hardware) -->
+                    <div id="hud-input-viz" class="hud-input-viz" aria-label="Визуализация ввода">
+                        <span id="hud-key-up"    class="hud-key hud-key-up">↑</span>
+                        <span id="hud-key-left"  class="hud-key hud-key-left">←</span>
+                        <span id="hud-key-down"  class="hud-key hud-key-down">↓</span>
+                        <span id="hud-key-right" class="hud-key hud-key-right">→</span>
+                    </div>
+                    <button class="end-rental-btn" id="end-rental">Завершить</button>
+                </div>
+            </div>
+
+        </div><!-- /#hud-root -->
+
+        <!-- ── Center Overlay: transient alerts, duel countdown ── -->
+        <div id="center-overlay" class="center-overlay">
+            <div id="duel-countdown-overlay" class="duel-countdown-overlay" aria-live="assertive" aria-atomic="true">
+                <div id="duel-countdown-number" class="countdown-number"></div>
+            </div>
         </div>
-        <div class="lap-flash" id="lap-flash"></div>
 
-        <!-- Live positions -->
-        <div id="positions-section">
-            <table class="positions-table" id="positions-table">
-                <thead>
-                    <tr><th>#</th><th>Машина</th><th>Кругов</th><th>Лучший круг</th></tr>
-                </thead>
-                <tbody id="positions-body"></tbody>
-            </table>
-        </div>
+        <!-- ── Left Drawer Toggle ── -->
+        <button id="left-drawer-toggle"
+                class="drawer-toggle drawer-toggle-left"
+                aria-label="Открыть гонки и дуэли"
+                aria-expanded="false">🏁</button>
 
-        <!-- Top global leaderboard -->
-        <div id="lb-section">
-            <div class="race-leaderboard-title">🏆 Топ рекорды</div>
-            <table class="lb-table" id="lb-table">
-                <thead>
-                    <tr><th>#</th><th>Машина</th><th>Гонщик</th><th>Время</th></tr>
-                </thead>
-                <tbody id="lb-body"></tbody>
-            </table>
-        </div>
-    </div>
+        <!-- ── Left Drawer: race / duel / leaderboard ── -->
+        <div id="left-drawer" class="drawer drawer-left" role="complementary" aria-label="Гонки и дуэли" aria-hidden="true">
+            <div class="drawer-header">
+                <span class="drawer-title">🏁 Гонки &amp; Дуэли</span>
+                <button class="drawer-close" id="left-drawer-close" aria-label="Закрыть">×</button>
+            </div>
+            <div class="drawer-body">
 
-    <!-- Duel Panel -->
-    <div class="duel-panel" id="duel-panel">
-        <h2>⚔️ Ранговая дуэль</h2>
-        <p class="duel-no-session-msg" id="duel-no-session-msg">
-            Для участия в ранговой дуэли необходима активная аренда машины.
+                <!-- Race Panel -->
+                <div class="race-panel" id="race-panel">
+                    <h2>🏁 Мультиплеер гонки</h2>
+                    <div class="race-actions" id="race-no-session">
+                        <button class="race-btn create" id="create-race-btn">➕ Создать гонку</button>
+                        <select class="race-join-select" id="race-select">
+                            <option value="">— Присоединиться к гонке —</option>
+                        </select>
+                        <button class="race-join-go" id="join-race-btn" disabled>Войти</button>
+                    </div>
+                    <div class="race-actions" id="race-in-session">
+                        <button class="race-btn leave" id="leave-race-btn">Покинуть гонку</button>
+                    </div>
+                    <div class="race-status-bar" id="race-status-bar"></div>
+                    <div class="lap-timer-section" id="lap-timer-section">
+                        <div class="lap-time-display" id="lap-time-display">00:00.000</div>
+                        <button class="lap-btn start" id="start-lap-btn">▶ Старт круга</button>
+                        <button class="lap-btn stop" id="stop-lap-btn" disabled>⏹ Финиш</button>
+                    </div>
+                    <div class="lap-flash" id="lap-flash"></div>
+                    <div id="positions-section">
+                        <table class="positions-table" id="positions-table">
+                            <thead>
+                                <tr><th>#</th><th>Машина</th><th>Кругов</th><th>Лучший круг</th></tr>
+                            </thead>
+                            <tbody id="positions-body"></tbody>
+                        </table>
+                    </div>
+                    <div id="lb-section">
+                        <div class="race-leaderboard-title">🏆 Топ рекорды</div>
+                        <table class="lb-table" id="lb-table">
+                            <thead>
+                                <tr><th>#</th><th>Машина</th><th>Гонщик</th><th>Время</th></tr>
+                            </thead>
+                            <tbody id="lb-body"></tbody>
+                        </table>
+                    </div>
+                </div><!-- /.race-panel -->
+
+                <!-- Duel Panel -->
+                <div class="duel-panel" id="duel-panel">
+                    <h2>⚔️ Ранговая дуэль</h2>
+                    <p class="duel-no-session-msg" id="duel-no-session-msg">
+                        Для участия в ранговой дуэли необходима активная аренда машины.
+                    </p>
+                    <div class="duel-actions" id="duel-actions">
+                        <button class="duel-search-btn" id="duel-search-btn" disabled>🔍 Найти соперника</button>
+                        <button class="duel-cancel-btn" id="duel-cancel-btn">✖ Отменить поиск</button>
+                    </div>
+                    <div class="duel-status-text" id="duel-status-text" role="status" aria-live="polite"></div>
+                    <div class="duel-match-card" id="duel-match-card"></div>
+                    <div id="duel-progress-panel" class="duel-progress-panel">
+                        <div class="duel-progress-title">📍 Прогресс дуэли</div>
+                        <div class="duel-progress-elapsed" id="duel-progress-elapsed">⏱ 00:00.000</div>
+                        <div id="duel-emulation-controls"></div>
+                        <div class="duel-progress-checkpoints" id="duel-progress-checkpoints"></div>
+                        <div class="duel-progress-finish" id="duel-progress-finish">🏁 Финиш: ожидание</div>
+                    </div>
+                    <div class="duel-result-card" id="duel-result-card"></div>
+                </div><!-- /.duel-panel -->
+
+            </div><!-- /.drawer-body -->
+        </div><!-- /#left-drawer -->
+
+        <!-- ── Chat Toggle Button ── -->
+        <button id="chat-toggle-btn" aria-label="Открыть чат">💬</button>
+
+        <!-- ── Right Drawer: chat ── -->
+        <div id="chat-drawer" role="dialog" aria-label="Чат" aria-hidden="true">
+            <div class="chat-drawer-header">
+                <span class="chat-drawer-title">💬 Чат</span>
+                <button class="chat-drawer-close" id="chat-drawer-close" aria-label="Закрыть чат">×</button>
+            </div>
+            <div class="chat-messages" id="chat-messages">
+                <div class="chat-empty" id="chat-empty">Нет сообщений</div>
+            </div>
+            <button class="chat-jump-btn" id="chat-jump-btn" aria-label="К последнему сообщению">↓ Вниз</button>
+            <div class="chat-input-row">
+                <input
+                    type="text"
+                    id="chat-input"
+                    class="chat-input"
+                    placeholder="Сообщение…"
+                    maxlength="300"
+                    autocomplete="off"
+                />
+                <button id="chat-send-btn" class="chat-send-btn">→</button>
+            </div>
+        </div><!-- /#chat-drawer -->
+
+        <!-- ── Debug Panel (hidden by default; shown via ?debug=1) ── -->
+        <div id="debug-panel" class="debug-panel" hidden>
+            <div class="debug-panel-header">
+                <span class="debug-panel-title">🛠 Debug / Operator</span>
+                <button class="debug-panel-close" id="debug-panel-close" aria-label="Закрыть отладку">×</button>
+            </div>
+            <div class="debug-panel-body">
+
+                <!-- Mouse driving controls (debug / fallback only) -->
+                <div class="debug-section">
+                    <div class="debug-section-title">Управление (мышь / кнопки)</div>
+                    <div class="control-panel">
+                        <button class="button" id="forward">↑ Вперёд</button>
+                        <button class="button" id="backward">↓ Назад</button>
+                    </div>
+                    <div class="control-panel">
+                        <button class="button" id="left">← Влево</button>
+                        <button class="button" id="right">Вправо →</button>
+                    </div>
+                    <div class="speed-control">
+                        <label for="speed-slider">Скорость:</label>
+                        <input type="range" id="speed-slider" min="0" max="100" value="50" />
+                        <span id="speed-value">50</span>
+                    </div>
+                    <p class="keyboard-hint">⌨️ ↑↓ — движение, ←→ — поворот &nbsp;|&nbsp; 🎮 Геймпад: стик + RT/LT</p>
+                </div>
+
+                <!-- Extended telemetry -->
+                <div class="debug-section">
+                    <div class="debug-section-title">Телеметрия (расширенная)</div>
+                    <div class="telemetry-bar" id="telemetry-bar">
+                        <div class="telemetry-item">
+                            <span class="telemetry-icon">⚡</span>
+                            <span class="telemetry-label">Скорость</span>
+                            <span class="telemetry-value" id="tele-speed">0%</span>
+                        </div>
+                        <div class="telemetry-item">
+                            <span class="telemetry-icon">🎮</span>
+                            <span class="telemetry-label">Геймпад</span>
+                            <span class="telemetry-value" id="tele-gamepad">—</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Command log -->
+                <div class="debug-section">
+                    <div class="debug-section-title">Лог команд</div>
+                    <div class="cmd-log" id="cmd-log"></div>
+                </div>
+
+            </div><!-- /.debug-panel-body -->
+        </div><!-- /#debug-panel -->
+
+        <!-- ── Debug toggle button (visible only in debug mode) ── -->
+        <button id="debug-panel-toggle"
+                class="debug-panel-toggle"
+                aria-label="Переключить отладочную панель"
+                title="Отладочная панель (клавиша `)">🛠</button>
+
+        <!-- ── Persistent floating overlays ── -->
+        <div class="session-warning-banner" id="session-warning-banner" role="alert" aria-live="polite"></div>
+        <div class="speed-toast" id="speed-toast"></div>
+
+        <!-- Session inactive message (shown if session is invalid) -->
+        <p class="session-inactive-msg" id="session-inactive-msg" role="alert">
+            Нет активной сессии. Управление недоступно. <a href="/garage">Вернуться в гараж</a>.
         </p>
-        <div class="duel-actions" id="duel-actions">
-            <button class="duel-search-btn" id="duel-search-btn" disabled>🔍 Найти соперника</button>
-            <button class="duel-cancel-btn" id="duel-cancel-btn">✖ Отменить поиск</button>
-        </div>
-        <div class="duel-status-text" id="duel-status-text" role="status" aria-live="polite"></div>
-        <div class="duel-match-card" id="duel-match-card"></div>
-        <div id="duel-progress-panel" class="duel-progress-panel">
-            <div class="duel-progress-title">📍 Прогресс дуэли</div>
-            <div class="duel-progress-elapsed" id="duel-progress-elapsed">⏱ 00:00.000</div>
-            <div id="duel-emulation-controls"></div>
-            <div class="duel-progress-checkpoints" id="duel-progress-checkpoints">
-                <!-- Динамически заполняется -->
-            </div>
-            <div class="duel-progress-finish" id="duel-progress-finish">
-                🏁 Финиш: ожидание
+
+        <!-- Rental summary overlay -->
+        <div class="summary-overlay" id="summary-overlay">
+            <div class="summary-card">
+                <h2>Итог аренды</h2>
+                <p id="summary-car">Машина: —</p>
+                <p id="summary-duration">Длительность: —</p>
+                <p class="cost" id="summary-cost">0.00 ₽</p>
+                <p id="summary-reason"></p>
+                <button class="back-btn" id="back-to-main">Вернуться в гараж</button>
             </div>
         </div>
-        <div class="duel-result-card" id="duel-result-card"></div>
-    </div>
 
-    <!-- Duel countdown overlay (full-screen, shown during 3-2-1-СТАРТ! sequence) -->
-    <div id="duel-countdown-overlay" class="duel-countdown-overlay" aria-live="assertive" aria-atomic="true">
-        <div id="duel-countdown-number" class="countdown-number"></div>
-    </div>
-
-    <!-- Rental summary overlay -->
-    <div class="summary-overlay" id="summary-overlay">
-        <div class="summary-card">
-            <h2>Итог аренды</h2>
-            <p id="summary-car">Машина: —</p>
-            <p id="summary-duration">Длительность: —</p>
-            <p class="cost" id="summary-cost">0.00 ₽</p>
-            <p id="summary-reason"></p>
-            <button class="back-btn" id="back-to-main">Вернуться в гараж</button>
-        </div>
-    </div>
+    </div><!-- /#control-shell -->
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="js/reliability.js"></script>
