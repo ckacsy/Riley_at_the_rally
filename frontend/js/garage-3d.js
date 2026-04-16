@@ -56,6 +56,9 @@ async function initScene() {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.1;
+    // Ensure sRGB output so GLTF/GLB embedded textures display with correct colours.
+    // Without this, sRGB-encoded textures (albedo maps, etc.) look washed-out or too dark.
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0d1525);
@@ -111,6 +114,15 @@ async function initScene() {
 
     if (carModel) {
         enableShadows(carModel);
+        // Diagnostic: log material/texture status so it's easy to verify embedded textures loaded.
+        let meshCount = 0, texCount = 0;
+        carModel.traverse((child) => {
+            if (!child.isMesh) return;
+            meshCount++;
+            const mat = child.material;
+            if (mat && (mat.map || mat.normalMap || mat.metalnessMap || mat.roughnessMap)) texCount++;
+        });
+        console.info(`[garage-3d] model01 loaded: ${meshCount} mesh(es), ${texCount} with textures.`);
         modelCache.set(CAR_VARIANTS[0].id, carModel);
         carGroup = carModel.clone();
         carGroup.rotation.y = Math.PI;
@@ -176,6 +188,47 @@ function addEnvironment() {
         const line = new THREE.Mesh(new THREE.PlaneGeometry(0.04, 8), lineMat);
         line.rotation.x = -Math.PI / 2; line.position.set(x, 0.001, 0); scene.add(line);
     });
+
+    // Build a procedural PMREM environment map so that GLTF PBR materials
+    // (MeshStandardMaterial / MeshPhysicalMaterial) receive correct IBL.
+    // Without scene.environment, metallic/reflective surfaces appear solid black.
+    // We generate a small equirectangular DataTexture (no asset file needed) that
+    // simulates a dark-garage ceiling-lit studio: cool blue-white on top, dark below.
+    _buildProcEnvMap();
+}
+
+// Generate a lightweight procedural PMREM environment for PBR IBL.
+// Uses a 256×128 equirectangular DataTexture; no HDR file required.
+function _buildProcEnvMap() {
+    const W = 256, H = 128;
+    const data = new Uint8Array(W * H * 4);
+    for (let row = 0; row < H; row++) {
+        for (let col = 0; col < W; col++) {
+            const i = (row * W + col) * 4;
+            const t = row / H; // 0 = top (ceiling), 1 = bottom (floor)
+            if (t < 0.5) {
+                // Upper hemisphere: cool blue-white ceiling lights
+                const k = 1 - t * 2; // 1 at top → 0 at equator
+                data[i]     = Math.round(40  + k * 110); // R 40–150
+                data[i + 1] = Math.round(55  + k * 110); // G 55–165
+                data[i + 2] = Math.round(90  + k * 140); // B 90–230
+            } else {
+                // Lower hemisphere: very dark floor/wall bounce
+                data[i]     = 8;
+                data[i + 1] = 10;
+                data[i + 2] = 18;
+            }
+            data[i + 3] = 255;
+        }
+    }
+    const envTex = new THREE.DataTexture(data, W, H);
+    envTex.mapping    = THREE.EquirectangularReflectionMapping;
+    envTex.colorSpace = THREE.SRGBColorSpace;
+    envTex.needsUpdate = true;
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmrem.fromEquirectangular(envTex).texture;
+    envTex.dispose();
+    pmrem.dispose();
 }
 
 // Traverse a loaded gltf.scene and enable shadow casting on all meshes

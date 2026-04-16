@@ -66,6 +66,14 @@ export async function loadCarModel(variantId, onProgress) {
     try {
         const manifest = await getManifest();
         if (!manifest.models || !manifest.models.includes(path)) return null;
+        // Perform a lightweight HEAD check before invoking GLTFLoader.
+        // Manifest intentionally lists future placeholder models (model02–05) that
+        // are not yet uploaded; this avoids confusing 404 errors in the console.
+        const probe = await fetch(path, { method: 'HEAD' });
+        if (!probe.ok) {
+            console.info(`[garage-3d-loader] Model ${path} not yet available (HTTP ${probe.status}), falling back to procedural car.`);
+            return null;
+        }
         return await loadModel(path, onProgress);
     } catch (e) {
         console.warn('[garage-3d-loader] Car model not available, using procedural fallback:', e.message);
